@@ -24,8 +24,8 @@ const userStore = useUserStore()
 
 const navItems = [
   { path: '/notes', label: '笔记', icon: FileText },
-  { path: '/chat', label: 'AI 问答', icon: MessageSquare },
   { path: '/knowledge', label: '知识库', icon: Library },
+  { path: '/chat', label: 'AI 问答', icon: MessageSquare },
   { path: '/quick-test', label: '快速测试', icon: BookOpenCheck },
   { path: '/mindmap', label: '思维导图', icon: Map },
   { path: '/review', label: '每日回顾', icon: GraduationCap },

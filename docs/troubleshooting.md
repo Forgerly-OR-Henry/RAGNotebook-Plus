@@ -57,7 +57,7 @@ CREATE EXTENSION IF NOT EXISTS vector;
 ```powershell
 cd backend
 $env:PYTHONPATH = "src"
-.venv\Scripts\python.exe -m app.db.pg_auto_init --force
+.venv\Scripts\python.exe -m db.pg_auto_init --force
 ```
 
 ## 4. 向量维度不匹配
@@ -71,7 +71,7 @@ $env:PYTHONPATH = "src"
 
 - 确认 `config/.env` 的 `EMBEDDING_DIM` 等于当前嵌入模型实际输出维度。
 - 阿里云百炼文本向量请使用有效模型名，例如 `text-embedding-v4`；`qwen3-embedding` 不是 DashScope 同步文本向量接口的模型名，会返回 `Model not exist`。
-- 切换嵌入模型后，已有 `vector_chunks.embedding` 列维度不会自动改变，需要重新规划迁移或重建本地测试库。
+- 切换嵌入模型后，已有 `index_chunks.embedding` 列维度不会自动改变，需要重新规划迁移或重建本地测试库；历史 `vector_chunks` 只作为迁移来源保留。
 - 云端和本地嵌入模型不要混用同一批历史向量，除非输出维度和语义空间兼容。
 
 ## 5. Alembic 或 OpenAPI 导入失败
@@ -79,7 +79,7 @@ $env:PYTHONPATH = "src"
 现象：
 
 - `ModuleNotFoundError: No module named 'main'`
-- `ModuleNotFoundError: No module named 'app'`
+- `ModuleNotFoundError: No module named 'controllers'`
 - 生成 OpenAPI 时路径数量明显不完整。
 
 处理：
@@ -138,10 +138,10 @@ $env:PYTHONPATH = "src"
 处理：
 
 - 当前知识库支持 TXT / PDF / MD / PPTX / DOCX。
-- 文件类型白名单在 `backend/src/app/config/vector_store.yaml`。
+- 文件类型白名单在 `backend/src/config/vector_store.yaml`。
 - 检查文件大小是否超过后端限制。
 - PDF 图片解析依赖视觉模型，视觉模型不可用时复杂版式解析质量会下降。
-- 上传失败后可查看后端日志和 `/knowledge/add/multiple/stream` 返回的 SSE `error` 事件。
+- 上传失败后可查看后端日志和 `/knowledge/documents` 返回的 SSE `error` 事件。
 
 ## 8. 重排序模型加载失败
 

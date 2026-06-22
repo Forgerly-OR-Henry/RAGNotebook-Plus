@@ -23,7 +23,7 @@ CONFIG_DIR = ROOT / "config"
 GLOBAL_ENV_FILE = CONFIG_DIR / ".env"
 GLOBAL_ENV_EXAMPLE = CONFIG_DIR / ".env.example"
 API_KEY_FILE = CONFIG_DIR / "apikey.txt"
-UVICORN_LOG_CONFIG = BACKEND_DIR / "src" / "app" / "config" / "uvicorn_log_config.json"
+UVICORN_LOG_CONFIG = BACKEND_DIR / "src" / "config" / "uvicorn_log_config.json"
 INJECTED_ENV_FLAG = "RAGNOTEBOOK_ENV_INJECTED"
 FILE_BACKED_SECRET_KEYS = ("ALIYUN_ACCESS_KEY_SECRET",)
 
@@ -277,7 +277,7 @@ def check_backend_dependencies(args: argparse.Namespace, env: dict[str, str]) ->
     if result.returncode != 0:
         fail("backend dependencies are missing. Run: python start.py --install")
 
-    magic_script = "from app.utils.magic_compat import ensure_magic_dll_path; ensure_magic_dll_path(); import magic; magic.Magic(mime=True)"
+    magic_script = "from utils.magic_compat import ensure_magic_dll_path; ensure_magic_dll_path(); import magic; magic.Magic(mime=True)"
     magic_result = subprocess.run(
         [backend_python(), "-c", magic_script],
         cwd=str(BACKEND_DIR),

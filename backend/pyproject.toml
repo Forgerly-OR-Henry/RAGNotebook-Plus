@@ -60,14 +60,27 @@ dev = [
 
 [tool.setuptools]
 package-dir = { "" = "src" }
-py-modules = ["main", "seed_templates"]
+py-modules = ["main"]
 
 [tool.setuptools.packages.find]
 where = ["src"]
-include = ["app*"]
+include = [
+    "ai*",
+    "config*",
+    "controllers*",
+    "core*",
+    "db*",
+    "models*",
+    "prompt*",
+    "repositories*",
+    "schemas*",
+    "services*",
+    "utils*",
+]
 
 [tool.setuptools.package-data]
-app = ["config/*.yaml", "prompt/*.txt"]
+config = ["*.yaml", "*.json"]
+prompt = ["*.txt"]
 
 [tool.pytest.ini_options]
 pythonpath = ["src"]

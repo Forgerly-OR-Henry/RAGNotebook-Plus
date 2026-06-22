@@ -84,16 +84,20 @@ export interface ChatMessage {
 
 export interface KnowledgeDocument {
   id: string
+  document_id?: string
   user_id?: string
   md5?: string
   filename: string
   original_filename?: string | null
   file_size?: number
   file_type?: string
+  mime_type?: string
   status?: string
+  status_message?: string | null
   chunk_count: number
   preview?: string
   created_at: string
+  updated_at?: string | null
 }
 
 export interface KnowledgeChunk {
@@ -106,13 +110,20 @@ export interface KnowledgeChunk {
 
 export interface KnowledgeDocumentDetail {
   id: string
+  document_id?: string
   user_id: string
   md5: string
   filename: string
+  original_filename?: string | null
+  file_size?: number
+  mime_type?: string
+  status?: string
+  status_message?: string | null
   chunk_count: number
   content: string
   images: string[]
   created_at: string | null
+  updated_at?: string | null
   chunks: KnowledgeChunk[]
 }
 
@@ -165,16 +176,19 @@ export interface SSEMessage {
   details?: Record<string, unknown>
 }
 
-export interface KnowledgeSSEMessage {
-  event_type: 'processing' | 'completed' | 'finish'
+export interface KnowledgeUploadProgress {
+  event_type: 'start' | 'slicing_completed' | 'writing' | 'completed' | 'error' | 'finish' | string
   filename?: string
   progress?: number
-  current?: number
-  total?: number
+  total_files?: number
+  file_index?: number
+  step?: string
   message?: string
-  md5?: string
-  knowledge_id?: string
-  status?: string
+  success_count?: number
+  failed_count?: number
+  slice_success_count?: number
+  error_message?: string
+  chunk_count?: number
 }
 
 export type SourceType = 'note' | 'knowledge' | 'mixed'

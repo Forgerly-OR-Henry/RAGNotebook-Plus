@@ -30,8 +30,8 @@ REQUIRED_TABLES = (
     "study_test_sessions",
     "study_test_turns",
     "mind_maps",
-    "vector_chunks",
-    "knowledge_md5_records",
+    "knowledge_documents",
+    "index_chunks",
 )
 
 
@@ -209,7 +209,7 @@ def validate_manifest(manifest: dict[str, Any], fixture_dir: Path = FIXTURE_DIR)
 def load_seed_env() -> None:
     from dotenv import load_dotenv
 
-    from app.utils.env_loader import resolve_file_backed_secrets
+    from utils.env_loader import resolve_file_backed_secrets
 
     config_env = REPO_ROOT / "config" / ".env"
     if config_env.is_file():
@@ -289,10 +289,10 @@ async def delete_demo_vectors(session, manifest: dict[str, Any], user_id: str) -
         await session.execute(
             text(
                 f"""
-                DELETE FROM vector_chunks
+                DELETE FROM index_chunks
                 WHERE user_id = :user_id
-                  AND store = 'note'
-                  AND (id IN ({note_in}) OR metadata ->> 'note_id' IN ({note_in}))
+                  AND source_type = 'note'
+                  AND (source_id IN ({note_in}) OR metadata ->> 'note_id' IN ({note_in}))
                 """
             ),
             params,
@@ -304,13 +304,17 @@ async def delete_demo_vectors(session, manifest: dict[str, Any], user_id: str) -
         await session.execute(
             text(
                 f"""
-                DELETE FROM vector_chunks
+                DELETE FROM index_chunks
                 WHERE user_id = :user_id
-                  AND store = 'knowledge'
+                  AND source_type = 'knowledge'
                   AND (
                     metadata ->> 'original_filename' IN ({filename_in})
                     OR metadata ->> 'filename' IN ({filename_in})
-                    OR metadata ->> 'source' IN ({filename_in})
+                    OR source_id IN (
+                        SELECT id FROM knowledge_documents
+                        WHERE user_id = :user_id
+                          AND (filename IN ({filename_in}) OR original_filename IN ({filename_in}))
+                    )
                   )
                 """
             ),
@@ -319,7 +323,7 @@ async def delete_demo_vectors(session, manifest: dict[str, Any], user_id: str) -
         await session.execute(
             text(
                 f"""
-                DELETE FROM knowledge_md5_records
+                DELETE FROM knowledge_documents
                 WHERE user_id = :user_id
                   AND (filename IN ({filename_in}) OR original_filename IN ({filename_in}))
                 """
@@ -331,12 +335,12 @@ async def delete_demo_vectors(session, manifest: dict[str, Any], user_id: str) -
 async def reset_demo_data(session, manifest: dict[str, Any], user_id: str) -> None:
     from sqlalchemy import delete
 
-    from app.models.chat_history import ChatMessage, ChatSession
-    from app.models.mind_map import MindMap
-    from app.models.note import Note
-    from app.models.note_template import NoteTemplate
-    from app.models.review_record import ReviewRecord
-    from app.models.study_test import StudyTestSession, StudyTestTurn
+    from models.chat_history import ChatMessage, ChatSession
+    from models.mind_map import MindMap
+    from models.note import Note
+    from models.note_template import NoteTemplate
+    from models.review_record import ReviewRecord
+    from models.study_test import StudyTestSession, StudyTestTurn
 
     note_ids = [item["id"] for item in _items(manifest, "notes")]
     template_ids = [item["id"] for item in _items(manifest, "note_templates")]
@@ -372,8 +376,8 @@ def _assert_owned(obj: Any, user_id: str, label: str) -> None:
 async def ensure_demo_user(session, user_config: dict[str, Any]) -> str:
     from sqlalchemy import or_, select
 
-    from app.models.user_model import User, UserStatusChoice
-    from app.utils.auth_utils import hash_password, verify_password
+    from models.user_model import User, UserStatusChoice
+    from utils.auth_utils import hash_password, verify_password
 
     user_id = user_config["id"]
     username = user_config["username"]
@@ -405,7 +409,7 @@ async def ensure_demo_user(session, user_config: dict[str, Any]) -> str:
 
 
 async def upsert_notes(session, manifest: dict[str, Any], user_id: str, base_time: datetime) -> None:
-    from app.models.note import Note
+    from models.note import Note
 
     for item in _items(manifest, "notes"):
         note = await session.get(Note, item["id"])
@@ -425,7 +429,7 @@ async def upsert_notes(session, manifest: dict[str, Any], user_id: str, base_tim
 
 
 async def upsert_note_templates(session, manifest: dict[str, Any], user_id: str, base_time: datetime) -> None:
-    from app.models.note_template import NoteTemplate
+    from models.note_template import NoteTemplate
 
     for index, item in enumerate(_items(manifest, "note_templates")):
         template = await session.get(NoteTemplate, item["id"])
@@ -448,7 +452,7 @@ async def upsert_note_templates(session, manifest: dict[str, Any], user_id: str,
 
 
 async def upsert_review_records(session, manifest: dict[str, Any], user_id: str, base_time: datetime) -> None:
-    from app.models.review_record import ReviewRecord
+    from models.review_record import ReviewRecord
 
     for item in _items(manifest, "review_records"):
         record = await session.get(ReviewRecord, item["id"])
@@ -470,7 +474,7 @@ async def upsert_review_records(session, manifest: dict[str, Any], user_id: str,
 async def upsert_chat_sessions(session, manifest: dict[str, Any], user_id: str, base_time: datetime) -> None:
     from sqlalchemy import delete
 
-    from app.models.chat_history import ChatMessage, ChatSession
+    from models.chat_history import ChatMessage, ChatSession
 
     chat_ids = [item["id"] for item in _items(manifest, "chat_sessions")]
     for chat_id in chat_ids:
@@ -505,7 +509,7 @@ async def upsert_chat_sessions(session, manifest: dict[str, Any], user_id: str, 
 async def upsert_quick_tests(session, manifest: dict[str, Any], user_id: str, base_time: datetime) -> None:
     from sqlalchemy import delete
 
-    from app.models.study_test import StudyTestSession, StudyTestTurn
+    from models.study_test import StudyTestSession, StudyTestTurn
 
     session_ids = [item["id"] for item in _items(manifest, "quick_test_sessions")]
     for session_id in session_ids:
@@ -557,7 +561,7 @@ async def upsert_quick_tests(session, manifest: dict[str, Any], user_id: str, ba
 
 
 async def upsert_mind_maps(session, manifest: dict[str, Any], user_id: str, base_time: datetime) -> None:
-    from app.models.mind_map import MindMap
+    from models.mind_map import MindMap
 
     for index, item in enumerate(_items(manifest, "mind_maps")):
         mindmap = await session.get(MindMap, item["id"])
@@ -581,8 +585,8 @@ async def upsert_mind_maps(session, manifest: dict[str, Any], user_id: str, base
 
 
 async def build_embed_model():
-    from app.rag.vector_store import embedding_dimension
-    from app.utils.factory import EmbedModelFactory
+    from ai.rag.vector_store import embedding_dimension
+    from utils.factory import EmbedModelFactory
 
     model = EmbedModelFactory().generator()
     try:
@@ -600,29 +604,33 @@ async def build_embed_model():
 async def sync_note_vectors(manifest: dict[str, Any], user_id: str, embed_model) -> None:
     from langchain_core.documents import Document
 
-    from app.rag.vector_store import STORE_NOTE, PgVectorStore
+    from repositories.index_repository import IndexRepository
 
     notes = _items(manifest, "notes")
     note_ids = [item["id"] for item in notes]
     if not note_ids:
         return
 
-    store = PgVectorStore(STORE_NOTE, embedding_function=embed_model)
-    await store.delete(where={"$and": [{"user_id": user_id}, {"note_id": {"$in": note_ids}}]})
-    documents = [
-        Document(
-            page_content=item["content"],
-            metadata={
-                "user_id": user_id,
-                "note_id": item["id"],
-                "doc_type": "note",
-                "title": item["title"],
-                "dataset": "demo",
-            },
+    repository = IndexRepository(embedding_model=embed_model)
+    for item in notes:
+        await repository.delete_source(user_id=user_id, source_type="note", source_id=item["id"])
+        await repository.upsert_documents(
+            source_type="note",
+            source_id=item["id"],
+            user_id=user_id,
+            documents=[
+                Document(
+                    page_content=item["content"],
+                    metadata={
+                        "note_id": item["id"],
+                        "doc_type": "note",
+                        "title": item["title"],
+                        "dataset": "demo",
+                    },
+                )
+            ],
+            metadata={"note_id": item["id"], "title": item["title"], "dataset": "demo"},
         )
-        for item in notes
-    ]
-    await store.add_documents(documents, ids=note_ids, user_id=user_id)
 
 
 async def _existing_knowledge_md5(session, user_id: str, filename: str) -> str | None:
@@ -632,10 +640,10 @@ async def _existing_knowledge_md5(session, user_id: str, filename: str) -> str |
         text(
             """
             SELECT md5
-            FROM knowledge_md5_records
+            FROM knowledge_documents
             WHERE user_id = :user_id
               AND (filename = :filename OR original_filename = :filename)
-            ORDER BY upload_time DESC
+            ORDER BY created_at DESC
             LIMIT 1
             """
         ),
@@ -650,13 +658,17 @@ async def clear_knowledge_file(session, user_id: str, filename: str) -> None:
     await session.execute(
         text(
             """
-            DELETE FROM vector_chunks
+            DELETE FROM index_chunks
             WHERE user_id = :user_id
-              AND store = 'knowledge'
+              AND source_type = 'knowledge'
               AND (
                 metadata ->> 'original_filename' = :filename
                 OR metadata ->> 'filename' = :filename
-                OR metadata ->> 'source' = :filename
+                OR source_id IN (
+                    SELECT id FROM knowledge_documents
+                    WHERE user_id = :user_id
+                      AND (filename = :filename OR original_filename = :filename)
+                )
               )
             """
         ),
@@ -665,7 +677,7 @@ async def clear_knowledge_file(session, user_id: str, filename: str) -> None:
     await session.execute(
         text(
             """
-            DELETE FROM knowledge_md5_records
+            DELETE FROM knowledge_documents
             WHERE user_id = :user_id
               AND (filename = :filename OR original_filename = :filename)
             """
@@ -677,14 +689,14 @@ async def clear_knowledge_file(session, user_id: str, filename: str) -> None:
 async def sync_knowledge_files(manifest: dict[str, Any], user_id: str, embed_model) -> None:
     from starlette.datastructures import UploadFile
 
-    from app.core.background_init import init_manager
-    from app.db.db_config import AsyncSessionLocal
-    from app.rag.vector_store import VectorStoreService
+    from core.background_init import init_manager
+    from db.db_config import AsyncSessionLocal
+    from services.knowledge_service import KnowledgeIngestionService
 
     init_manager.embed_model = embed_model
     init_manager.models_ready.set()
 
-    store = VectorStoreService()
+    ingestion_service = KnowledgeIngestionService()
     for item in _items(manifest, "knowledge_files"):
         filename = item["filename"]
         path = FIXTURE_DIR / "knowledge" / filename
@@ -700,12 +712,13 @@ async def sync_knowledge_files(manifest: dict[str, Any], user_id: str, embed_mod
 
         with path.open("rb") as handle:
             upload = UploadFile(file=handle, filename=filename)
-            await store.get_document(files=[upload], user_id=user_id)
+            async for _ in ingestion_service.upload_stream([upload], user_id=user_id):
+                pass
         print(f"Knowledge fixture processed: {filename}")
 
 
 async def seed_database(manifest: dict[str, Any], reset_demo: bool, skip_knowledge: bool) -> None:
-    from app.db.db_config import AsyncSessionLocal
+    from db.db_config import AsyncSessionLocal
 
     base_time = _now()
     user_id = manifest["user"]["id"]

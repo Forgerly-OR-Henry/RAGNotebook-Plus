@@ -29,7 +29,7 @@
       "is_pinned": true,
       "created_days_ago": 14,
       "updated_hours_ago": 2,
-      "content": "# RAGNotebook 架构速览\n\n当前系统由 Vue3 前端、FastAPI 后端、PostgreSQL 与 pgvector 构成。关系数据保存用户、笔记、模板、会话、回顾、测评和导图；向量数据统一写入 vector_chunks，并通过 user_id 隔离。\n\n关键链路：笔记创建后写入 notes，再同步写入 store=note 的向量；知识库上传经过文件校验、解析、切片、嵌入和 MD5 去重。"
+      "content": "# RAGNotebook 架构速览\n\n当前系统由 Vue3 前端、FastAPI 后端、PostgreSQL 与 pgvector 构成。关系数据保存用户、笔记、模板、会话、回顾、测评和导图；知识库文档事实写入 knowledge_documents，笔记和知识库切片统一写入 index_chunks，并通过 user_id 隔离。\n\n关键链路：笔记创建后写入 notes，再异步同步 note 索引；知识库上传经过文件校验、解析、切片、嵌入和文档状态更新。"
     },
     {
       "id": "00000000-0000-4000-8000-000000000102",
@@ -39,7 +39,7 @@
       "is_pinned": false,
       "created_days_ago": 9,
       "updated_hours_ago": 6,
-      "content": "# pgvector 迁移排查记录\n\n如果 Alembic 迁移失败，优先确认数据库用户有 CREATE EXTENSION 权限，然后检查 EMBEDDING_DIM 是否与实际嵌入模型一致。vector_chunks.embedding 的维度一旦创建，切换嵌入模型后不能自动改变。\n\n本地排查顺序：启动 PostgreSQL、确认 vector 扩展、检查 alembic_version、执行只读连通性查询。"
+      "content": "# pgvector 迁移排查记录\n\n如果 Alembic 迁移失败，优先确认数据库用户有 CREATE EXTENSION 权限，然后检查 EMBEDDING_DIM 是否与实际嵌入模型一致。index_chunks.embedding 的维度一旦创建，切换嵌入模型后不能自动改变。\n\n本地排查顺序：启动 PostgreSQL、确认 vector 扩展、检查 alembic_version、执行只读连通性查询。"
     },
     {
       "id": "00000000-0000-4000-8000-000000000103",
@@ -216,7 +216,7 @@
         },
         {
           "role": "assistant",
-          "content": "需要确认新模型维度。如果维度不同，现有 vector_chunks.embedding 不能直接复用，应重建测试库或规划迁移。"
+          "content": "需要确认新模型维度。如果维度不同，现有 index_chunks.embedding 不能直接复用，应重建测试库或规划迁移。"
         }
       ]
     },
@@ -331,7 +331,7 @@
               "source_id": "00000000-0000-4000-8000-000000000101",
               "title": "RAGNotebook 架构速览",
               "chunk_id": "00000000-0000-4000-8000-000000000101",
-              "quote": "关系数据保存用户、笔记、模板、会话、回顾、测评和导图；向量数据统一写入 vector_chunks。",
+              "quote": "关系数据保存用户、笔记、模板、会话、回顾、测评和导图；向量数据统一写入 index_chunks。",
               "score": 0.92
             }
           ]
@@ -387,7 +387,7 @@
           "label": "向量数据",
           "level": 1,
           "type": "concept",
-          "summary": "笔记和知识库切片写入 vector_chunks",
+          "summary": "笔记和知识库切片写入 index_chunks",
           "source_refs": ["ragnotebook-product-playbook.md"]
         },
         {
@@ -410,7 +410,7 @@
           "source_id": "00000000-0000-4000-8000-000000000101",
           "title": "RAGNotebook 架构速览",
           "chunk_id": "00000000-0000-4000-8000-000000000101",
-          "quote": "关系数据保存用户、笔记、模板、会话、回顾、测评和导图；向量数据统一写入 vector_chunks。",
+          "quote": "关系数据保存用户、笔记、模板、会话、回顾、测评和导图；向量数据统一写入 index_chunks。",
           "score": 0.93
         }
       ],
@@ -455,4 +455,3 @@
     }
   ]
 }
-

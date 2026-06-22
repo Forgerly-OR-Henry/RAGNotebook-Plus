@@ -38,7 +38,7 @@ export default defineConfig(({ mode }) => {
         '/chat/session/': { target: backendTarget, changeOrigin: true },
         '/chat/sessions': { target: backendTarget, changeOrigin: true },
         '/chat/reorder': { target: backendTarget, changeOrigin: true },
-        '/knowledge/': { target: backendTarget, changeOrigin: true },
+        '/knowledge/': { target: backendTarget, changeOrigin: true, timeout: 0, proxyTimeout: 0 },
         '/note/': { target: backendTarget, changeOrigin: true },
         '/note-template/': { target: backendTarget, changeOrigin: true },
         '/review/': { target: backendTarget, changeOrigin: true },

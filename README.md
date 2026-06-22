@@ -188,7 +188,7 @@ ALGORITHM=HS256
 your_api_key_here
 ```
 
-知识库和切片参数在 [backend/src/app/config/vector_store.yaml](./backend/src/app/config/vector_store.yaml)：
+知识库和切片参数在 [backend/src/config/vector_store.yaml](./backend/src/config/vector_store.yaml)：
 
 ```yaml
 k: 5

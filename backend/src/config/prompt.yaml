@@ -1,0 +1,8 @@
+main_prompt: prompt/main_prompt.txt
+rag_summary_prompt: prompt/rag_summarize.txt
+report_prompt: prompt/report_prompt.txt
+reorder_prompt: prompt/reorder_prompt.txt
+auto_tag_prompt: prompt/auto_tag_prompt.txt
+review_question_prompt: prompt/review_question_prompt.txt
+autocomplete_prompt: prompt/autocomplete_prompt.txt
+write_assistant_prompt: prompt/write_assistant_prompt.txt

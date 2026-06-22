@@ -297,408 +297,13 @@
         }
       }
     },
-    "/knowledge/add/single": {
-      "post": {
-        "tags": [
-          "knowledge"
-        ],
-        "summary": "Add Vector Single",
-        "description": "上传文件，将文件保存到向量数据库，仅支持TXT和PDF",
-        "operationId": "add_vector_single_knowledge_add_single_post",
-        "requestBody": {
-          "content": {
-            "multipart/form-data": {
-              "schema": {
-                "$ref": "#/components/schemas/Body_add_vector_single_knowledge_add_single_post"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        },
-        "security": [
-          {
-            "HTTPBearer": []
-          }
-        ]
-      }
-    },
-    "/knowledge/add/multiple": {
-      "post": {
-        "tags": [
-          "knowledge"
-        ],
-        "summary": "Add Vector Multiple",
-        "description": "上传多个文件，将文件保存到向量数据库，仅支持TXT和PDF",
-        "operationId": "add_vector_multiple_knowledge_add_multiple_post",
-        "requestBody": {
-          "content": {
-            "multipart/form-data": {
-              "schema": {
-                "$ref": "#/components/schemas/Body_add_vector_multiple_knowledge_add_multiple_post"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        },
-        "security": [
-          {
-            "HTTPBearer": []
-          }
-        ]
-      }
-    },
-    "/knowledge/add/multiple/stream": {
-      "post": {
-        "tags": [
-          "knowledge"
-        ],
-        "summary": "Add Vector Multiple Stream",
-        "description": "上传多个文件，流式返回处理进度，仅支持TXT、PDF、MD、PPTX、DOCX",
-        "operationId": "add_vector_multiple_stream_knowledge_add_multiple_stream_post",
-        "requestBody": {
-          "content": {
-            "multipart/form-data": {
-              "schema": {
-                "$ref": "#/components/schemas/Body_add_vector_multiple_stream_knowledge_add_multiple_stream_post"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        },
-        "security": [
-          {
-            "HTTPBearer": []
-          }
-        ]
-      }
-    },
-    "/knowledge/clean": {
-      "delete": {
-        "tags": [
-          "knowledge"
-        ],
-        "summary": "Clean User Vectors",
-        "description": "删除用户上传的所有向量",
-        "operationId": "clean_user_vectors_knowledge_clean_delete",
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            }
-          }
-        },
-        "security": [
-          {
-            "HTTPBearer": []
-          }
-        ]
-      }
-    },
-    "/knowledge/md5/clear": {
-      "delete": {
-        "tags": [
-          "knowledge"
-        ],
-        "summary": "Clear User Md5",
-        "description": "清空用户的MD5记录\n:param delete_documents: 是否同时删除知识库文档（默认True）",
-        "operationId": "clear_user_md5_knowledge_md5_clear_delete",
-        "security": [
-          {
-            "HTTPBearer": []
-          }
-        ],
-        "parameters": [
-          {
-            "name": "delete_documents",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "type": "boolean",
-              "default": true,
-              "title": "Delete Documents"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/knowledge/md5/delete/{md5_value}": {
-      "delete": {
-        "tags": [
-          "knowledge"
-        ],
-        "summary": "Delete Single Md5",
-        "description": "删除单个MD5记录及其对应的知识库内容\n:param md5_value: 要删除的MD5值\n:param delete_documents: 是否同时删除知识库文档（默认True）",
-        "operationId": "delete_single_md5_knowledge_md5_delete__md5_value__delete",
-        "security": [
-          {
-            "HTTPBearer": []
-          }
-        ],
-        "parameters": [
-          {
-            "name": "md5_value",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "title": "Md5 Value"
-            }
-          },
-          {
-            "name": "delete_documents",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "type": "boolean",
-              "default": true,
-              "title": "Delete Documents"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/knowledge/delete/filename": {
-      "delete": {
-        "tags": [
-          "knowledge"
-        ],
-        "summary": "Delete By Filename",
-        "description": "通过文件名删除MD5记录及其对应的知识库文档\n:param filename: 要删除的文件名\n:param delete_documents: 是否同时删除知识库文档（默认True）",
-        "operationId": "delete_by_filename_knowledge_delete_filename_delete",
-        "security": [
-          {
-            "HTTPBearer": []
-          }
-        ],
-        "parameters": [
-          {
-            "name": "filename",
-            "in": "query",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "title": "Filename"
-            }
-          },
-          {
-            "name": "delete_documents",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "type": "boolean",
-              "default": true,
-              "title": "Delete Documents"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/knowledge/md5/list": {
+    "/knowledge/documents": {
       "get": {
         "tags": [
           "knowledge"
         ],
-        "summary": "Get All Md5 Records",
-        "description": "获取用户的所有MD5记录",
-        "operationId": "get_all_md5_records_knowledge_md5_list_get",
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/MD5ListResponse"
-                }
-              }
-            }
-          }
-        },
-        "security": [
-          {
-            "HTTPBearer": []
-          }
-        ]
-      }
-    },
-    "/knowledge/md5/{md5_value}": {
-      "get": {
-        "tags": [
-          "knowledge"
-        ],
-        "summary": "Get Md5 Info",
-        "description": "获取MD5对应的文档信息\n:param md5_value: MD5值",
-        "operationId": "get_md5_info_knowledge_md5__md5_value__get",
-        "security": [
-          {
-            "HTTPBearer": []
-          }
-        ],
-        "parameters": [
-          {
-            "name": "md5_value",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "title": "Md5 Value"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/MD5Record"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/knowledge/list": {
-      "get": {
-        "tags": [
-          "knowledge"
-        ],
-        "summary": "Get User Knowledge List",
-        "description": "获取用户的知识库文档列表",
-        "operationId": "get_user_knowledge_list_knowledge_list_get",
+        "summary": "List Documents",
+        "operationId": "list_documents_knowledge_documents_get",
         "responses": {
           "200": {
             "description": "Successful Response",
@@ -716,16 +321,79 @@
             "HTTPBearer": []
           }
         ]
+      },
+      "post": {
+        "tags": [
+          "knowledge"
+        ],
+        "summary": "Upload Documents",
+        "operationId": "upload_documents_knowledge_documents_post",
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_upload_documents_knowledge_documents_post"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      },
+      "delete": {
+        "tags": [
+          "knowledge"
+        ],
+        "summary": "Clean Documents",
+        "operationId": "clean_documents_knowledge_documents_delete",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
       }
     },
-    "/knowledge/detail": {
+    "/knowledge/documents/{document_id}": {
       "get": {
         "tags": [
           "knowledge"
         ],
         "summary": "Get Document Detail",
-        "description": "获取文档详情内容",
-        "operationId": "get_document_detail_knowledge_detail_get",
+        "operationId": "get_document_detail_knowledge_documents__document_id__get",
         "security": [
           {
             "HTTPBearer": []
@@ -733,12 +401,12 @@
         ],
         "parameters": [
           {
-            "name": "filename",
-            "in": "query",
+            "name": "document_id",
+            "in": "path",
             "required": true,
             "schema": {
               "type": "string",
-              "title": "Filename"
+              "title": "Document Id"
             }
           }
         ],
@@ -764,16 +432,13 @@
             }
           }
         }
-      }
-    },
-    "/knowledge/chunks": {
-      "get": {
+      },
+      "delete": {
         "tags": [
           "knowledge"
         ],
-        "summary": "Get Document Chunks",
-        "description": "获取文档切片信息",
-        "operationId": "get_document_chunks_knowledge_chunks_get",
+        "summary": "Delete Document",
+        "operationId": "delete_document_knowledge_documents__document_id__delete",
         "security": [
           {
             "HTTPBearer": []
@@ -781,12 +446,57 @@
         ],
         "parameters": [
           {
-            "name": "filename",
-            "in": "query",
+            "name": "document_id",
+            "in": "path",
             "required": true,
             "schema": {
               "type": "string",
-              "title": "Filename"
+              "title": "Document Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/knowledge/documents/{document_id}/chunks": {
+      "get": {
+        "tags": [
+          "knowledge"
+        ],
+        "summary": "Get Document Chunks",
+        "operationId": "get_document_chunks_knowledge_documents__document_id__chunks_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "document_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Document Id"
             }
           }
         ],
@@ -820,7 +530,6 @@
           "knowledge"
         ],
         "summary": "Serve Knowledge Image",
-        "description": "返回PDF中提取的原始图片（需JWT鉴权）\n图片存储在 data/extracted_images/{user_id}/{md5}/{filename}",
         "operationId": "serve_knowledge_image_knowledge_image__md5___filename__get",
         "security": [
           {
@@ -875,7 +584,6 @@
           "knowledge"
         ],
         "summary": "Serve Batch Images",
-        "description": "返回指定PDF的所有图片（单次请求，JSON + base64）",
         "operationId": "serve_batch_images_knowledge_images_all__md5__get",
         "security": [
           {
@@ -890,6 +598,456 @@
             "schema": {
               "type": "string",
               "title": "Md5"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/knowledge/add/multiple/stream": {
+      "post": {
+        "tags": [
+          "knowledge"
+        ],
+        "summary": "Add Vector Multiple Stream",
+        "operationId": "add_vector_multiple_stream_knowledge_add_multiple_stream_post",
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_add_vector_multiple_stream_knowledge_add_multiple_stream_post"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "deprecated": true,
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/knowledge/add/single": {
+      "post": {
+        "tags": [
+          "knowledge"
+        ],
+        "summary": "Add Vector Single",
+        "operationId": "add_vector_single_knowledge_add_single_post",
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_add_vector_single_knowledge_add_single_post"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "deprecated": true,
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/knowledge/add/multiple": {
+      "post": {
+        "tags": [
+          "knowledge"
+        ],
+        "summary": "Add Vector Multiple",
+        "operationId": "add_vector_multiple_knowledge_add_multiple_post",
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_add_vector_multiple_knowledge_add_multiple_post"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "deprecated": true,
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/knowledge/list": {
+      "get": {
+        "tags": [
+          "knowledge"
+        ],
+        "summary": "Get User Knowledge List",
+        "operationId": "get_user_knowledge_list_knowledge_list_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/KnowledgeListResponse"
+                }
+              }
+            }
+          }
+        },
+        "deprecated": true,
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/knowledge/detail": {
+      "get": {
+        "tags": [
+          "knowledge"
+        ],
+        "summary": "Get Document Detail By Query",
+        "operationId": "get_document_detail_by_query_knowledge_detail_get",
+        "deprecated": true,
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "filename",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Filename"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/KnowledgeDocumentDetail"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/knowledge/chunks": {
+      "get": {
+        "tags": [
+          "knowledge"
+        ],
+        "summary": "Get Document Chunks By Query",
+        "operationId": "get_document_chunks_by_query_knowledge_chunks_get",
+        "deprecated": true,
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "filename",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Filename"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DocumentChunksResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/knowledge/clean": {
+      "delete": {
+        "tags": [
+          "knowledge"
+        ],
+        "summary": "Clean User Vectors",
+        "operationId": "clean_user_vectors_knowledge_clean_delete",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        },
+        "deprecated": true,
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/knowledge/delete/filename": {
+      "delete": {
+        "tags": [
+          "knowledge"
+        ],
+        "summary": "Delete By Filename",
+        "operationId": "delete_by_filename_knowledge_delete_filename_delete",
+        "deprecated": true,
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "filename",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Filename"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/knowledge/md5/list": {
+      "get": {
+        "tags": [
+          "knowledge"
+        ],
+        "summary": "Get All Md5 Records",
+        "operationId": "get_all_md5_records_knowledge_md5_list_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MD5ListResponse"
+                }
+              }
+            }
+          }
+        },
+        "deprecated": true,
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/knowledge/md5/{md5_value}": {
+      "get": {
+        "tags": [
+          "knowledge"
+        ],
+        "summary": "Get Md5 Info",
+        "operationId": "get_md5_info_knowledge_md5__md5_value__get",
+        "deprecated": true,
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "md5_value",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Md5 Value"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MD5Record"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/knowledge/md5/delete/{md5_value}": {
+      "delete": {
+        "tags": [
+          "knowledge"
+        ],
+        "summary": "Delete Single Md5",
+        "operationId": "delete_single_md5_knowledge_md5_delete__md5_value__delete",
+        "deprecated": true,
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "md5_value",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Md5 Value"
             }
           }
         ],
@@ -1297,6 +1455,51 @@
         ]
       }
     },
+    "/note/import": {
+      "post": {
+        "tags": [
+          "note"
+        ],
+        "summary": "Import Note",
+        "description": "从文件导入笔记。导入后复用创建笔记流程，继续写入 pgvector 并触发后台标签生成。",
+        "operationId": "import_note_note_import_post",
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_import_note_note_import_post"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
     "/note/list": {
       "get": {
         "tags": [
@@ -1392,7 +1595,7 @@
           "note"
         ],
         "summary": "Search Notes",
-        "description": "全文语义搜索：走 PostgreSQL pgvector 向量检索，\n返回当前用户的语义相似笔记。",
+        "description": "笔记文本搜索：准确匹配结果在前，模糊匹配结果在后。",
         "operationId": "search_notes_note_search_get",
         "security": [
           {
@@ -1410,6 +1613,18 @@
               "title": "Q"
             },
             "description": "搜索关键词"
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 100,
+              "minimum": 1,
+              "default": 30,
+              "title": "Limit"
+            }
           }
         ],
         "responses": {
@@ -3040,8 +3255,7 @@
               "format": "binary"
             },
             "type": "array",
-            "title": "Files",
-            "description": "要上传的文件列表，仅支持PDF和TXT格式"
+            "title": "Files"
           }
         },
         "type": "object",
@@ -3059,7 +3273,7 @@
             },
             "type": "array",
             "title": "Files",
-            "description": "要上传的文件列表，仅支持PDF、TXT、MD、PPTX、DOCX格式"
+            "description": "Deprecated: use /knowledge/documents"
           }
         },
         "type": "object",
@@ -3081,6 +3295,50 @@
           "file"
         ],
         "title": "Body_add_vector_single_knowledge_add_single_post"
+      },
+      "Body_import_note_note_import_post": {
+        "properties": {
+          "file": {
+            "type": "string",
+            "format": "binary",
+            "title": "File",
+            "description": "支持 Markdown、TXT、Word 文件"
+          },
+          "category": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Category"
+          }
+        },
+        "type": "object",
+        "required": [
+          "file"
+        ],
+        "title": "Body_import_note_note_import_post"
+      },
+      "Body_upload_documents_knowledge_documents_post": {
+        "properties": {
+          "files": {
+            "items": {
+              "type": "string",
+              "format": "binary"
+            },
+            "type": "array",
+            "title": "Files",
+            "description": "要上传的文件列表，支持 PDF、TXT、Markdown、Word、PPT"
+          }
+        },
+        "type": "object",
+        "required": [
+          "files"
+        ],
+        "title": "Body_upload_documents_knowledge_documents_post"
       },
       "Body_upload_file_file_upload__post": {
         "properties": {
@@ -3179,6 +3437,17 @@
       },
       "DocumentChunksResponse": {
         "properties": {
+          "document_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Document Id"
+          },
           "filename": {
             "type": "string",
             "title": "Filename"
@@ -3223,6 +3492,17 @@
             "type": "string",
             "title": "Id"
           },
+          "document_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Document Id"
+          },
           "filename": {
             "type": "string",
             "title": "Filename"
@@ -3249,6 +3529,61 @@
             ],
             "title": "User Id"
           },
+          "md5": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Md5"
+          },
+          "file_size": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "File Size"
+          },
+          "mime_type": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Mime Type"
+          },
+          "status": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Status"
+          },
+          "status_message": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Status Message"
+          },
           "chunk_count": {
             "type": "integer",
             "title": "Chunk Count"
@@ -3267,6 +3602,17 @@
               }
             ],
             "title": "Created At"
+          },
+          "updated_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Updated At"
           }
         },
         "type": "object",
@@ -3285,9 +3631,31 @@
             "type": "string",
             "title": "Id"
           },
+          "document_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Document Id"
+          },
           "filename": {
             "type": "string",
             "title": "Filename"
+          },
+          "original_filename": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Original Filename"
           },
           "user_id": {
             "anyOf": [
@@ -3299,6 +3667,61 @@
               }
             ],
             "title": "User Id"
+          },
+          "md5": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Md5"
+          },
+          "file_size": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "File Size"
+          },
+          "mime_type": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Mime Type"
+          },
+          "status": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Status"
+          },
+          "status_message": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Status Message"
           },
           "chunk_count": {
             "type": "integer",
@@ -3334,6 +3757,17 @@
               }
             ],
             "title": "Created At"
+          },
+          "updated_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Updated At"
           }
         },
         "type": "object",

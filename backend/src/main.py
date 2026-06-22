@@ -6,27 +6,19 @@ from fastapi import FastAPI, Request
 from starlette.middleware.cors import CORSMiddleware
 from starlette.staticfiles import StaticFiles
 
-from app.utils.env_loader import load_backend_env
+from utils.env_loader import load_backend_env
 
 BACKEND_DIR = Path(__file__).resolve().parents[1]
 load_backend_env(BACKEND_DIR)
 
-from app.core.background_init import init_manager
-from app.core.failed_response_register import register_exception_handlers
-from app.core.logger_handler import logger
-from app.db.db_config import init_db, seed_test_user
-from app.db.pg_runtime_store import cleanup_expired_runtime_state
-from app.router.chat import chat_router
-from app.router.health import health_router
-from app.router.knowledge_router import knowledge_router
-from app.router.mindmap_router import mindmap_router
-from app.router.note_router import note_router
-from app.router.note_template_router import note_template_router
-from app.router.quick_test_router import quick_test_router
-from app.router.review_router import review_router
-from app.router.user import file_router, user_router
-from app.services.database_session_manager import init_database_session_manager
-from app.utils.path_tool import get_media_path
+from core.background_init import init_manager
+from core.failed_response_register import register_exception_handlers
+from core.logger_handler import logger
+from controllers import routers
+from db.db_config import init_db, seed_test_user
+from repositories.runtime_store import cleanup_expired_runtime_state
+from services.database_session_manager import init_database_session_manager
+from utils.path_tool import get_media_path
 
 app = FastAPI()
 
@@ -45,16 +37,8 @@ async def add_process_time_header(request: Request, call_next):
     return response
 
 # 集成API路由
-app.include_router(chat_router)
-app.include_router(knowledge_router)
-app.include_router(health_router)
-app.include_router(user_router)
-app.include_router(file_router)
-app.include_router(note_router)
-app.include_router(note_template_router)
-app.include_router(review_router)
-app.include_router(quick_test_router)
-app.include_router(mindmap_router)
+for router in routers:
+    app.include_router(router)
 
 
 
@@ -116,6 +100,6 @@ async def startup_event():
 async def shutdown_event():
     """应用关闭时清理资源"""
     # 关闭 SQLAlchemy 引擎（释放 asyncpg 连接池，避免 GC 时事件循环已关闭）
-    from app.db.db_config import async_engine
+    from db.db_config import async_engine
     await async_engine.dispose()
     logger.info("数据库引擎已关闭")

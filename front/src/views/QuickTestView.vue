@@ -20,10 +20,10 @@ const loading = ref(false)
 
 const sourceOptions = computed(() => {
   if (sourceType.value === 'note') return notes.value.map((note) => ({ id: note.id, title: note.title }))
-  if (sourceType.value === 'knowledge') return docs.value.map((doc) => ({ id: doc.original_filename || doc.filename, title: doc.original_filename || doc.filename }))
+  if (sourceType.value === 'knowledge') return docs.value.map((doc) => ({ id: doc.id, title: doc.original_filename || doc.filename }))
   return [
     ...notes.value.map((note) => ({ id: note.id, title: `笔记：${note.title}` })),
-    ...docs.value.map((doc) => ({ id: doc.original_filename || doc.filename, title: `知识库：${doc.original_filename || doc.filename}` })),
+    ...docs.value.map((doc) => ({ id: doc.id, title: `知识库：${doc.original_filename || doc.filename}` })),
   ]
 })
 

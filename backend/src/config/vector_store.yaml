@@ -1,0 +1,7 @@
+k: 5
+data_path: data
+allow_knowledge_file_types: ["txt", "pdf", "md", "markdown", "ppt", "pptx", "doc", "docx"]
+
+chunk_size: 1000
+chunk_overlap: 20
+separators: ["\n\n", "\n", "。", "！", "？", "!", "?", " ", ""]

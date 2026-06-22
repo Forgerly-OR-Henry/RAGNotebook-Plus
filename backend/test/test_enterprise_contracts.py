@@ -1,4 +1,4 @@
-from app.schemas.models import (
+from schemas import (
     MindMapGenerateRequest,
     MindMapNode,
     MindMapResponse,

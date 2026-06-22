@@ -1,4 +1,4 @@
-from app.core.background_init import _BackgroundInitManager
+from core.background_init import _BackgroundInitManager
 
 
 def test_background_init_status_snapshot_tracks_readiness():

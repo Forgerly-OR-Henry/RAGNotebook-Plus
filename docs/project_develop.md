@@ -28,7 +28,7 @@
 - **快速测试**：从笔记、知识库或混合来源抽取片段，生成连续问答、评分、反馈和总结。
 - **思维导图**：从来源内容生成 nodes/edges 图结构，前端交互渲染并支持 JSON/Mermaid 导出。
 - **PostgreSQL 运行态表**：缓存、Token 黑名单和限流计数进入数据库，便于统一清理和部署。
-- **pgvector 双 store**：`vector_chunks(store=knowledge)` 存知识库切片，`vector_chunks(store=note)` 存笔记全文向量。
+- **统一来源索引**：`knowledge_documents` 保存知识库文档事实，`index_chunks(source_type=knowledge|note)` 统一存知识库切片和笔记全文索引。
 - **统一用户隔离**：关系查询和向量检索都要求带 `user_id` 边界。
 
 ## 当前定位
