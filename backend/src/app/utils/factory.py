@@ -1,5 +1,6 @@
 import os
 from abc import ABC, abstractmethod
+from http import HTTPStatus
 
 from langchain_community.chat_models.tongyi import ChatTongyi
 from langchain_core.embeddings import Embeddings
@@ -16,14 +17,37 @@ load_backend_env()
 class DashScopeEmbeddingsWrapper(Embeddings):
     """阿里云DashScope嵌入模型封装"""
 
-    def __init__(self, model_name: str = "qwen3-embedding", api_key: str = None):
+    _DIMENSIONAL_MODELS = {"text-embedding-v3", "text-embedding-v4"}
+
+    def __init__(self, model_name: str = "text-embedding-v4", api_key: str = None, embedding_dim: int | None = None):
         try:
             import dashscope
             self.dashscope = dashscope
-            self.dashscope.api_key = api_key or os.getenv("ALIYUN_ACCESS_KEY_SECRET")
+            self.dashscope.api_key = api_key or os.getenv("ALIYUN_ACCESS_KEY_SECRET") or os.getenv("DASHSCOPE_API_KEY")
             self.model_name = model_name
+            self.embedding_dim = embedding_dim if embedding_dim is not None else int(os.getenv("EMBEDDING_DIM", "1024"))
         except ImportError:
             raise ImportError("需要安装 dashscope 库: pip install dashscope")
+
+    def _call_embedding(self, inputs: str | list[str]) -> list[list[float]]:
+        kwargs = {
+            "model": self.model_name,
+            "input": inputs,
+        }
+        if self.model_name in self._DIMENSIONAL_MODELS:
+            kwargs["dimension"] = self.embedding_dim
+
+        resp = self.dashscope.TextEmbedding.call(**kwargs)
+        if getattr(resp, "status_code", None) != HTTPStatus.OK:
+            message = getattr(resp, "message", "") or getattr(resp, "code", "") or str(resp)
+            logger.error(f"阿里云嵌入调用失败: {message}")
+            raise RuntimeError(f"嵌入调用失败: {message}")
+
+        output = getattr(resp, "output", None) or {}
+        embeddings = output.get("embeddings", []) if isinstance(output, dict) else output["embeddings"]
+        if not embeddings:
+            raise RuntimeError("嵌入调用失败: DashScope 响应中缺少 embeddings")
+        return [emb["embedding"] for emb in embeddings]
 
     def embed_documents(self, texts: list[str]) -> list[list[float]]:
         """批量嵌入文档 — 按 batch_size 分组合并 API 调用"""
@@ -33,28 +57,12 @@ class DashScopeEmbeddingsWrapper(Embeddings):
         results = []
         for i in range(0, len(texts), batch_size):
             batch = texts[i:i + batch_size]
-            resp = self.dashscope.TextEmbedding.call(
-                model=self.model_name,
-                input=batch if len(batch) > 1 else batch[0],
-            )
-            if resp.status_code == 200:
-                results.extend([emb['embedding'] for emb in resp.output['embeddings']])
-            else:
-                logger.error(f"阿里云嵌入调用失败: {resp.message}")
-                raise RuntimeError(f"嵌入调用失败: {resp.message}")
+            results.extend(self._call_embedding(batch if len(batch) > 1 else batch[0]))
         return results
 
     def embed_query(self, text: str) -> list[float]:
         """嵌入单个查询"""
-        resp = self.dashscope.TextEmbedding.call(
-            model=self.model_name,
-            input=text
-        )
-        if resp.status_code == 200:
-            return resp.output['embeddings'][0]['embedding']
-        else:
-            logger.error(f"阿里云嵌入调用失败: {resp.message}")
-            return []
+        return self._call_embedding(text)[0]
 
 
 class BaseModelFactory(ABC):
@@ -123,14 +131,16 @@ class EmbedModelFactory(BaseModelFactory):
             )
 
         elif embed_type == "ALIYUN":
-            model_name = os.getenv("ALIYUN_EMBED_MODEL_NAME", "qwen3-embedding")
+            model_name = os.getenv("ALIYUN_EMBED_MODEL_NAME", "text-embedding-v4")
             api_key = os.getenv("ALIYUN_ACCESS_KEY_SECRET")
+            embedding_dim = int(os.getenv("EMBEDDING_DIM", "1024"))
 
-            logger.info(f"📦 EmbedModel 使用阿里云嵌入模型: {model_name}")
+            logger.info(f"📦 EmbedModel 使用阿里云嵌入模型: {model_name}, 维度: {embedding_dim}")
 
             return DashScopeEmbeddingsWrapper(
                 model_name=model_name,
-                api_key=api_key
+                api_key=api_key,
+                embedding_dim=embedding_dim
             )
 
         else:

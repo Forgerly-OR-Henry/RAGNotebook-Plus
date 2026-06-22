@@ -70,6 +70,7 @@ $env:PYTHONPATH = "src"
 处理：
 
 - 确认 `config/.env` 的 `EMBEDDING_DIM` 等于当前嵌入模型实际输出维度。
+- 阿里云百炼文本向量请使用有效模型名，例如 `text-embedding-v4`；`qwen3-embedding` 不是 DashScope 同步文本向量接口的模型名，会返回 `Model not exist`。
 - 切换嵌入模型后，已有 `vector_chunks.embedding` 列维度不会自动改变，需要重新规划迁移或重建本地测试库。
 - 云端和本地嵌入模型不要混用同一批历史向量，除非输出维度和语义空间兼容。
 

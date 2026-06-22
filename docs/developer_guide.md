@@ -37,7 +37,7 @@ flowchart LR
 
 | 路径 | 说明 |
 | --- | --- |
-| `start.py` | 本地开发一键启动脚本，负责 `config/.env`、依赖检查、数据库、迁移、后端和前端进程 |
+| `start.py` | 本地开发一键启动脚本，负责 `config/.env`、依赖检查、数据库服务、后端和前端进程 |
 | `docker-compose.yml` | 本地 PostgreSQL + pgvector 服务 |
 | `config/.env.example` | 一键启动主配置模板 |
 | `README.md` | 面向使用者的说明 |
@@ -81,7 +81,7 @@ flowchart LR
 
 `python start.py` 的流程：
 
-1. 读取参数：`--install`、`--backend-only`、`--frontend-only`、`--skip-db`、`--skip-migrate` 等。
+1. 读取参数：`--install`、`--backend-only`、`--frontend-only`、`--skip-db` 等。
 2. 确保 `config/.env` 存在，优先从 `config/.env.example` 创建。
 3. 如 `ALIYUN_ACCESS_KEY_SECRET` 指向 `apikey.txt` 且文件不存在，创建 `config/apikey.txt` 模板文件。
 4. 读取 `config/.env`，解析文件型密钥，并注入 `RAGNOTEBOOK_ENV_INJECTED=1`。
@@ -89,8 +89,8 @@ flowchart LR
 6. 可选安装依赖：后端优先 `uv sync`，前端运行 `npm install`。
 7. 检查后端依赖、`python-magic` 原生库和前端 `node_modules`。
 8. 通过 Docker Compose 启动 PostgreSQL，并等待端口可用。
-9. 运行 `python -m app.db.pg_auto_init`，仅在 `public` schema 没有业务表时执行 Alembic 迁移。
-10. 启动 `uvicorn main:app --reload` 和 `npm run dev`。
+9. 启动 `uvicorn main:app --reload`；数据库检查和空库 Alembic 初始化由 FastAPI startup 执行。
+10. 等后端后台初始化完成后启动 `npm run dev`。
 
 ### FastAPI
 

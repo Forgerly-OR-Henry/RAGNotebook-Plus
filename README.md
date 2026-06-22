@@ -28,7 +28,7 @@
 | 向量检索 | PostgreSQL pgvector 存储知识库与笔记向量，统一用户隔离 |
 | 数据迁移 | Alembic 管理表结构和 pgvector 初始化 |
 | 前端 | Vue3 + TypeScript + Vite + Pinia |
-| 启动方式 | 根目录 `start.py` 统一读取 `config/.env`，启动数据库、迁移、后端和前端 |
+| 启动方式 | 根目录 `start.py` 统一读取 `config/.env`，启动数据库、后端和前端；数据库初始化由后端 startup 负责 |
 | 新增能力 | NotebookLM 风格快速测试、交互式思维导图、统一运行态表、OpenAPI 快照 |
 
 完整改进说明见 [docs/project_develop.md](./docs/project_develop.md)。
@@ -94,10 +94,10 @@ python start.py
 
 1. 如果 `config/.env` 不存在，从 `config/.env.example` 创建。
 2. 如果配置了 `ALIYUN_ACCESS_KEY_SECRET=apikey.txt` 且文件不存在，创建被 Git 忽略的 `config/apikey.txt`。
-3. 读取 `config/.env`，并注入给 PostgreSQL、Alembic、FastAPI 和 Vite。
+3. 读取 `config/.env`，并注入给 PostgreSQL、FastAPI 和 Vite。
 4. 通过 Docker Compose 启动 PostgreSQL。
-5. 当数据库还没有业务表时，执行 Alembic 迁移，初始化关系表、运行态表和 pgvector 表。
-6. 启动后端和前端开发服务。
+5. 启动后端；后端 startup 会在空库时执行 Alembic 初始化。
+6. 等后端后台初始化完成后启动前端开发服务。
 
 常用参数：
 
@@ -105,7 +105,6 @@ python start.py
 python start.py --backend-only
 python start.py --frontend-only
 python start.py --skip-db
-python start.py --skip-migrate
 python start.py --strict-ports
 ```
 
@@ -169,7 +168,7 @@ CHAT_MODEL_NAME=qwen3-max
 OLLAMA_MODEL_NAME=qwen3.5:0.8b
 
 EMBED_MODEL_TYPE=ALIYUN
-ALIYUN_EMBED_MODEL_NAME=qwen3-embedding
+ALIYUN_EMBED_MODEL_NAME=text-embedding-v4
 TEXT_EMBEDDING_MODEL_NAME=qwen3-embedding:0.6b
 EMBEDDING_DIM=1024
 

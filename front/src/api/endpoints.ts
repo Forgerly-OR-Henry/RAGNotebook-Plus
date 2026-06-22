@@ -7,6 +7,9 @@ export const endpoints = {
   userUpdate: '/user/update/',
   changePassword: '/user/reset-password/',
 
+  // Health
+  healthReady: '/health/ready',
+
   // File upload
   uploadFile: '/file/upload/',
 

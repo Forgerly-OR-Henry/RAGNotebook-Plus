@@ -8,7 +8,7 @@ RAGNotebook/
 ├── LICENSE                                         # MIT License 文本。
 ├── README.md                                       # 面向使用者的项目介绍、快速开始、配置概览、技术栈和简化结构说明。
 ├── docker-compose.yml                              # 本地 PostgreSQL + pgvector 服务定义，读取 config/.env 中的数据库环境变量。
-├── start.py                                        # 一键启动脚本；创建/读取 config/.env，解析文件型密钥，检查依赖，启动数据库、迁移、后端和前端。
+├── start.py                                        # 一键启动脚本；创建/读取 config/.env，解析文件型密钥，检查依赖，启动数据库服务、后端和前端。
 │
 ├── config/                                         # 本地启动配置目录；真实配置和密钥被 Git 忽略。
 │   ├── .env                                        # 本地真实运行配置，保存端口、数据库、模型、JWT、限流等配置；不提交。

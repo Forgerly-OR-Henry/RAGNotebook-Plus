@@ -18,7 +18,7 @@
 | 向量库 | pgvector 统一存储知识库切片和笔记向量 |
 | 迁移 | Alembic 管理表结构和 pgvector 初始化 |
 | 前端 | Vue3 + TypeScript + Vite + Pinia |
-| 启动 | 根目录 `start.py` 统一读取 `config/.env`，启动数据库、迁移、后端和前端 |
+| 启动 | 根目录 `start.py` 统一读取 `config/.env`，启动数据库服务、后端和前端；数据库初始化由后端 startup 负责 |
 | 配置 | `config/.env` 为主配置，`config/apikey.txt` 保存真实模型 API Key |
 | API | 静态 `backend/openapi.json` 与运行时 `/docs` 同步 |
 | 文档 | README、开发者指南、模型配置和排错文档按当前代码重写 |

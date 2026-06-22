@@ -14,6 +14,10 @@ class _BackgroundInitManager:
 
     def __init__(self):
         self._started = False
+        self._finished = False
+        self._failed = False
+        self._error: str | None = None
+        self._current_step = "pending"
         self._start_time = 0.0
 
         # 各组件的初始化状态事件
@@ -33,8 +37,34 @@ class _BackgroundInitManager:
         if self._started:
             return
         self._started = True
+        self._current_step = "starting"
         self._start_time = time.time()
         asyncio.create_task(self._initialize_all())
+
+    def status_snapshot(self) -> dict:
+        """Return a lightweight readiness snapshot for health checks and the frontend."""
+        if self._failed:
+            status = "failed"
+        elif self._finished:
+            status = "ready"
+        elif self._started:
+            status = "starting"
+        else:
+            status = "pending"
+
+        elapsed = time.time() - self._start_time if self._start_time else 0.0
+        return {
+            "status": status,
+            "started": self._started,
+            "elapsed_seconds": round(elapsed, 1),
+            "current_step": self._current_step,
+            "error": self._error,
+            "components": {
+                "models": self.models_ready.is_set(),
+                "note_service": self.note_service_ready.is_set(),
+                "reranker": self.reranker_ready.is_set(),
+            },
+        }
 
     async def _initialize_all(self):
         """后台执行所有重型初始化"""
@@ -51,26 +81,34 @@ class _BackgroundInitManager:
             await self._init_reranker()
 
             elapsed = time.time() - self._start_time
+            self._finished = True
+            self._current_step = "ready"
             logger.info(f"✅ 后台初始化完成，耗时 {elapsed:.1f} 秒")
 
         except Exception as e:
+            self._failed = True
+            self._error = str(e)
+            self._current_step = "failed"
             logger.error(f"❌ 后台初始化失败: {e}", exc_info=True)
 
     async def _init_models(self):
         """初始化 AI 模型"""
         from app.utils.factory import ChatModelFactory, EmbedModelFactory, VisionModelFactory
 
+        self._current_step = "loading_chat_model"
         self.chat_model = await asyncio.to_thread(
             lambda: ChatModelFactory().generator()
         )
         logger.info("✅ chat_model 初始化完成")
 
+        self._current_step = "loading_embed_model"
         self.embed_model = await asyncio.to_thread(
             lambda: EmbedModelFactory().generator()
         )
         logger.info("✅ embed_model 初始化完成")
         await self._validate_embedding_dimension()
 
+        self._current_step = "loading_vision_model"
         self.vision_model = await asyncio.to_thread(
             lambda: VisionModelFactory().generator()
         )
@@ -98,6 +136,7 @@ class _BackgroundInitManager:
 
         from app.services.note_service import NoteService
 
+        self._current_step = "loading_note_service"
         self.note_service = await asyncio.to_thread(
             lambda: NoteService(embed_model=self.embed_model)
         )
@@ -108,9 +147,11 @@ class _BackgroundInitManager:
         """检查并初始化重排序模型（触发 torch 等重型框架加载）"""
         from app.rag.reorder_service import ReorderService, check_and_download_reranker_model
 
+        self._current_step = "checking_reranker_model"
         await asyncio.to_thread(check_and_download_reranker_model)
         logger.info("✅ 重排序模型检查完成")
 
+        self._current_step = "loading_reranker_service"
         self.reorder_service = ReorderService()
         logger.info("✅ ReorderService 初始化完成")
         self.reranker_ready.set()
