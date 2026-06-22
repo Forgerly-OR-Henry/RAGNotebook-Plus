@@ -4,7 +4,7 @@ from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
 from core.logger_handler import logger
-from models.chat_history import Base
+from mvc.models.base import Base
 from utils.env_loader import load_backend_env
 
 # 加载环境变量
@@ -44,7 +44,7 @@ AsyncSessionLocal = async_sessionmaker(
 
 async def init_db():
     """Initialize PostgreSQL schema for application startup."""
-    from models import chat_history, knowledge_document, mind_map, note, note_template, review_record, runtime_state, study_test, user_model  # noqa: F401
+    from mvc.models import chat_history, document, mind_map, note, note_template, review_record, runtime_state, storage_object, study_test, user_model  # noqa: F401
 
     from db.pg_auto_init import auto_init_postgres, is_pg_auto_init_enabled
 
@@ -78,7 +78,7 @@ async def get_db():
 
 
 async def seed_test_user():
-    from models.user_model import User, UserStatusChoice
+    from mvc.models.user_model import User, UserStatusChoice
     from utils.auth_utils import hash_password
     from sqlalchemy import select
 

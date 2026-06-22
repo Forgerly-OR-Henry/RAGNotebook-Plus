@@ -1,6 +1,6 @@
 # 故障排除
 
-本文按本地启动链路整理常见问题。优先确认 `config/.env`、PostgreSQL、后端依赖和前端代理是否一致。
+本文按本地启动链路整理常见问题。统一启动优先确认 `config/.env`；后端单独启动确认 `backend/.env`；前端单独启动确认 `front/.env`。
 
 ## 1. API Key 错误
 
@@ -11,9 +11,9 @@
 
 处理：
 
-- 确认 `config/.env` 中 `ALIYUN_ACCESS_KEY_SECRET=apikey.txt`。
-- 确认 `config/apikey.txt` 存在。
-- `config/apikey.txt` 只放一行真实 key，不写变量名。
+- 统一启动时，确认 `config/.env` 中 `ALIYUN_ACCESS_KEY_SECRET=apikey.txt`，且 `config/apikey.txt` 存在。
+- 后端单独启动时，确认 `backend/.env` 中 `ALIYUN_ACCESS_KEY_SECRET=../config/apikey.txt` 或其他有效 key 文件路径。
+- key 文件只放一行真实 key，不写变量名。
 - 确认 key 未过期，且有对应模型服务权限。
 - 如果使用本地模型，将 `LLM_TYPE`、`EMBED_MODEL_TYPE` 或 `VISION_MODEL_TYPE` 切换为 `OLLAMA`，并确认 Ollama 服务可访问。
 
@@ -29,7 +29,7 @@
 处理：
 
 - 运行 `docker compose up -d postgres`。
-- 检查 `config/.env` 中 `DATABASE_URL` 与 `POSTGRES_USER`、`POSTGRES_PASSWORD`、`POSTGRES_HOST`、`POSTGRES_PORT`、`POSTGRES_DB` 是否一致。
+- 统一启动时检查 `config/.env`；后端单独启动时检查 `backend/.env`。确认 `DATABASE_URL` 与 `POSTGRES_USER`、`POSTGRES_PASSWORD`、`POSTGRES_HOST`、`POSTGRES_PORT`、`POSTGRES_DB` 一致。
 - `DATABASE_URL` 优先级最高；如果它和 `POSTGRES_*` 冲突，`start.py` 会直接报错。
 - 如果修改过数据库用户名或密码，但 Docker 卷已经初始化，需要同步修改数据库内用户，或清理本地数据库卷后重新初始化。
 - 确认端口 `5432` 未被其他服务占用。
@@ -69,9 +69,9 @@ $env:PYTHONPATH = "src"
 
 处理：
 
-- 确认 `config/.env` 的 `EMBEDDING_DIM` 等于当前嵌入模型实际输出维度。
+- 确认当前运行 env 的 `EMBEDDING_DIM` 等于当前嵌入模型实际输出维度。
 - 阿里云百炼文本向量请使用有效模型名，例如 `text-embedding-v4`；`qwen3-embedding` 不是 DashScope 同步文本向量接口的模型名，会返回 `Model not exist`。
-- 切换嵌入模型后，已有 `index_chunks.embedding` 列维度不会自动改变，需要重新规划迁移或重建本地测试库；历史 `vector_chunks` 只作为迁移来源保留。
+- 切换嵌入模型后，已有 `index_chunks.embedding` 列维度不会自动改变，需要重新规划迁移或重建本地测试库。
 - 云端和本地嵌入模型不要混用同一批历史向量，除非输出维度和语义空间兼容。
 
 ## 5. Alembic 或 OpenAPI 导入失败
@@ -123,8 +123,7 @@ python -m pip install -r requirements.txt
 
 ```powershell
 cd backend
-$env:PYTHONPATH = "src"
-.venv\Scripts\python.exe -m uvicorn main:app --reload
+.venv\Scripts\python.exe src\main.py
 ```
 
 ## 7. 文件上传失败
@@ -138,7 +137,7 @@ $env:PYTHONPATH = "src"
 处理：
 
 - 当前知识库支持 TXT / PDF / MD / PPTX / DOCX。
-- 文件类型白名单在 `backend/src/config/vector_store.yaml`。
+- 文件类型白名单在 `backend/src/mvc/services/knowledge_service.py`。
 - 检查文件大小是否超过后端限制。
 - PDF 图片解析依赖视觉模型，视觉模型不可用时复杂版式解析质量会下降。
 - 上传失败后可查看后端日志和 `/knowledge/documents` 返回的 SSE `error` 事件。
@@ -153,7 +152,7 @@ $env:PYTHONPATH = "src"
 
 处理：
 
-- 检查 `config/.env` 中 `RERANKER_MODEL_PATH` 是否存在。
+- 检查当前运行 env 中 `RERANKER_MODEL_PATH` 是否存在。
 - 可手动下载 `BAAI/bge-reranker-v2-m3`，详见 [modelscope_model.md](./modelscope_model.md)。
 - 无网络环境下不要依赖自动下载。
 - 显存不足时使用 CPU 或减少候选片段数量。
@@ -173,7 +172,7 @@ $env:PYTHONPATH = "src"
 ollama serve
 ```
 
-- 拉取 `config/.env` 中配置的模型。
+- 拉取当前运行 env 中配置的模型。
 - 确认 `OLLAMA_BASE_URL=http://localhost:11434`。
 - 如果在容器或远程环境运行，`localhost` 可能不是 Ollama 所在机器，需要改为可访问地址。
 
@@ -188,9 +187,9 @@ ollama serve
 处理：
 
 - 一键启动时，`start.py` 会自动注入 `VITE_BACKEND_TARGET`。
-- 前端单独启动时，检查 `front/.env.example` 或本地前端环境变量。
+- 前端单独启动时，检查 `front/.env`。
 - 确认后端正在运行，且端口与 `VITE_BACKEND_TARGET` 一致。
-- 检查 `config/.env` 中 `CORS_ALLOW_ORIGINS` 是否包含前端地址。
+- 统一启动时检查 `config/.env` 的 `CORS_ALLOW_ORIGINS`；后端单独启动时检查 `backend/.env`。
 - 401 通常表示 JWT 过期、未登录或 Token 已加入黑名单，重新登录即可。
 
 ## 11. 端口被占用

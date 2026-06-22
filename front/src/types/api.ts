@@ -26,8 +26,10 @@ export interface LoginResponse {
 export interface Note {
   id: string
   user_id: string
+  document_id: string
   title: string
   content: string
+  storage_uri?: string | null
   tags: string[]
   category: string
   is_pinned: boolean
@@ -85,8 +87,12 @@ export interface ChatMessage {
 export interface KnowledgeDocument {
   id: string
   document_id?: string
+  source_type?: 'knowledge'
+  title?: string | null
   user_id?: string
-  md5?: string
+  content_hash?: string
+  storage_uri?: string
+  file_ext?: string
   filename: string
   original_filename?: string | null
   file_size?: number
@@ -111,8 +117,12 @@ export interface KnowledgeChunk {
 export interface KnowledgeDocumentDetail {
   id: string
   document_id?: string
+  source_type?: 'knowledge'
+  title?: string | null
   user_id: string
-  md5: string
+  content_hash?: string
+  storage_uri?: string
+  file_ext?: string
   filename: string
   original_filename?: string | null
   file_size?: number

@@ -2,8 +2,8 @@ import asyncio
 
 from langchain_core.documents import Document
 
-from ai.rag.document_handler import processor as processor_module
-from ai.rag.document_handler.processor import DocumentProcessor
+from agent.rag.document_handler import processor as processor_module
+from agent.rag.document_handler.processor import DocumentProcessor
 
 
 def test_pdf_upload_loader_skips_multimodal_when_disabled(monkeypatch):
@@ -13,8 +13,8 @@ def test_pdf_upload_loader_skips_multimodal_when_disabled(monkeypatch):
         calls.append(("plain", path))
         return [Document(page_content="plain pdf")]
 
-    async def fake_multimodal_loader(path, md5, user_id):
-        calls.append(("multimodal", path, md5, user_id))
+    async def fake_multimodal_loader(path, content_hash, user_id):
+        calls.append(("multimodal", path, content_hash, user_id))
         return [Document(page_content="vision pdf")]
 
     monkeypatch.setattr(processor_module, "pdf_loader", fake_pdf_loader)
@@ -24,7 +24,7 @@ def test_pdf_upload_loader_skips_multimodal_when_disabled(monkeypatch):
     result = asyncio.run(
         processor.get_file_document(
             "lecture.pdf",
-            md5="md5-1",
+            content_hash="hash-1",
             user_id="user-1",
             use_multimodal=False,
         )
@@ -41,8 +41,8 @@ def test_pdf_loader_keeps_multimodal_path_when_enabled(monkeypatch):
         calls.append(("plain", path))
         return [Document(page_content="plain pdf")]
 
-    async def fake_multimodal_loader(path, md5, user_id):
-        calls.append(("multimodal", path, md5, user_id))
+    async def fake_multimodal_loader(path, content_hash, user_id):
+        calls.append(("multimodal", path, content_hash, user_id))
         return [Document(page_content="vision pdf")]
 
     monkeypatch.setattr(processor_module, "pdf_loader", fake_pdf_loader)
@@ -52,11 +52,11 @@ def test_pdf_loader_keeps_multimodal_path_when_enabled(monkeypatch):
     result = asyncio.run(
         processor.get_file_document(
             "lecture.pdf",
-            md5="md5-1",
+            content_hash="hash-1",
             user_id="user-1",
             use_multimodal=True,
         )
     )
 
     assert result[0].page_content == "vision pdf"
-    assert calls == [("multimodal", "lecture.pdf", "md5-1", "user-1")]
+    assert calls == [("multimodal", "lecture.pdf", "hash-1", "user-1")]

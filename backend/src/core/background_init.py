@@ -93,7 +93,7 @@ class _BackgroundInitManager:
 
     async def _init_models(self):
         """初始化 AI 模型"""
-        from utils.factory import ChatModelFactory, EmbedModelFactory, VisionModelFactory
+        from agent.models.factory import ChatModelFactory, EmbedModelFactory, VisionModelFactory
 
         self._current_step = "loading_chat_model"
         self.chat_model = await asyncio.to_thread(
@@ -118,7 +118,7 @@ class _BackgroundInitManager:
 
     async def _validate_embedding_dimension(self):
         """Fail early when the configured pgvector dimension does not match the embedding model."""
-        from ai.rag.vector_store import embedding_dimension
+        from agent.indexing.index_repository import embedding_dimension
 
         expected_dim = embedding_dimension()
         sample_embedding = await asyncio.to_thread(self.embed_model.embed_query, "RAGNotebook embedding dimension check")
@@ -126,7 +126,7 @@ class _BackgroundInitManager:
         if actual_dim != expected_dim:
             raise RuntimeError(
                 f"EMBEDDING_DIM={expected_dim} 与当前嵌入模型实际维度 {actual_dim} 不一致，"
-                "请调整 config/.env 后重建空库或迁移表结构。"
+                "请调整当前运行环境配置后重建空库或迁移表结构。"
             )
         logger.info(f"✅ embedding 维度校验通过: {actual_dim}")
 
@@ -134,7 +134,7 @@ class _BackgroundInitManager:
         """初始化 NoteService（pgvector，依赖 embed_model）"""
         await self.models_ready.wait()
 
-        from services.note_service import NoteService
+        from mvc.services.note_service import NoteService
 
         self._current_step = "loading_note_service"
         self.note_service = await asyncio.to_thread(
@@ -145,7 +145,7 @@ class _BackgroundInitManager:
 
     async def _init_reranker(self):
         """检查并初始化重排序模型（触发 torch 等重型框架加载）"""
-        from ai.rag.reorder_service import ReorderService, check_and_download_reranker_model
+        from agent.rag.reorder_service import ReorderService, check_and_download_reranker_model
 
         self._current_step = "checking_reranker_model"
         await asyncio.to_thread(check_and_download_reranker_model)

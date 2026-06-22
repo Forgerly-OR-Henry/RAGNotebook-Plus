@@ -47,6 +47,7 @@ dependencies = [
     "shortuuid>=1.0.11",
     "imagehash>=4.3.0",
     "bcrypt>=4.3.0,<5.0.0",
+    "paramiko>=4.0.0",
 ]
 
 # 开发依赖
@@ -65,22 +66,15 @@ py-modules = ["main"]
 [tool.setuptools.packages.find]
 where = ["src"]
 include = [
-    "ai*",
-    "config*",
-    "controllers*",
+    "agent*",
     "core*",
     "db*",
-    "models*",
-    "prompt*",
-    "repositories*",
-    "schemas*",
-    "services*",
+    "mvc*",
     "utils*",
 ]
 
 [tool.setuptools.package-data]
-config = ["*.yaml", "*.json"]
-prompt = ["*.txt"]
+"agent.prompts" = ["*.txt"]
 
 [tool.pytest.ini_options]
 pythonpath = ["src"]

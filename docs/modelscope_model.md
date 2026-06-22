@@ -1,6 +1,6 @@
 # ModelScope 重排序模型配置
 
-本项目使用 `BAAI/bge-reranker-v2-m3` 对 RAG 候选片段做重排序。模型由后端后台初始化流程检查和加载，路径通过 `config/.env` 中的 `RERANKER_MODEL_PATH` 配置。
+本项目使用 `BAAI/bge-reranker-v2-m3` 对 RAG 候选片段做重排序。模型由后端后台初始化流程检查和加载，路径通过当前运行 env 中的 `RERANKER_MODEL_PATH` 配置。
 
 ## 模型用途
 
@@ -31,7 +31,7 @@ python -m pip install -r requirements.txt
 
 ## 配置方式
 
-在 `config/.env` 中配置本地模型路径：
+统一启动时在 `config/.env` 中配置，后端单独启动时在 `backend/.env` 中配置：
 
 ```env
 RERANKER_MODEL_PATH=D:\Hugging_Face\models\bge-reranker-v2-m3
@@ -45,7 +45,7 @@ RERANKER_MODEL_PATH=D:\Hugging_Face\models\bge-reranker-v2-m3
 
 1. 访问 [BAAI/bge-reranker-v2-m3](https://www.modelscope.cn/models/BAAI/bge-reranker-v2-m3)。
 2. 下载完整模型目录到本地。
-3. 将 `config/.env` 的 `RERANKER_MODEL_PATH` 指向该目录。
+3. 将当前运行 env 的 `RERANKER_MODEL_PATH` 指向该目录。
 4. 重启后端。
 
 推荐目录示例：

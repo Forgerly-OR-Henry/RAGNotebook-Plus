@@ -1,10 +1,10 @@
+import argparse
 import os
 import time
 from pathlib import Path
 
 from fastapi import FastAPI, Request
 from starlette.middleware.cors import CORSMiddleware
-from starlette.staticfiles import StaticFiles
 
 from utils.env_loader import load_backend_env
 
@@ -14,11 +14,10 @@ load_backend_env(BACKEND_DIR)
 from core.background_init import init_manager
 from core.failed_response_register import register_exception_handlers
 from core.logger_handler import logger
-from controllers import routers
+from mvc.controllers import routers
 from db.db_config import init_db, seed_test_user
-from repositories.runtime_store import cleanup_expired_runtime_state
-from services.database_session_manager import init_database_session_manager
-from utils.path_tool import get_media_path
+from mvc.repositories.runtime_store import cleanup_expired_runtime_state
+from mvc.services.database_session_manager import init_database_session_manager
 
 app = FastAPI()
 
@@ -56,11 +55,6 @@ app.add_middleware(
     allow_methods=["*"], # 允许的请求方法
     allow_headers=["*"], # 允许的请求头
 )
-
-# 挂载媒体文件目录（头像等上传文件）
-media_dir = Path(get_media_path())
-media_dir.mkdir(parents=True, exist_ok=True)
-app.mount("/media", StaticFiles(directory=str(media_dir)), name="media")
 
 # 注册异常处理函数
 register_exception_handlers(app)
@@ -103,3 +97,43 @@ async def shutdown_event():
     from db.db_config import async_engine
     await async_engine.dispose()
     logger.info("数据库引擎已关闭")
+
+
+def _env_int(name: str, default: int) -> int:
+    value = os.getenv(name, str(default)).strip()
+    try:
+        return int(value)
+    except ValueError as exc:
+        raise SystemExit(f"{name} must be an integer, got: {value}") from exc
+
+
+def run_standalone() -> None:
+    """Start backend directly with backend/.env.
+
+    Unified startup still goes through root start.py, which injects config/.env
+    and sets RAGNOTEBOOK_ENV_INJECTED=1 before importing this module.
+    """
+    import uvicorn
+
+    parser = argparse.ArgumentParser(description="Start the RAGNotebook backend using backend/.env.")
+    parser.add_argument("--host", help="Override BACKEND_HOST from backend/.env.")
+    parser.add_argument("--port", type=int, help="Override BACKEND_PORT from backend/.env.")
+    parser.add_argument("--no-reload", action="store_true", help="Disable uvicorn reload.")
+    args = parser.parse_args()
+
+    host = args.host or os.getenv("BACKEND_HOST", "0.0.0.0")
+    port = args.port or _env_int("BACKEND_PORT", 10000)
+    log_config = BACKEND_DIR / "config" / "uvicorn_log_config.json"
+
+    uvicorn.run(
+        "main:app",
+        host=host,
+        port=port,
+        reload=not args.no_reload,
+        reload_dirs=[str(BACKEND_DIR / "src")],
+        log_config=str(log_config) if log_config.is_file() else None,
+    )
+
+
+if __name__ == "__main__":
+    run_standalone()

@@ -153,7 +153,7 @@ def _describe_init_error(exc: Exception) -> str:
         current = current.__cause__ or current.__context__
 
     if any(error.__class__.__name__ == "InvalidPasswordError" for error in chain):
-        return "数据库认证失败，请检查 config/.env 中 DATABASE_URL 与 POSTGRES_USER/POSTGRES_PASSWORD 是否一致"
+        return "数据库认证失败，请检查当前运行环境中的 DATABASE_URL 与 POSTGRES_USER/POSTGRES_PASSWORD 是否一致"
     if any(error.__class__.__name__ == "InvalidCatalogNameError" for error in chain):
         return "目标数据库不存在，请先创建 POSTGRES_DB 指定的数据库"
     if any(error.__class__.__name__ in {"InvalidAuthorizationSpecificationError", "InvalidRoleSpecificationError"} for error in chain):

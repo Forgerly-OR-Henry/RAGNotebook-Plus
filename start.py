@@ -23,7 +23,7 @@ CONFIG_DIR = ROOT / "config"
 GLOBAL_ENV_FILE = CONFIG_DIR / ".env"
 GLOBAL_ENV_EXAMPLE = CONFIG_DIR / ".env.example"
 API_KEY_FILE = CONFIG_DIR / "apikey.txt"
-UVICORN_LOG_CONFIG = BACKEND_DIR / "src" / "config" / "uvicorn_log_config.json"
+UVICORN_LOG_CONFIG = BACKEND_DIR / "config" / "uvicorn_log_config.json"
 INJECTED_ENV_FLAG = "RAGNOTEBOOK_ENV_INJECTED"
 FILE_BACKED_SECRET_KEYS = ("ALIYUN_ACCESS_KEY_SECRET",)
 

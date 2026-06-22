@@ -8,7 +8,7 @@
 
 1. **统一数据底座**：让关系数据、向量数据、运行态数据都进入 PostgreSQL 体系，减少本地部署组件数量。
 2. **增强学习闭环**：在笔记、知识库和问答之外，补充快速测试与思维导图，让知识可以被回顾、测验和结构化。
-3. **提高可维护性**：引入 Alembic 迁移、统一 `config/.env`、一键启动脚本、开发者文档和 OpenAPI 快照。
+3. **提高可维护性**：引入 Alembic 迁移、清晰的统一/单独启动 env 边界、一键启动脚本、开发者文档和 OpenAPI 快照。
 
 ## 主要变化
 
@@ -18,8 +18,8 @@
 | 向量库 | pgvector 统一存储知识库切片和笔记向量 |
 | 迁移 | Alembic 管理表结构和 pgvector 初始化 |
 | 前端 | Vue3 + TypeScript + Vite + Pinia |
-| 启动 | 根目录 `start.py` 统一读取 `config/.env`，启动数据库服务、后端和前端；数据库初始化由后端 startup 负责 |
-| 配置 | `config/.env` 为主配置，`config/apikey.txt` 保存真实模型 API Key |
+| 启动 | 根目录 `start.py` 统一读取 `config/.env` 并注入给数据库、后端和前端；后端/前端也支持按各自目录单独启动 |
+| 配置 | 统一启动用 `config/.env`；后端单启用 `backend/.env`；前端单启用 `front/.env`；真实模型 API Key 放在 `config/apikey.txt` |
 | API | 静态 `backend/openapi.json` 与运行时 `/docs` 同步 |
 | 文档 | README、开发者指南、模型配置和排错文档按当前代码重写 |
 
@@ -28,7 +28,7 @@
 - **快速测试**：从笔记、知识库或混合来源抽取片段，生成连续问答、评分、反馈和总结。
 - **思维导图**：从来源内容生成 nodes/edges 图结构，前端交互渲染并支持 JSON/Mermaid 导出。
 - **PostgreSQL 运行态表**：缓存、Token 黑名单和限流计数进入数据库，便于统一清理和部署。
-- **统一来源索引**：`knowledge_documents` 保存知识库文档事实，`index_chunks(source_type=knowledge|note)` 统一存知识库切片和笔记全文索引。
+- **统一文档和索引**：`documents`/`storage_objects` 保存笔记与知识库文件事实，`index_chunks(source_type=knowledge|note)` 统一存知识库切片和笔记全文索引。
 - **统一用户隔离**：关系查询和向量检索都要求带 `user_id` 边界。
 
 ## 当前定位

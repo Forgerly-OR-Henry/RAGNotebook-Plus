@@ -2,7 +2,7 @@ import os
 
 from fastapi import HTTPException, Request
 
-from repositories.runtime_store import hit_rate_limit
+from mvc.repositories.runtime_store import hit_rate_limit
 
 # 全局开关：通过环境变量 RATE_LIMIT_ENABLED 控制所有限流是否生效
 # 当设置为 false 时，rate_limit 依赖和 RateLimitMiddleware 均直接放行

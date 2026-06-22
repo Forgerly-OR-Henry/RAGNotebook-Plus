@@ -202,11 +202,12 @@ RAG 问答流程：
 | 数据类型 | 存储方式 |
 | --- | --- |
 | 用户、笔记、模板、会话、回顾、测评、导图 | PostgreSQL 关系表 |
-| 知识库文档事实 | `knowledge_documents` |
+| 文件存储事实 | `storage_objects` |
+| 笔记和知识库文档事实 | `documents` |
 | 知识库切片向量 | `index_chunks(source_type=knowledge)` |
 | 笔记全文向量 | `index_chunks(source_type=note)` |
-| 缓存、限流、Token 黑名单 | PostgreSQL 运行态表 |
-| 上传文件和媒体 | 后端本地数据目录，数据库保存元信息 |
+| 缓存、限流、Token 撤销 | PostgreSQL 运行态表 |
+| 上传文件和媒体 | `StorageService` 管理的本机目录或 SFTP 目录，数据库保存 URI、路径和元信息 |
 
 ### 5.2 安全设计
 
@@ -382,10 +383,13 @@ python start.py
 
 | 配置项 | 位置 | 说明 |
 | --- | --- | --- |
-| 主配置 | `config/.env` | 服务端口、数据库、模型、JWT、限流等 |
-| 配置模板 | `config/.env.example` | 新环境初始化参考 |
+| 统一启动配置 | `config/.env` | 仅由 `start.py` 读取，并注入给数据库、后端和前端 |
+| 后端单启配置 | `backend/.env` | 手动单独启动后端时读取 |
+| 前端单启配置 | `front/.env` | 手动单独启动前端时读取 |
+| 配置模板 | `config/.env.example`、`backend/.env.example`、`front/.env.example` | 新环境初始化参考 |
 | 模型 Key | `config/apikey.txt` | 存放真实 API Key，不提交仓库 |
-| 向量配置 | `backend/src/config/vector_store.yaml` | 切片大小、支持文件类型、检索参数 |
+| 文件存储配置 | `FILE_STORAGE_*` | 本机目录或 SFTP 文件服务器 |
+| 切片默认值 | `backend/src/agent/rag/text_spliter.py` | 默认切片大小、重叠和分隔符 |
 | 前端代理 | `VITE_BACKEND_TARGET` | 指向后端服务地址 |
 
 ### 10.3 运维关注点
@@ -437,7 +441,7 @@ python start.py
 | 数据库 | Alembic 迁移可创建 PostgreSQL 表和 pgvector 结构 |
 | 测试 | 后端 pytest 和前端 build 在交付前通过 |
 | 文档 | README、开发者指南、排错文档和本企业级开发文档保持一致 |
-| 配置 | `.env.example` 提供必要配置项，真实 Key 不进入仓库 |
+| 配置 | 三份 `.env.example` 分别覆盖统一启动、后端单启和前端单启，真实 Key 不进入仓库 |
 | 接口 | OpenAPI 快照或运行时 `/docs` 可用于接口查看 |
 
 ## 13. 相关文档

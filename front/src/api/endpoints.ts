@@ -27,7 +27,7 @@ export const endpoints = {
   knowledgeDocuments: '/knowledge/documents',
   knowledgeDocument: (id: string) => `/knowledge/documents/${id}`,
   knowledgeDocumentChunks: (id: string) => `/knowledge/documents/${id}/chunks`,
-  knowledgeImage: (md5: string, filename: string) => `/knowledge/image/${md5}/${filename}`,
+  documentDownload: (id: string) => `/documents/${id}/download`,
   uploadSingleFile: '/knowledge/documents',
   uploadMultipleFiles: '/knowledge/documents',
   uploadMultipleStream: '/knowledge/documents',
@@ -35,9 +35,6 @@ export const endpoints = {
   knowledgeList: '/knowledge/documents',
   knowledgeDetail: (id: string) => `/knowledge/documents/${id}`,
   knowledgeChunks: (id: string) => `/knowledge/documents/${id}/chunks`,
-  knowledgeMd5List: '/knowledge/md5/list',
-  knowledgeMd5Delete: (md5: string) => `/knowledge/md5/delete/${md5}`,
-  knowledgeDeleteFilename: '/knowledge/delete/filename',
 
   // Documents reorder
   reorderDocuments: '/chat/reorder',

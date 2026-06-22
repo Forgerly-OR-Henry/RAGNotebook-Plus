@@ -18,8 +18,16 @@ function envInt(env: Record<string, string>, key: string): number {
   return value
 }
 
+function processEnv(): Record<string, string> {
+  return Object.fromEntries(
+    Object.entries(process.env).filter((entry): entry is [string, string] => entry[1] !== undefined),
+  )
+}
+
 export default defineConfig(({ mode }) => {
-  const env = loadEnv(mode, process.cwd(), '')
+  const fileEnv = loadEnv(mode, process.cwd(), '')
+  const injected = process.env.RAGNOTEBOOK_ENV_INJECTED?.toLowerCase()
+  const env = ['1', 'true', 'yes', 'on'].includes(injected || '') ? { ...fileEnv, ...processEnv() } : fileEnv
   const backendTarget = requiredEnv(env, 'VITE_BACKEND_TARGET')
 
   return {

@@ -8,14 +8,17 @@
   },
   "knowledge_files": [
     {
+      "id": "00000000-0000-4000-8000-000000000601",
       "filename": "ragnotebook-product-playbook.md",
       "title": "RAGNotebook 产品使用手册"
     },
     {
+      "id": "00000000-0000-4000-8000-000000000602",
       "filename": "pgvector-operations-runbook.md",
       "title": "pgvector 运维排查手册"
     },
     {
+      "id": "00000000-0000-4000-8000-000000000603",
       "filename": "learning-workflow-checklist.txt",
       "title": "学习闭环检查清单"
     }
@@ -29,7 +32,7 @@
       "is_pinned": true,
       "created_days_ago": 14,
       "updated_hours_ago": 2,
-      "content": "# RAGNotebook 架构速览\n\n当前系统由 Vue3 前端、FastAPI 后端、PostgreSQL 与 pgvector 构成。关系数据保存用户、笔记、模板、会话、回顾、测评和导图；知识库文档事实写入 knowledge_documents，笔记和知识库切片统一写入 index_chunks，并通过 user_id 隔离。\n\n关键链路：笔记创建后写入 notes，再异步同步 note 索引；知识库上传经过文件校验、解析、切片、嵌入和文档状态更新。"
+      "content": "# RAGNotebook 架构速览\n\n当前系统由 Vue3 前端、FastAPI 后端、PostgreSQL 与 pgvector 构成。关系数据保存用户、笔记、模板、会话、回顾、测评和导图；文件事实写入 documents 与 storage_objects，笔记和知识库切片统一写入 index_chunks，并通过 user_id 隔离。\n\n关键链路：笔记创建后写入 Markdown 文件、documents 和 notes，再异步同步 note 索引；知识库上传保持原文件格式，解析后写入 index_chunks 并更新文档状态。"
     },
     {
       "id": "00000000-0000-4000-8000-000000000102",
@@ -154,7 +157,7 @@
       "sort_order": 102
     }
   ],
-  "review_records": [
+  "review_schedules": [
     {
       "id": "00000000-0000-4000-8000-000000000301",
       "note_id": "00000000-0000-4000-8000-000000000101",
@@ -291,13 +294,13 @@
     {
       "id": "00000000-0000-4000-8000-000000000402",
       "source_type": "mixed",
-      "source_ids": ["00000000-0000-4000-8000-000000000101", "ragnotebook-product-playbook.md"],
+      "source_ids": ["00000000-0000-4000-8000-000000000101", "00000000-0000-4000-8000-000000000601"],
       "question_count": 2,
       "difficulty": "hard",
       "focus": "架构和知识库链路",
       "status": "completed",
       "current_turn": 2,
-      "summary": "已经掌握 RAGNotebook 的主要数据流，仍需加强 pgvector 与 MD5 去重边界。",
+      "summary": "已经掌握 RAGNotebook 的主要数据流，仍需加强 pgvector 与 content_hash 重建边界。",
       "weak_points": ["向量维度变更后的处理", "知识库文件重传的清理策略"],
       "recommended_refs": [
         {
@@ -310,10 +313,10 @@
         },
         {
           "source_type": "knowledge",
-          "source_id": "ragnotebook-product-playbook.md",
+          "source_id": "00000000-0000-4000-8000-000000000601",
           "title": "RAGNotebook 产品使用手册",
-          "chunk_id": "ragnotebook-product-playbook.md",
-          "quote": "知识库上传经过校验、解析、切片、嵌入和 MD5 去重。",
+          "chunk_id": "00000000-0000-4000-8000-000000000601",
+          "quote": "知识库上传经过校验、保存原文件、解析、切片和嵌入。",
           "score": 0.88
         }
       ],
@@ -339,17 +342,17 @@
         {
           "id": "00000000-0000-4000-8000-000000000414",
           "turn_index": 2,
-          "question": "知识库文件重复上传时应该如何避免重复数据？",
-          "answer": "先比较同一用户下文件的 MD5，已有相同 MD5 就跳过；文件内容变化时清理旧文件名对应的向量和 MD5 记录再重建。",
+          "question": "知识库文件重复上传时应该如何避免重复索引？",
+          "answer": "先比较同一用户下 documents.content_hash，内容未变化就跳过；文件内容变化时清理对应 document 的索引和存储对象再重建。",
           "feedback": "回答完整，覆盖了幂等和内容变化两种情况。",
           "score": 88,
           "citations": [
             {
               "source_type": "knowledge",
-              "source_id": "ragnotebook-product-playbook.md",
+              "source_id": "00000000-0000-4000-8000-000000000601",
               "title": "RAGNotebook 产品使用手册",
-              "chunk_id": "ragnotebook-product-playbook.md",
-              "quote": "知识库上传经过校验、解析、切片、嵌入和 MD5 去重。",
+              "chunk_id": "00000000-0000-4000-8000-000000000601",
+              "quote": "知识库上传经过校验、保存原文件、解析、切片和嵌入。",
               "score": 0.89
             }
           ]
@@ -362,7 +365,7 @@
       "id": "00000000-0000-4000-8000-000000000501",
       "title": "RAGNotebook 数据流导图",
       "source_type": "mixed",
-      "source_ids": ["00000000-0000-4000-8000-000000000101", "ragnotebook-product-playbook.md"],
+      "source_ids": ["00000000-0000-4000-8000-000000000101", "00000000-0000-4000-8000-000000000601"],
       "focus": "主要业务对象和检索链路",
       "version": 1,
       "nodes": [
@@ -388,7 +391,7 @@
           "level": 1,
           "type": "concept",
           "summary": "笔记和知识库切片写入 index_chunks",
-          "source_refs": ["ragnotebook-product-playbook.md"]
+          "source_refs": ["00000000-0000-4000-8000-000000000601"]
         },
         {
           "id": "n3",
@@ -416,7 +419,7 @@
       ],
       "source_refs": [
         {"id": "00000000-0000-4000-8000-000000000101", "type": "note", "title": "RAGNotebook 架构速览"},
-        {"id": "ragnotebook-product-playbook.md", "type": "knowledge", "title": "RAGNotebook 产品使用手册"}
+        {"id": "00000000-0000-4000-8000-000000000601", "type": "knowledge", "title": "RAGNotebook 产品使用手册"}
       ],
       "model_config": {"seeded": true, "max_nodes": 40, "max_depth": 4}
     },

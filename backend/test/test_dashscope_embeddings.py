@@ -4,7 +4,7 @@ from types import SimpleNamespace
 
 import pytest
 
-from utils.factory import DashScopeEmbeddingsWrapper
+from agent.models.factory import DashScopeEmbeddingsWrapper
 
 
 def test_dashscope_embedding_passes_configured_dimension(monkeypatch):

@@ -4,7 +4,7 @@ import json
 import pytest
 from fastapi import HTTPException
 
-from controllers import health_controller as health
+from mvc.controllers import health_controller as health
 
 
 def _runtime_status(status: str) -> dict:

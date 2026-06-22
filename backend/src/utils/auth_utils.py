@@ -12,7 +12,7 @@ from sqlalchemy import select
 
 from core.failed_response import logger
 from db.db_config import AsyncSessionLocal
-from repositories.runtime_store import blacklist_jti, delete_cache, get_cache, is_jti_blacklisted, set_cache
+from mvc.repositories.runtime_store import blacklist_jti, delete_cache, get_cache, is_jti_blacklisted, set_cache
 from utils.env_loader import load_backend_env
 
 load_backend_env()
@@ -143,7 +143,7 @@ async def get_current_user_id(credentials: HTTPAuthorizationCredentials = Depend
 
 
 async def get_user_info_from_db(user_id: str) -> dict[str, Any] | None:
-    from models.user_model import User
+    from mvc.models.user_model import User
 
     async with AsyncSessionLocal() as session:
         result = await session.execute(select(User).where(User.uuid == user_id))

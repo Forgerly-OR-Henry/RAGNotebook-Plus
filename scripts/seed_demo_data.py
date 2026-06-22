@@ -4,6 +4,7 @@ import argparse
 import asyncio
 import hashlib
 import json
+import mimetypes
 import os
 import sys
 from datetime import datetime, timedelta, timezone
@@ -21,16 +22,17 @@ MANIFEST_PATH = FIXTURE_DIR / "manifest.json"
 
 DEMO_PASSWORD = "demo1234"
 REQUIRED_TABLES = (
-    "user_service",
+    "app_users",
+    "storage_objects",
+    "documents",
     "notes",
     "note_templates",
-    "review_records",
+    "review_schedules",
     "chat_sessions",
     "chat_messages",
-    "study_test_sessions",
-    "study_test_turns",
+    "quiz_sessions",
+    "quiz_turns",
     "mind_maps",
-    "knowledge_documents",
     "index_chunks",
 )
 
@@ -128,10 +130,12 @@ def validate_manifest(manifest: dict[str, Any], fixture_dir: Path = FIXTURE_DIR)
     knowledge_ids: set[str] = set()
     for index, item in enumerate(_items(manifest, "knowledge_files")):
         label = f"knowledge_files[{index}]"
-        _validate_required(item, ("filename", "title"), label, errors)
+        _validate_required(item, ("id", "filename", "title"), label, errors)
+        document_id = _register_id(errors, seen_ids, item.get("id"), f"{label}.id")
+        if document_id:
+            knowledge_ids.add(document_id)
         filename = item.get("filename")
         if isinstance(filename, str):
-            knowledge_ids.add(filename)
             path = fixture_dir / "knowledge" / filename
             if not path.is_file():
                 errors.append(f"{label}.filename not found: {path}")
@@ -143,8 +147,8 @@ def validate_manifest(manifest: dict[str, Any], fixture_dir: Path = FIXTURE_DIR)
         _validate_required(template, ("id", "name", "content"), label, errors)
         _register_id(errors, seen_ids, template.get("id"), f"{label}.id")
 
-    for index, review in enumerate(_items(manifest, "review_records")):
-        label = f"review_records[{index}]"
+    for index, review in enumerate(_items(manifest, "review_schedules")):
+        label = f"review_schedules[{index}]"
         _validate_required(review, ("id", "note_id", "review_count", "interval_days", "next_review_days_offset"), label, errors)
         _register_id(errors, seen_ids, review.get("id"), f"{label}.id")
         if review.get("note_id") not in note_ids:
@@ -197,7 +201,7 @@ def validate_manifest(manifest: dict[str, Any], fixture_dir: Path = FIXTURE_DIR)
         _validate_citations(mindmap.get("citations", []) or [], label, note_ids, knowledge_ids, errors)
 
     if user_id and len(user_id) > 36:
-        errors.append("user.id exceeds user_service.uuid length")
+        errors.append("user.id exceeds app_users.uuid length")
     if len(note_ids) < 8:
         errors.append("demo dataset must include at least 8 notes")
     if len(knowledge_ids) < 2:
@@ -244,8 +248,8 @@ def _relative_datetime(base: datetime, days_offset: int | float = 0, hours_offse
     return base + timedelta(days=days_offset, hours=hours_offset)
 
 
-def _file_md5(path: Path) -> str:
-    digest = hashlib.md5()
+def _file_sha256(path: Path) -> str:
+    digest = hashlib.sha256()
     with path.open("rb") as handle:
         for chunk in iter(lambda: handle.read(1024 * 1024), b""):
             digest.update(chunk)
@@ -277,55 +281,18 @@ async def ensure_schema_available(session) -> None:
         raise SeedError("PostgreSQL extension 'vector' is not installed. Run the pgvector migration first.")
 
 
-async def delete_demo_vectors(session, manifest: dict[str, Any], user_id: str) -> None:
+async def delete_demo_indexes(session, document_ids: list[str], user_id: str) -> None:
     from sqlalchemy import text
 
-    note_ids = [item["id"] for item in _items(manifest, "notes")]
-    filenames = [item["filename"] for item in _items(manifest, "knowledge_files")]
-
-    if note_ids:
+    if document_ids:
         params: dict[str, Any] = {"user_id": user_id}
-        note_in = _sql_in_params(params, "note_id", note_ids)
+        document_in = _sql_in_params(params, "document_id", document_ids)
         await session.execute(
             text(
                 f"""
                 DELETE FROM index_chunks
                 WHERE user_id = :user_id
-                  AND source_type = 'note'
-                  AND (source_id IN ({note_in}) OR metadata ->> 'note_id' IN ({note_in}))
-                """
-            ),
-            params,
-        )
-
-    if filenames:
-        params = {"user_id": user_id}
-        filename_in = _sql_in_params(params, "filename", filenames)
-        await session.execute(
-            text(
-                f"""
-                DELETE FROM index_chunks
-                WHERE user_id = :user_id
-                  AND source_type = 'knowledge'
-                  AND (
-                    metadata ->> 'original_filename' IN ({filename_in})
-                    OR metadata ->> 'filename' IN ({filename_in})
-                    OR source_id IN (
-                        SELECT id FROM knowledge_documents
-                        WHERE user_id = :user_id
-                          AND (filename IN ({filename_in}) OR original_filename IN ({filename_in}))
-                    )
-                  )
-                """
-            ),
-            params,
-        )
-        await session.execute(
-            text(
-                f"""
-                DELETE FROM knowledge_documents
-                WHERE user_id = :user_id
-                  AND (filename IN ({filename_in}) OR original_filename IN ({filename_in}))
+                  AND document_id IN ({document_in})
                 """
             ),
             params,
@@ -333,23 +300,28 @@ async def delete_demo_vectors(session, manifest: dict[str, Any], user_id: str) -
 
 
 async def reset_demo_data(session, manifest: dict[str, Any], user_id: str) -> None:
-    from sqlalchemy import delete
+    from sqlalchemy import delete, select
 
-    from models.chat_history import ChatMessage, ChatSession
-    from models.mind_map import MindMap
-    from models.note import Note
-    from models.note_template import NoteTemplate
-    from models.review_record import ReviewRecord
-    from models.study_test import StudyTestSession, StudyTestTurn
+    from mvc.models.chat_history import ChatMessage, ChatSession
+    from mvc.models.document import Document
+    from mvc.models.mind_map import MindMap
+    from mvc.models.note import Note
+    from mvc.models.note_template import NoteTemplate
+    from mvc.models.review_record import ReviewRecord
+    from mvc.models.storage_object import StorageObject
+    from mvc.models.study_test import StudyTestSession, StudyTestTurn
+    from mvc.services.storage_service import StorageService
 
     note_ids = [item["id"] for item in _items(manifest, "notes")]
+    knowledge_ids = [item["id"] for item in _items(manifest, "knowledge_files")]
+    document_ids = [*note_ids, *knowledge_ids]
     template_ids = [item["id"] for item in _items(manifest, "note_templates")]
-    review_ids = [item["id"] for item in _items(manifest, "review_records")]
+    review_ids = [item["id"] for item in _items(manifest, "review_schedules")]
     chat_ids = [item["id"] for item in _items(manifest, "chat_sessions")]
     quick_ids = [item["id"] for item in _items(manifest, "quick_test_sessions")]
     mindmap_ids = [item["id"] for item in _items(manifest, "mind_maps")]
 
-    await delete_demo_vectors(session, manifest, user_id)
+    await delete_demo_indexes(session, document_ids, user_id)
 
     if chat_ids:
         await session.execute(delete(ChatMessage).where(ChatMessage.session_id.in_(chat_ids)))
@@ -363,8 +335,25 @@ async def reset_demo_data(session, manifest: dict[str, Any], user_id: str) -> No
         await session.execute(delete(ReviewRecord).where(ReviewRecord.user_id == user_id, ReviewRecord.id.in_(review_ids)))
     if template_ids:
         await session.execute(delete(NoteTemplate).where(NoteTemplate.user_id == user_id, NoteTemplate.id.in_(template_ids)))
-    if note_ids:
-        await session.execute(delete(Note).where(Note.user_id == user_id, Note.id.in_(note_ids)))
+    if document_ids:
+        result = await session.execute(
+            select(Document, StorageObject)
+            .join(StorageObject, Document.storage_object_id == StorageObject.id)
+            .where(Document.user_id == user_id, Document.id.in_(document_ids))
+        )
+        storage_service = StorageService()
+        storage_objects = [storage_object for _, storage_object in result.all()]
+        for storage_object in storage_objects:
+            try:
+                await storage_service.delete_storage_object_data(storage_object)
+            except Exception:
+                storage_object.status = "missing"
+        if note_ids:
+            await session.execute(delete(Note).where(Note.user_id == user_id, Note.id.in_(note_ids)))
+        await session.execute(delete(Document).where(Document.user_id == user_id, Document.id.in_(document_ids)))
+        if storage_objects:
+            storage_ids = [storage_object.id for storage_object in storage_objects]
+            await session.execute(delete(StorageObject).where(StorageObject.id.in_(storage_ids)))
 
 
 def _assert_owned(obj: Any, user_id: str, label: str) -> None:
@@ -376,7 +365,7 @@ def _assert_owned(obj: Any, user_id: str, label: str) -> None:
 async def ensure_demo_user(session, user_config: dict[str, Any]) -> str:
     from sqlalchemy import or_, select
 
-    from models.user_model import User, UserStatusChoice
+    from mvc.models.user_model import User, UserStatusChoice
     from utils.auth_utils import hash_password, verify_password
 
     user_id = user_config["id"]
@@ -409,9 +398,63 @@ async def ensure_demo_user(session, user_config: dict[str, Any]) -> str:
 
 
 async def upsert_notes(session, manifest: dict[str, Any], user_id: str, base_time: datetime) -> None:
-    from models.note import Note
+    from mvc.models.document import Document
+    from mvc.models.note import Note
+    from mvc.models.storage_object import StorageObject
+    from mvc.services.storage_service import StorageService
 
+    storage_service = StorageService()
     for item in _items(manifest, "notes"):
+        document_id = item["id"]
+        content_bytes = item["content"].encode("utf-8")
+        uploaded = await storage_service.upload_bytes(
+            kind="notes",
+            user_id=user_id,
+            object_id=document_id,
+            filename=f"{item['title']}.md",
+            content=content_bytes,
+            mime_type="text/markdown",
+        )
+
+        storage_object = await session.get(StorageObject, uploaded.id)
+        if storage_object:
+            storage_object.backend = uploaded.backend
+            storage_object.host = uploaded.host
+            storage_object.protocol = uploaded.protocol
+            storage_object.storage_uri = uploaded.storage_uri
+            storage_object.storage_path = uploaded.storage_path
+            storage_object.original_filename = uploaded.original_filename
+            storage_object.mime_type = uploaded.mime_type
+            storage_object.file_ext = uploaded.file_ext
+            storage_object.checksum_sha256 = uploaded.checksum_sha256
+            storage_object.size_bytes = uploaded.size_bytes
+            storage_object.status = uploaded.status
+            storage_object.updated_at = base_time
+        else:
+            storage_object = uploaded
+            storage_object.created_at = base_time
+            storage_object.updated_at = base_time
+            session.add(storage_object)
+
+        document = await session.get(Document, document_id)
+        if document:
+            _assert_owned(document, user_id, f"document {document_id}")
+        else:
+            document = Document(id=document_id, user_id=user_id)
+            session.add(document)
+
+        document.source_type = "note"
+        document.title = item["title"]
+        document.storage_object_id = storage_object.id
+        document.content_hash = storage_object.checksum_sha256
+        document.file_size = storage_object.size_bytes
+        document.mime_type = "text/markdown"
+        document.file_ext = ".md"
+        document.status = "ready"
+        document.status_message = None
+        document.created_at = _relative_datetime(base_time, days_offset=-int(item.get("created_days_ago", 0)))
+        document.updated_at = _relative_datetime(base_time, hours_offset=-int(item.get("updated_hours_ago", 0)))
+
         note = await session.get(Note, item["id"])
         if note:
             _assert_owned(note, user_id, f"note {item['id']}")
@@ -420,7 +463,7 @@ async def upsert_notes(session, manifest: dict[str, Any], user_id: str, base_tim
             session.add(note)
 
         note.title = item["title"]
-        note.content = item["content"]
+        note.document_id = document_id
         note.category = item.get("category")
         note.tags = item.get("tags", [])
         note.is_pinned = bool(item.get("is_pinned", False))
@@ -429,7 +472,7 @@ async def upsert_notes(session, manifest: dict[str, Any], user_id: str, base_tim
 
 
 async def upsert_note_templates(session, manifest: dict[str, Any], user_id: str, base_time: datetime) -> None:
-    from models.note_template import NoteTemplate
+    from mvc.models.note_template import NoteTemplate
 
     for index, item in enumerate(_items(manifest, "note_templates")):
         template = await session.get(NoteTemplate, item["id"])
@@ -451,13 +494,13 @@ async def upsert_note_templates(session, manifest: dict[str, Any], user_id: str,
         template.updated_at = base_time
 
 
-async def upsert_review_records(session, manifest: dict[str, Any], user_id: str, base_time: datetime) -> None:
-    from models.review_record import ReviewRecord
+async def upsert_review_schedules(session, manifest: dict[str, Any], user_id: str, base_time: datetime) -> None:
+    from mvc.models.review_record import ReviewRecord
 
-    for item in _items(manifest, "review_records"):
+    for item in _items(manifest, "review_schedules"):
         record = await session.get(ReviewRecord, item["id"])
         if record:
-            _assert_owned(record, user_id, f"review_record {item['id']}")
+            _assert_owned(record, user_id, f"review_schedule {item['id']}")
         else:
             record = ReviewRecord(id=item["id"], user_id=user_id)
             session.add(record)
@@ -474,7 +517,7 @@ async def upsert_review_records(session, manifest: dict[str, Any], user_id: str,
 async def upsert_chat_sessions(session, manifest: dict[str, Any], user_id: str, base_time: datetime) -> None:
     from sqlalchemy import delete
 
-    from models.chat_history import ChatMessage, ChatSession
+    from mvc.models.chat_history import ChatMessage, ChatSession
 
     chat_ids = [item["id"] for item in _items(manifest, "chat_sessions")]
     for chat_id in chat_ids:
@@ -509,7 +552,7 @@ async def upsert_chat_sessions(session, manifest: dict[str, Any], user_id: str, 
 async def upsert_quick_tests(session, manifest: dict[str, Any], user_id: str, base_time: datetime) -> None:
     from sqlalchemy import delete
 
-    from models.study_test import StudyTestSession, StudyTestTurn
+    from mvc.models.study_test import StudyTestSession, StudyTestTurn
 
     session_ids = [item["id"] for item in _items(manifest, "quick_test_sessions")]
     for session_id in session_ids:
@@ -561,7 +604,7 @@ async def upsert_quick_tests(session, manifest: dict[str, Any], user_id: str, ba
 
 
 async def upsert_mind_maps(session, manifest: dict[str, Any], user_id: str, base_time: datetime) -> None:
-    from models.mind_map import MindMap
+    from mvc.models.mind_map import MindMap
 
     for index, item in enumerate(_items(manifest, "mind_maps")):
         mindmap = await session.get(MindMap, item["id"])
@@ -585,8 +628,8 @@ async def upsert_mind_maps(session, manifest: dict[str, Any], user_id: str, base
 
 
 async def build_embed_model():
-    from ai.rag.vector_store import embedding_dimension
-    from utils.factory import EmbedModelFactory
+    from agent.indexing.index_repository import embedding_dimension
+    from agent.models.factory import EmbedModelFactory
 
     model = EmbedModelFactory().generator()
     try:
@@ -601,10 +644,10 @@ async def build_embed_model():
     return model
 
 
-async def sync_note_vectors(manifest: dict[str, Any], user_id: str, embed_model) -> None:
+async def sync_note_indexes(manifest: dict[str, Any], user_id: str, embed_model) -> None:
     from langchain_core.documents import Document
 
-    from repositories.index_repository import IndexRepository
+    from agent.indexing.index_repository import IndexRepository
 
     notes = _items(manifest, "notes")
     note_ids = [item["id"] for item in notes]
@@ -633,87 +676,159 @@ async def sync_note_vectors(manifest: dict[str, Any], user_id: str, embed_model)
         )
 
 
-async def _existing_knowledge_md5(session, user_id: str, filename: str) -> str | None:
-    from sqlalchemy import text
+def _guess_mime_type(filename: str) -> str:
+    return mimetypes.guess_type(filename)[0] or "application/octet-stream"
+
+
+async def _existing_document_hash(session, user_id: str, document_id: str) -> str | None:
+    from sqlalchemy import select
+
+    from mvc.models.document import Document
 
     result = await session.execute(
-        text(
-            """
-            SELECT md5
-            FROM knowledge_documents
-            WHERE user_id = :user_id
-              AND (filename = :filename OR original_filename = :filename)
-            ORDER BY created_at DESC
-            LIMIT 1
-            """
-        ),
-        {"user_id": user_id, "filename": filename},
+        select(Document.content_hash).where(
+            Document.id == document_id,
+            Document.user_id == user_id,
+            Document.source_type == "knowledge",
+        )
     )
     return result.scalar_one_or_none()
 
 
-async def clear_knowledge_file(session, user_id: str, filename: str) -> None:
-    from sqlalchemy import text
+async def clear_knowledge_document(session, user_id: str, document_id: str) -> None:
+    from sqlalchemy import delete
 
-    await session.execute(
-        text(
-            """
-            DELETE FROM index_chunks
-            WHERE user_id = :user_id
-              AND source_type = 'knowledge'
-              AND (
-                metadata ->> 'original_filename' = :filename
-                OR metadata ->> 'filename' = :filename
-                OR source_id IN (
-                    SELECT id FROM knowledge_documents
-                    WHERE user_id = :user_id
-                      AND (filename = :filename OR original_filename = :filename)
-                )
-              )
-            """
-        ),
-        {"user_id": user_id, "filename": filename},
-    )
-    await session.execute(
-        text(
-            """
-            DELETE FROM knowledge_documents
-            WHERE user_id = :user_id
-              AND (filename = :filename OR original_filename = :filename)
-            """
-        ),
-        {"user_id": user_id, "filename": filename},
-    )
+    from mvc.models.document import Document
+    from mvc.models.storage_object import StorageObject
+    from mvc.services.storage_service import StorageService
+
+    document = await session.get(Document, document_id)
+    if document and document.user_id == user_id and document.source_type == "knowledge":
+        storage_object = await session.get(StorageObject, document.storage_object_id)
+        if storage_object:
+            try:
+                await StorageService().delete_storage_object_data(storage_object)
+            except Exception:
+                storage_object.status = "missing"
+        await delete_demo_indexes(session, [document_id], user_id)
+        await session.execute(delete(Document).where(Document.id == document_id, Document.user_id == user_id))
+        if storage_object:
+            await session.execute(delete(StorageObject).where(StorageObject.id == storage_object.id))
 
 
 async def sync_knowledge_files(manifest: dict[str, Any], user_id: str, embed_model) -> None:
-    from starlette.datastructures import UploadFile
-
     from core.background_init import init_manager
     from db.db_config import AsyncSessionLocal
-    from services.knowledge_service import KnowledgeIngestionService
+    from mvc.agent_gateway.indexing_gateway import DocumentParser, IndexRepository
+    from mvc.models.document import Document
+    from mvc.models.storage_object import StorageObject
+    from mvc.services.storage_service import StorageService
 
     init_manager.embed_model = embed_model
     init_manager.models_ready.set()
 
-    ingestion_service = KnowledgeIngestionService()
+    parser = DocumentParser()
+    index_repository = IndexRepository(embedding_model=embed_model)
+    storage_service = StorageService()
+
     for item in _items(manifest, "knowledge_files"):
+        document_id = item["id"]
         filename = item["filename"]
+        title = item.get("title") or filename
         path = FIXTURE_DIR / "knowledge" / filename
-        current_md5 = _file_md5(path)
+        content = path.read_bytes()
+        content_hash = _file_sha256(path)
+        mime_type = _guess_mime_type(filename)
 
         async with AsyncSessionLocal() as session:
-            existing_md5 = await _existing_knowledge_md5(session, user_id, filename)
-            if existing_md5 == current_md5:
+            existing_hash = await _existing_document_hash(session, user_id, document_id)
+            if existing_hash == content_hash:
                 print(f"Knowledge fixture unchanged, skipped: {filename}")
                 continue
-            await clear_knowledge_file(session, user_id, filename)
+            await clear_knowledge_document(session, user_id, document_id)
             await session.commit()
 
-        with path.open("rb") as handle:
-            upload = UploadFile(file=handle, filename=filename)
-            async for _ in ingestion_service.upload_stream([upload], user_id=user_id):
-                pass
+        storage_object = await storage_service.upload_bytes(
+            kind="knowledge",
+            user_id=user_id,
+            object_id=document_id,
+            filename=filename,
+            content=content,
+            mime_type=mime_type,
+        )
+        document = Document(
+            id=document_id,
+            user_id=user_id,
+            source_type="knowledge",
+            title=title,
+            storage_object_id=storage_object.id,
+            content_hash=content_hash,
+            file_size=len(content),
+            mime_type=mime_type,
+            file_ext=storage_object.file_ext,
+            status="pending",
+            status_message=None,
+            chunk_count=0,
+        )
+        async with AsyncSessionLocal() as session:
+            session.add(storage_object)
+            session.add(document)
+            try:
+                await session.commit()
+            except Exception:
+                await storage_service.delete_storage_object_data(storage_object)
+                raise
+
+        try:
+            parsed = await asyncio.to_thread(
+                parser.parse_bytes_sync,
+                content=content,
+                filename=filename,
+                user_id=user_id,
+                use_multimodal=False,
+            )
+            for chunk_index, doc in enumerate(parsed.documents):
+                doc.metadata.update(
+                    {
+                        "document_id": document_id,
+                        "filename": title,
+                        "original_filename": filename,
+                        "content_hash": content_hash,
+                        "doc_type": "knowledge",
+                        "chunk_index": chunk_index,
+                        "dataset": "demo",
+                    }
+                )
+            await index_repository.delete_source(user_id=user_id, source_type="knowledge", source_id=document_id)
+            await index_repository.upsert_documents(
+                source_type="knowledge",
+                source_id=document_id,
+                user_id=user_id,
+                documents=parsed.documents,
+                metadata={
+                    "document_id": document_id,
+                    "filename": title,
+                    "original_filename": filename,
+                    "content_hash": content_hash,
+                    "doc_type": "knowledge",
+                    "dataset": "demo",
+                },
+            )
+            async with AsyncSessionLocal() as session:
+                saved = await session.get(Document, document_id)
+                if saved:
+                    saved.status = "ready"
+                    saved.status_message = None
+                    saved.chunk_count = len(parsed.documents)
+                    await session.commit()
+        except Exception as exc:
+            async with AsyncSessionLocal() as session:
+                saved = await session.get(Document, document_id)
+                if saved:
+                    saved.status = "failed"
+                    saved.status_message = str(exc)
+                    await session.commit()
+            raise
         print(f"Knowledge fixture processed: {filename}")
 
 
@@ -732,18 +847,18 @@ async def seed_database(manifest: dict[str, Any], reset_demo: bool, skip_knowled
         user_id = await ensure_demo_user(session, manifest["user"])
         await upsert_notes(session, manifest, user_id, base_time)
         await upsert_note_templates(session, manifest, user_id, base_time)
-        await upsert_review_records(session, manifest, user_id, base_time)
+        await upsert_review_schedules(session, manifest, user_id, base_time)
         await upsert_chat_sessions(session, manifest, user_id, base_time)
         await upsert_quick_tests(session, manifest, user_id, base_time)
         await upsert_mind_maps(session, manifest, user_id, base_time)
         await session.commit()
 
     if skip_knowledge:
-        print("Skipped knowledge fixtures and all vector synchronization because --skip-knowledge was set.")
+        print("Skipped knowledge fixtures and all index synchronization because --skip-knowledge was set.")
         return
 
     embed_model = await build_embed_model()
-    await sync_note_vectors(manifest, user_id, embed_model)
+    await sync_note_indexes(manifest, user_id, embed_model)
     await sync_knowledge_files(manifest, user_id, embed_model)
 
 

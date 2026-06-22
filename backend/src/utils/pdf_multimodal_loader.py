@@ -8,11 +8,10 @@ import fitz
 from langchain_core.documents import Document
 
 from core.logger_handler import logger
-from utils.image_extractor import extract_images_from_pdf
 from utils.path_tool import get_abstract_path
-from utils.vision_service import VisionService
+from agent.vision.vision_service import VisionService
 
-# 环境变量配置项（可被 config/.env 覆盖），用于控制多模态 PDF 加载的行为：
+# 环境变量配置项，用于控制多模态 PDF 加载的行为：
 # - BATCH_SIZE:    每批次发送给视觉模型的页数（越大越快，但受限于视觉模型的上下文窗口）
 # - DEDUP_ENABLED: 是否对视觉相似的页面去重（如 PPT 模板页、重复的页眉页脚）
 # - DEDUP_THRESHOLD: 感知哈希的汉明距离阈值，越小去重越严格
@@ -38,7 +37,7 @@ class _PageVisionData:
 def _build_document(
     content: str,
     page_num: int,
-    md5: str,
+    content_hash: str,
     source: str,
     image_paths: list,
     has_images: bool,
@@ -46,7 +45,7 @@ def _build_document(
     """
     构造 LangChain Document 对象。
     关键 metadata 说明：
-    - md5:       文档的 MD5 值，用于关联提取的图片目录
+    - content_hash: 文档内容哈希，用于切片 metadata 追踪来源版本
     - image_paths: 该页提取的图片文件名列表（相对路径），存入向量库后随检索结果一起返回
     - has_images:  该页是否包含图片（前端可根据此字段决定是否展示图片区域）
     """
@@ -54,7 +53,7 @@ def _build_document(
         page_content=content,
         metadata={
             "page": page_num,
-            "md5": md5,
+            "content_hash": content_hash,
             "source": source,
             "image_paths": image_paths if image_paths else None,
             "has_images": has_images,
@@ -62,7 +61,7 @@ def _build_document(
     )
 
 
-async def pdf_multimodal_loader(file_path: str, md5: str, user_id: str) -> list[Document]:
+async def pdf_multimodal_loader(file_path: str, content_hash: str, user_id: str) -> list[Document]:
     """
     多模态 PDF 加载器（异步版）。
 
@@ -86,8 +85,7 @@ async def pdf_multimodal_loader(file_path: str, md5: str, user_id: str) -> list[
         return []
 
     vision = VisionService()
-    # 第1步：提取PDF中所有嵌入的原始图片，保存到磁盘
-    images_map = extract_images_from_pdf(abs_file_path, user_id, md5)
+    images_map: dict[int, list[str]] = {}
 
     try:
         doc = fitz.open(abs_file_path)
@@ -125,7 +123,7 @@ async def pdf_multimodal_loader(file_path: str, md5: str, user_id: str) -> list[
                 if temp_path and os.path.exists(temp_path):
                     os.unlink(temp_path)
                 documents.append(_build_document(
-                    text, page_num + 1, md5, source_name,
+                    text, page_num + 1, content_hash, source_name,
                     page_images, has_images,
                 ))
                 continue
@@ -140,7 +138,7 @@ async def pdf_multimodal_loader(file_path: str, md5: str, user_id: str) -> list[
         else:
             # 纯文本页面，无需视觉模型处理，直接作为 Document
             documents.append(_build_document(
-                text, page_num + 1, md5, source_name,
+                text, page_num + 1, content_hash, source_name,
                 page_images, False,
             ))
 
@@ -236,7 +234,7 @@ async def pdf_multimodal_loader(file_path: str, md5: str, user_id: str) -> list[
                 content = vd.text
 
             documents.append(_build_document(
-                content, vd.page_num, md5, source_name,
+                content, vd.page_num, content_hash, source_name,
                 vd.image_paths, vd.has_images,
             ))
 
@@ -259,7 +257,7 @@ async def pdf_multimodal_loader(file_path: str, md5: str, user_id: str) -> list[
     return documents
 
 
-def pdf_multimodal_loader_sync(file_path: str, md5: str, user_id: str) -> list[Document]:
+def pdf_multimodal_loader_sync(file_path: str, content_hash: str, user_id: str) -> list[Document]:
     """
     多模态 PDF 加载器（同步版）。
     逻辑与异步版完全一致，区别仅在于视觉模型调用使用 ThreadPoolExecutor 而非 asyncio.gather。
@@ -271,7 +269,7 @@ def pdf_multimodal_loader_sync(file_path: str, md5: str, user_id: str) -> list[D
         return []
 
     vision = VisionService()
-    images_map = extract_images_from_pdf(abs_file_path, user_id, md5)
+    images_map: dict[int, list[str]] = {}
 
     try:
         doc = fitz.open(abs_file_path)
@@ -306,7 +304,7 @@ def pdf_multimodal_loader_sync(file_path: str, md5: str, user_id: str) -> list[D
                 if temp_path and os.path.exists(temp_path):
                     os.unlink(temp_path)
                 documents.append(_build_document(
-                    text, page_num + 1, md5, source_name,
+                    text, page_num + 1, content_hash, source_name,
                     page_images, has_images,
                 ))
                 continue
@@ -320,7 +318,7 @@ def pdf_multimodal_loader_sync(file_path: str, md5: str, user_id: str) -> list[D
             ))
         else:
             documents.append(_build_document(
-                text, page_num + 1, md5, source_name,
+                text, page_num + 1, content_hash, source_name,
                 page_images, False,
             ))
 
@@ -404,7 +402,7 @@ def pdf_multimodal_loader_sync(file_path: str, md5: str, user_id: str) -> list[D
                 content = vd.text
 
             documents.append(_build_document(
-                content, vd.page_num, md5, source_name,
+                content, vd.page_num, content_hash, source_name,
                 vd.image_paths, vd.has_images,
             ))
 

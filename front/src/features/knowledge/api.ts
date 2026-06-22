@@ -150,16 +150,6 @@ export const knowledgeApi = {
     return res.data
   },
 
-  deleteByFilename: async (filename: string) => {
-    const res = await client.delete<ApiResponse<null>>(endpoints.knowledgeDeleteFilename, { params: { filename } })
-    return res.data
-  },
-
-  deleteByMd5: async (md5: string) => {
-    const res = await client.delete<ApiResponse<null>>(endpoints.knowledgeMd5Delete(md5))
-    return res.data
-  },
-
   cleanAll: async () => {
     const res = await client.delete<ApiResponse<null>>(endpoints.knowledgeDocuments)
     return res.data

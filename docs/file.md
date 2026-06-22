@@ -1,6 +1,6 @@
 # 项目文件结构说明
 
-本文用树状结构记录当前项目目录和每个文件的作用。真实运行配置 `config/.env`、真实模型密钥 `config/apikey.txt`、依赖目录、构建产物、缓存和运行时数据由 `.gitignore` 排除；其中 `config/.env` 和 `config/apikey.txt` 虽不提交，但属于项目运行入口，仍在结构中记录。
+本文用树状结构记录当前项目目录和每个文件的作用。统一启动配置 `config/.env`、后端单独启动配置 `backend/.env`、前端单独启动配置 `front/.env`、真实模型密钥 `config/apikey.txt`、依赖目录、构建产物、缓存和运行时数据由 `.gitignore` 排除；其中 `config/.env` 和 `config/apikey.txt` 虽不提交，但属于项目运行入口，仍在结构中记录。
 
 ```text
 RAGNotebook/
@@ -18,47 +18,41 @@ RAGNotebook/
 │
 ├── backend/                                        # FastAPI 后端、数据库迁移、测试和 API 快照。
 │   ├── .python-version                             # 后端 Python 版本提示文件，供版本管理工具识别。
-│   ├── alembic.ini                                 # Alembic 配置入口；迁移运行时数据库 URL 会由 config/.env 覆盖。
+│   ├── alembic.ini                                 # Alembic 配置入口；统一启动时使用注入配置，手动运行时读取 backend/.env。
+│   ├── .env.example                                # 后端手动启动配置模板；真实 backend/.env 不提交。
 │   ├── openapi.json                                # 当前后端 API 的静态 OpenAPI 快照。
 │   ├── pyproject.toml                              # 后端项目元数据、依赖和测试配置。
 │   ├── requirements.txt                            # pip 依赖清单，供非 uv 环境安装后端依赖。
 │   │
 │   ├── alembic/                                    # Alembic 数据库迁移目录。
-│   │   ├── env.py                                  # Alembic 运行环境；加载 config/.env，导入 ORM 模型，配置 public schema 迁移。
+│   │   ├── env.py                                  # Alembic 运行环境；加载后端运行环境，导入 ORM 模型，配置 public schema 迁移。
 │   │   └── versions/                               # 迁移版本脚本目录。
-│   │       ├── 20260618_0001_initial_enterprise_postgres.py  # 初始 PostgreSQL 迁移，创建用户、笔记、会话、回顾、测评、导图和运行态表。
-│   │       ├── 20260621_0002_pgvector_store.py     # 旧 pgvector 迁移，创建历史向量切片和知识库 MD5 去重结构。
-│   │       └── 20260622_0003_domain_index_knowledge_documents.py  # 领域化索引迁移，创建 knowledge_documents 和 index_chunks，并从旧向量表回填。
+│   │       └── 20260622_0001_storage_refactor_initial.py  # 新初始迁移，创建 storage_objects、documents、notes、index_chunks 和当前业务表。
 │   │
-│   ├── src/                                        # 后端源码根目录，采用扁平 MVC 分层。
-│   │   ├── main.py                                 # FastAPI 应用入口；注册 controllers.routers、中间件、CORS、静态媒体、异常处理和生命周期。
-│   │   ├── ai/                                     # AI 编排层。
-│   │   │   ├── agent/                              # LangChain Agent 工具、流式执行和中间件。
-│   │   │   └── rag/                                # RAG 问答编排、文档处理、检索器、重排序、SSE 和历史向量兼容层。
-│   │   ├── config/                                 # 后端 YAML/JSON 配置目录。
-│   │   │   ├── agent.yaml                          # Agent 配置文件。
-│   │   │   ├── prompt.yaml                         # Prompt 类型到 prompt 文件的映射配置。
-│   │   │   ├── rag.yaml                            # 旧 RAG 配置占位说明；模型配置已迁移到 config/.env。
-│   │   │   ├── uvicorn_log_config.json             # Uvicorn 日志格式和级别配置。
-│   │   │   └── vector_store.yaml                   # 知识库文件类型、切片大小、重叠长度、召回数量和数据路径配置。
-│   │   ├── controllers/                            # FastAPI 控制器层，只负责参数、鉴权、限流、响应封装和流式响应。
-│   │   │   ├── chat_controller.py                  # 聊天、Agent 流式问答、RAG 查询、会话和重排序路由。
-│   │   │   ├── health_controller.py                # 存活检查和就绪检查路由。
-│   │   │   ├── knowledge_controller.py             # 知识库文档资源 API，按 document_id 上传、查询、删除。
-│   │   │   ├── mindmap_controller.py               # 思维导图生成、查询、更新和导出路由。
-│   │   │   ├── note_controller.py                  # 笔记 CRUD、文件导入、搜索、批量操作、补全、写作辅助、关联和导出路由。
-│   │   │   ├── note_template_controller.py         # 笔记模板列表、创建、更新、删除和排序路由。
-│   │   │   ├── quick_test_controller.py            # 快速测试创建、答题、查询和结束路由。
-│   │   │   ├── review_controller.py                # 每日回顾列表、标记完成和生成回顾问题路由。
-│   │   │   └── user_controller.py                  # 登录、注册、重置密码、刷新 Token、用户资料、登出和头像上传路由。
+│   ├── config/                                     # 后端 YAML/JSON 配置目录，位于源码包之外。
+│   │   ├── agent.yaml                              # Agent 配置文件。
+│   │   ├── rag.yaml                                # 旧 RAG 配置占位说明；模型配置已迁移到 env。
+│   │   └── uvicorn_log_config.json                 # Uvicorn 日志格式和级别配置。
+│   │
+│   ├── src/                                        # 后端源码根目录，按 agent 与 mvc 两个主域组织。
+│   │   ├── main.py                                 # FastAPI 应用入口；注册 mvc.controllers.routers、中间件、CORS、异常处理和生命周期。
+│   │   ├── agent/                                  # 智能能力层，负责 LLM、RAG、Prompt、模型和索引。
+│   │   │   ├── indexing/                           # 文档解析、统一索引仓储和 pgvector 写入/检索能力。
+│   │   │   ├── models/                             # Chat、Embedding、Vision 模型工厂。
+│   │   │   ├── prompts/                            # LLM 提示词模板和 Prompt registry。
+│   │   │   ├── rag/                                # RAG 问答编排、文档处理、检索器、重排序和 SSE 模型。
+│   │   │   ├── runtime/                            # LangChain Agent 工具、流式执行和中间件。
+│   │   │   └── vision/                             # 多模态视觉模型调用服务。
+│   │   ├── mvc/                                    # MVC 应用层，负责 API、业务、数据库和事务。
+│   │   │   ├── agent_gateway/                      # MVC 调用 agent 的唯一入口。
+│   │   │   ├── controllers/                        # FastAPI 控制器层，只负责参数、鉴权、限流、响应封装和流式响应。
+│   │   │   ├── models/                             # SQLAlchemy ORM 模型。
+│   │   │   ├── repositories/                       # MVC 仓储层，封装运行态存储和用户仓储。
+│   │   │   ├── schemas/                            # Pydantic 请求/响应模型，按业务拆分。
+│   │   │   └── services/                           # 业务服务层，封装笔记、模板、回顾、测评、导图、知识库、用户和来源聚合。
 │   │   ├── core/                                   # 通用核心能力：响应、异常、日志、限流和后台初始化。
 │   │   ├── db/                                     # 数据库连接、自动迁移和测试用户初始化。
-│   │   ├── models/                                 # SQLAlchemy ORM 模型。
-│   │   ├── prompt/                                 # LLM 提示词模板目录。
-│   │   ├── repositories/                           # 仓储和基础设施适配层，封装 pgvector、运行态存储、用户仓储和文档解析。
-│   │   ├── schemas/                                # Pydantic 请求/响应模型，按业务拆分。
-│   │   ├── services/                               # 业务服务层，封装笔记、模板、回顾、测评、导图、知识库、用户和来源聚合。
-│   │   └── utils/                                  # 通用工具层，包括鉴权、配置加载、模型工厂、文件处理、路径和 prompt 加载。
+│   │   └── utils/                                  # 通用工具层，包括鉴权、配置加载、文件处理和路径工具。
 │   │
 │   └── test/                                       # 后端测试和演示数据夹具。
 │       ├── test_demo_dataset.py                    # 演示数据 manifest 的结构和引用完整性测试。
@@ -74,7 +68,7 @@ RAGNotebook/
 │                   └── ragnotebook-product-playbook.md        # 演示知识库 Markdown 文件：产品使用手册。
 │
 ├── front/                                          # Vue3 + TypeScript 前端。
-│   ├── .env.example                                # 前端独立启动时的环境变量模板；完整启动时由 config/.env 注入覆盖。
+│   ├── .env.example                                # 前端独立启动时的环境变量模板；统一启动时由 config/.env 注入覆盖。
 │   ├── .gitignore                                  # 前端目录局部忽略规则。
 │   ├── README.md                                   # Vite/Vue 前端模板说明。
 │   ├── eslint.config.js                            # 前端 ESLint 配置。
@@ -157,7 +151,7 @@ RAGNotebook/
     ├── seed_demo_data.py                           # 演示数据导入脚本；校验 manifest，写入用户/笔记/模板/会话/测评/导图，并同步向量。
     ├── download_reranker_model/
     │   ├── download_reranker_model.bat             # Windows 下下载重排序模型的批处理入口。
-    │   └── download_reranker_model.py              # 从 ModelScope 下载 BAAI/bge-reranker-v2-m3 并提示更新 config/.env。
+    │   └── download_reranker_model.py              # 从 ModelScope 下载 BAAI/bge-reranker-v2-m3 并提示更新当前运行 env。
     └── postgresql/
         ├── install_pgvector_windows.bat            # Windows 下安装 pgvector 的辅助批处理脚本。
         └── pg.sh                                   # Linux PostgreSQL 管理脚本，包含安装、服务、用户/库、扩展和备份等操作。

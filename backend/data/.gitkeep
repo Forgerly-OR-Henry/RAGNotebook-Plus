@@ -1,0 +1,1 @@
+# Keep backend/data in the repository; runtime files stay ignored.

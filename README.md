@@ -24,8 +24,9 @@
 
 | 方向 | 当前改进版 |
 | --- | --- |
-| 数据底座 | PostgreSQL 统一承载用户、笔记、会话、回顾、测评、导图、运行态数据 |
+| 数据底座 | PostgreSQL 统一承载用户、文档元数据、笔记、会话、回顾、测评、导图、运行态数据 |
 | 向量检索 | PostgreSQL pgvector 存储知识库与笔记向量，统一用户隔离 |
+| 文件存储 | 统一 StorageService 管理 Markdown 笔记、知识库原文件、附件和头像，支持本机目录与 SFTP |
 | 数据迁移 | Alembic 管理表结构和 pgvector 初始化 |
 | 前端 | Vue3 + TypeScript + Vite + Pinia |
 | 启动方式 | 根目录 `start.py` 统一读取 `config/.env`，启动数据库、后端和前端；数据库初始化由后端 startup 负责 |
@@ -37,15 +38,15 @@
 
 - **笔记管理**：Markdown/Tiptap 编辑、分类、标签、置顶、分页、批量操作和 Markdown 导出。
 - **智能标签**：保存笔记后可由 LLM 异步生成标签和分类。
-- **语义搜索**：笔记进入 `vector_chunks(store=note)`，支持向量检索。
-- **RAG 知识库**：支持 TXT / PDF / MD / PPTX / DOCX 上传、切片、向量化、去重、详情和切片查看。
+- **语义搜索**：笔记和知识库切片进入 `index_chunks`，支持向量检索。
+- **RAG 知识库**：支持 TXT / PDF / MD / PPTX / DOCX 上传，原文件保持上传格式，解析后切片、向量化、详情和切片查看。
 - **AI 问答**：Agent 流式对话，结合知识库与笔记检索结果生成回答。
 - **AI 写作辅助**：内联补全、续写、扩写、摘要和跨源关联推荐。
 - **间隔重复回顾**：按艾宾浩斯间隔推进待回顾笔记。
 - **快速测试**：从笔记、知识库或混合来源生成连续问答、反馈和总结。
 - **思维导图**：从笔记或知识库生成可编辑图谱，支持 JSON 和 Mermaid 导出。
 - **用户隔离**：关系数据和向量数据都以 `user_id` 作为访问边界。
-- **运行态治理**：Token 黑名单、限流计数、短期缓存等写入 PostgreSQL。
+- **运行态治理**：Token 撤销、限流桶、短期缓存等写入 PostgreSQL。
 
 ## 项目演示
 
@@ -122,8 +123,7 @@ python start.py --strict-ports
 
 ```powershell
 cd backend
-$env:PYTHONPATH = "src"
-.venv\Scripts\python.exe -m uvicorn main:app --reload --host 0.0.0.0 --port 10000
+.venv\Scripts\python.exe src\main.py
 ```
 
 前端：
@@ -142,7 +142,11 @@ docker compose up -d postgres
 
 ## 配置说明
 
-`config/.env` 是一键启动和后端运行的主配置文件。`front/.env.example` 只用于前端独立启动参考。
+配置读取边界：
+
+- 使用 `start.py` 统一启动时，只读取 `config/.env`，并把配置注入给 PostgreSQL、后端和前端。
+- 单独启动后端时，只读取 `backend/.env`；`backend/.env.example` 是模板。
+- 单独启动前端时，只读取 `front/.env`；`front/.env.example` 是模板。
 
 最小配置示例：
 
@@ -188,15 +192,7 @@ ALGORITHM=HS256
 your_api_key_here
 ```
 
-知识库和切片参数在 [backend/src/config/vector_store.yaml](./backend/src/config/vector_store.yaml)：
-
-```yaml
-k: 5
-data_path: data
-allow_knowledge_file_types: ["txt", "pdf", "md", "pptx", "docx"]
-chunk_size: 1000
-chunk_overlap: 20
-```
+知识库文件类型白名单在 `backend/src/mvc/services/knowledge_service.py`，切片默认值在 `backend/src/agent/rag/text_spliter.py`。持久文件位置由 `FILE_STORAGE_*` 环境变量控制。
 
 重排序模型配置见 [docs/modelscope_model.md](./docs/modelscope_model.md)。
 
@@ -282,10 +278,10 @@ chunk_overlap: 20
 
 常见入口：
 
-- API Key 错误：检查 `config/.env` 中 `ALIYUN_ACCESS_KEY_SECRET` 是否指向 `apikey.txt`，并确认 `config/apikey.txt` 内只有一行真实 key。
+- API Key 错误：统一启动检查 `config/.env`，后端单独启动检查 `backend/.env`，确认 `ALIYUN_ACCESS_KEY_SECRET` 指向有效 key 文件。
 - 数据库连接失败：确认 `docker compose up -d postgres` 已启动，且 `DATABASE_URL` 与 `POSTGRES_*` 一致。
 - pgvector 迁移失败：确认数据库可执行 `CREATE EXTENSION vector`，本地建议使用默认 Compose 镜像。
-- 向量维度不匹配：确认 `config/.env` 的 `EMBEDDING_DIM` 与当前嵌入模型输出一致。
+- 向量维度不匹配：确认当前运行 env 的 `EMBEDDING_DIM` 与当前嵌入模型输出一致。
 - 前端无法访问后端：检查 `VITE_BACKEND_TARGET`、后端端口和 `CORS_ALLOW_ORIGINS`。
 
 更多内容见 [docs/troubleshooting.md](./docs/troubleshooting.md)。

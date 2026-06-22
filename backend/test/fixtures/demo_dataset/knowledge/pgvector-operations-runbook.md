@@ -7,7 +7,7 @@
 1. 确认 PostgreSQL 服务已启动，并且 DATABASE_URL 指向同一个库。
 2. 确认数据库用户有权限执行 `CREATE EXTENSION vector`。
 3. 查询 `pg_extension`，确认 vector 扩展已经安装。
-4. 查询 `knowledge_documents` 和 `index_chunks`，确认迁移已经完成。
+4. 查询 `documents`、`storage_objects` 和 `index_chunks`，确认迁移已经完成。
 
 ## 维度检查
 

@@ -1,9 +1,7 @@
 import asyncio
-import hashlib
 import os
 import sys
 
-import aiofiles
 from langchain_community.document_loaders import (
     PyPDFLoader,
     TextLoader,
@@ -30,31 +28,6 @@ class FontBBoxStreamFilter:
         self.stream.flush()
 
 sys.stderr = FontBBoxStreamFilter(sys.stderr)
-
-async def get_file_md5_hex(file_path: str) -> str:
-    """获取文件的md5值"""
-    # 处理路径，确保使用绝对路径
-    abs_file_path = get_abstract_path(file_path) if not os.path.isabs(file_path) else file_path
-
-    if not os.path.exists(abs_file_path):
-        logger.error(f"【md5计算】文件路径 {abs_file_path} 不存在")
-        return ""
-
-    if not os.path.isfile(abs_file_path):
-        logger.error(f"【md5计算】文件路径 {abs_file_path} 不是文件")
-        return ""
-
-    md5_object = hashlib.md5()
-    chunk_size = 1024
-    try:
-        async with aiofiles.open(abs_file_path, "rb") as f:
-            while chunk := await f.read(chunk_size):
-                md5_object.update(chunk)
-    except Exception as e:
-        logger.error(f"【md5计算】读取文件 {abs_file_path} 时出错: {e}")
-        return ""
-
-    return md5_object.hexdigest()
 
 async def listdir_allowed_type(path: str, allowed_types: tuple[str]) -> tuple:
     """
@@ -172,31 +145,6 @@ async def ppt_loader(file_path: str) -> list[Document]:
     except Exception as e:
         logger.error(f"【PPT文件加载】加载文件 {abs_file_path} 时出错: {e}")
         return []
-
-
-def get_file_md5_hex_sync(file_path: str) -> str:
-    """同步获取文件的md5值（用于多线程场景）"""
-    abs_file_path = get_abstract_path(file_path) if not os.path.isabs(file_path) else file_path
-
-    if not os.path.exists(abs_file_path):
-        logger.error(f"【md5计算】文件路径 {abs_file_path} 不存在")
-        return ""
-
-    if not os.path.isfile(abs_file_path):
-        logger.error(f"【md5计算】文件路径 {abs_file_path} 不是文件")
-        return ""
-
-    md5_object = hashlib.md5()
-    chunk_size = 1024
-    try:
-        with open(abs_file_path, "rb") as f:
-            while chunk := f.read(chunk_size):
-                md5_object.update(chunk)
-    except Exception as e:
-        logger.error(f"【md5计算】读取文件 {abs_file_path} 时出错: {e}")
-        return ""
-
-    return md5_object.hexdigest()
 
 
 def pdf_loader_sync(file_path: str, password: str = None) -> list[Document]:

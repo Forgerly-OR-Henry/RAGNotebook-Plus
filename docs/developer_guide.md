@@ -1,6 +1,6 @@
 # RAGNotebook 改进版开发者指南
 
-本文面向接手“RAGNotebook 改进版 / 云笺集”的开发者，说明当前代码结构、启动生命周期、核心数据流和扩展方式。文档以当前仓库实现为准：后端入口位于 `backend/src/main.py`，业务代码直接位于 `backend/src` 的扁平 MVC 分层目录，前端位于 `front/src`。
+本文面向接手“RAGNotebook 改进版 / 云笺集”的开发者，说明当前代码结构、启动生命周期、核心数据流和扩展方式。文档以当前仓库实现为准：后端入口位于 `backend/src/main.py`，业务代码按 `mvc` 与 `agent` 两个主域组织，前端位于 `front/src`。
 
 ## 1. 架构总览
 
@@ -8,14 +8,14 @@
 flowchart LR
     Browser["Vue3 Frontend\nVite + Pinia + Vue Router"] --> Proxy["Vite Proxy\nfront/vite.config.ts"]
     Proxy --> API["FastAPI\nbackend/src/main.py"]
-    API --> Controllers["Controllers\nbackend/src/controllers"]
+    API --> Controllers["Controllers\nbackend/src/mvc/controllers"]
     Controllers --> Services["Services\nbusiness use cases + sources"]
-    Services --> Repos["Repositories\nDB + pgvector + documents"]
+    Services --> Gateway["Agent Gateway\nbackend/src/mvc/agent_gateway"]
+    Services --> Repos["Repositories\nruntime + user data"]
     Services --> Models["Models\nSQLAlchemy ORM"]
     Repos --> PG["PostgreSQL\nSQLAlchemy Async"]
-    Repos --> Vec["pgvector\nindex_chunks"]
-    Services --> AI["AI\nRAG + Agent"]
-    AI --> Services
+    Gateway --> AI["Agent Domain\nRAG + Agent + indexing"]
+    AI --> Vec["pgvector\nindex_chunks"]
     AI --> LLM["DashScope or Ollama"]
     API --> Init["Background Init\nmodels + note vector + reranker"]
 ```
@@ -26,14 +26,15 @@ flowchart LR
 | --- | --- | --- |
 | 前端页面 | `front/src/views` | 页面状态、交互、SSE 消费和可视化渲染 |
 | 前端 API | `front/src/features/*/api.ts`、`front/src/api` | feature API 为主，旧 `front/src/api` 保留 re-export 和共享 client |
-| 控制器层 | `backend/src/controllers` | 参数声明、鉴权、限流、响应封装、流式响应 |
-| 服务层 | `backend/src/services` | 笔记、知识库、模板、回顾、测评、导图、用户、来源注册和业务用例 |
-| 仓储层 | `backend/src/repositories` | pgvector 统一索引、运行态存储、文档解析和用户数据访问 |
-| 模型层 | `backend/src/models` | SQLAlchemy ORM |
-| View/DTO | `backend/src/schemas` | Pydantic 请求、响应和引用模型 |
-| AI 编排 | `backend/src/ai` | RAG、Agent、重排序、检索器和文档处理 |
+| 控制器层 | `backend/src/mvc/controllers` | 参数声明、鉴权、限流、响应封装、流式响应 |
+| 服务层 | `backend/src/mvc/services` | 笔记、知识库、模板、回顾、测评、导图、用户、来源注册和业务用例 |
+| 仓储层 | `backend/src/mvc/repositories` | 运行态存储和用户数据访问 |
+| 模型层 | `backend/src/mvc/models` | SQLAlchemy ORM |
+| View/DTO | `backend/src/mvc/schemas` | Pydantic 请求、响应和引用模型 |
+| Agent Gateway | `backend/src/mvc/agent_gateway` | MVC 调用 Agent 能力的唯一入口 |
+| Agent 域 | `backend/src/agent` | RAG、Agent、重排序、检索器、Prompt、模型和索引 |
 | 数据库启动 | `backend/src/db` | engine/session、自动迁移和测试用户初始化 |
-| 公共能力 | `backend/src/core`、`backend/src/utils` | 日志、异常、限流、配置、模型工厂、文件解析 |
+| 公共能力 | `backend/src/core`、`backend/src/utils` | 日志、异常、限流、配置、文件解析和路径工具 |
 
 ## 2. 目录职责
 
@@ -44,6 +45,8 @@ flowchart LR
 | `start.py` | 本地开发一键启动脚本，负责 `config/.env`、依赖检查、数据库服务、后端和前端进程 |
 | `docker-compose.yml` | 本地 PostgreSQL + pgvector 服务 |
 | `config/.env.example` | 一键启动主配置模板 |
+| `backend/.env.example` | 后端单独启动配置模板 |
+| `front/.env.example` | 前端单独启动配置模板 |
 | `README.md` | 面向使用者的说明 |
 | `docs/` | 面向开发和维护的文档 |
 | `images/` | README 截图 |
@@ -52,16 +55,18 @@ flowchart LR
 
 | 路径 | 说明 |
 | --- | --- |
-| `backend/src/main.py` | FastAPI app、路由注册、中间件、静态媒体、启动和关闭事件 |
-| `backend/src/controllers/` | FastAPI 控制器，按业务暴露路由 |
-| `backend/src/services/` | 应用服务、知识库服务、笔记索引和来源注册 |
-| `backend/src/repositories/` | 数据访问和基础设施适配：运行态存储、pgvector、文档解析、用户仓储 |
-| `backend/src/schemas/` | Pydantic 请求/响应模型，按业务拆分 |
-| `backend/src/models/` | SQLAlchemy ORM |
-| `backend/src/ai/` | RAG、Agent、重排序、检索器和文档处理 |
+| `backend/src/main.py` | FastAPI app、路由注册、中间件、启动和关闭事件；也作为后端单独启动入口读取 `backend/.env` |
+| `backend/src/mvc/controllers/` | FastAPI 控制器，按业务暴露路由 |
+| `backend/src/mvc/services/` | 应用服务、知识库服务、笔记索引和来源注册 |
+| `backend/src/mvc/repositories/` | 数据访问和 MVC 基础设施适配：运行态存储、用户仓储 |
+| `backend/src/mvc/schemas/` | Pydantic 请求/响应模型，按业务拆分 |
+| `backend/src/mvc/models/` | SQLAlchemy ORM |
+| `backend/src/mvc/agent_gateway/` | MVC 到 Agent 的调用门面 |
+| `backend/src/agent/` | RAG、Agent、重排序、检索器、模型工厂、Prompt 和索引 |
 | `backend/src/db/` | 数据库 URL 解析、engine/session 和自动迁移 |
-| `backend/src/config/` | `vector_store.yaml`、Agent、prompt 和 Uvicorn 配置 |
-| `backend/src/prompt/` | 自动标签、写作、问答、测评、总结等提示词 |
+| `backend/config/` | Agent 和 Uvicorn 配置 |
+| `backend/.env` | 后端单独启动时读取的本地配置，不提交 |
+| `backend/src/agent/prompts/` | 自动标签、写作、问答、测评、总结等提示词 |
 | `backend/alembic/` | 数据库迁移脚本 |
 | `backend/openapi.json` | 当前 API 静态快照 |
 
@@ -98,6 +103,15 @@ flowchart LR
 7. 检查后端依赖、`python-magic` 原生库和前端 `node_modules`。
 8. 通过 Docker Compose 启动 PostgreSQL，并等待端口可用。
 9. 启动 `uvicorn main:app --reload`；数据库检查和空库 Alembic 初始化由 FastAPI startup 执行。
+
+### 后端单独启动
+
+```powershell
+cd backend
+.venv\Scripts\python.exe src\main.py
+```
+
+该入口只读取 `backend/.env`。统一启动时不要调用它，继续使用根目录 `python start.py`。
 10. 等后端后台初始化完成后启动 `npm run dev`。
 
 ### FastAPI
@@ -140,35 +154,36 @@ flowchart LR
 
 | 表 | 主要用途 |
 | --- | --- |
-| `user_service` | 用户账号、资料、密码哈希、状态 |
-| `notes` | 笔记正文、标签、分类、置顶 |
-| `knowledge_documents` | 知识库文档事实表，保存 document_id、文件名、MD5、大小、MIME、状态和切片数量 |
+| `app_users` | 用户账号、资料、密码哈希、状态 |
+| `storage_objects` | 文件存储后端、URI、绝对路径、原始文件名、MIME、扩展名、SHA-256、大小和状态 |
+| `documents` | 笔记和知识库的统一文档元数据，保存 `source_type`、标题、存储对象、内容 hash、状态和切片数量 |
+| `notes` | 笔记业务元数据，正文通过 `document_id` 指向 Markdown 文件 |
 | `note_templates` | 用户模板和默认模板 |
-| `review_records` | 回顾次数、间隔、下次回顾时间 |
+| `review_schedules` | 回顾次数、间隔、下次回顾时间 |
 | `chat_sessions` | 对话会话元数据 |
 | `chat_messages` | 对话消息 |
-| `study_test_sessions` | 快速测试会话 |
-| `study_test_turns` | 快速测试每轮问答和反馈 |
+| `quiz_sessions` | 快速测试会话 |
+| `quiz_turns` | 快速测试每轮问答和反馈 |
 | `mind_maps` | 思维导图图结构、引用、版本 |
-| `app_cache` | 短期运行态缓存 |
-| `token_blacklist` | 登出和撤销后的 Token 黑名单 |
-| `rate_limit_counters` | 固定窗口限流计数 |
+| `app_cache_entries` | 短期运行态缓存 |
+| `auth_revoked_tokens` | 登出和撤销后的 Token |
+| `rate_limit_buckets` | 固定窗口限流桶 |
 
 ### 向量表
 
-`index_chunks` 是统一 pgvector 索引表，通过 `source_type` 和 `source_id` 关联笔记或知识库文档：
+`index_chunks` 是统一 pgvector 索引表，通过 `document_id` 关联 `documents`：
 
-| source_type | source_id | 内容 | 关键 metadata |
-| --- | --- | --- |
-| `knowledge` | `knowledge_documents.id` | 知识库文档切片 | `document_id`、`original_filename`、`md5` |
-| `note` | `notes.id` | 笔记全文索引 | `note_id`、`title`、`doc_type=note` |
+| source_type | document_id | 内容 | 关键 metadata |
+| --- | --- | --- | --- |
+| `knowledge` | `documents.id` | 知识库文档切片 | `document_id`、`original_filename`、`content_hash` |
+| `note` | `documents.id` | 笔记 Markdown 全文索引 | `note_id`、`title`、`doc_type=note` |
 
-`vector_chunks` 和 `knowledge_md5_records` 是历史兼容结构，新增业务不再依赖它们。PDF 多模态解析得到的图片位于 `backend/data/extracted_images/{user_id}/{md5}/`，头像等媒体位于 `backend/data/media/`。
+持久文件只允许通过 `StorageService` 写入。`FILE_STORAGE_HOST=localhost` 或 `127.0.0.1` 时使用本机目录，`FILE_STORAGE_BASE_DIR` 为空则默认 `backend/data`；远程模式首期使用 SFTP，并要求配置远程 `FILE_STORAGE_BASE_DIR`。数据库只保存 `storage_uri`、`storage_path`、hash、大小、状态和业务元数据。
 
 数据访问原则：
 
 - 所有用户数据查询必须带 `user_id`。
-- 向量检索和删除必须带 metadata 过滤。
+- 索引检索和删除必须带 `user_id` 与 `document_id`/`source_type` 边界。
 - 表结构变更通过 Alembic 表达，不依赖运行时隐式补表。
 - `EMBEDDING_DIM` 必须与嵌入模型输出维度一致。
 
@@ -177,8 +192,8 @@ flowchart LR
 ### 笔记创建
 
 1. 前端调用 `/note/create`。
-2. `NoteService` 写入 `notes`。
-3. `NoteIndexService` 异步写入 `index_chunks(source_type=note, source_id=note_id)`。
+2. `NoteService` 将正文保存为 Markdown 文件，并写入 `storage_objects`、`documents(source_type=note)` 和 `notes`。
+3. `NoteIndexService` 异步写入 `index_chunks(source_type=note, document_id=document_id)`。
 4. 如缺少标签或分类，后台调用 LLM 自动补齐。
 5. 创建初始回顾记录。
 
@@ -186,12 +201,13 @@ flowchart LR
 
 1. 前端调用 `/knowledge/documents`。
 2. 后端校验扩展名、大小和 MIME。
-3. 写入或更新 `knowledge_documents`，生成稳定 `document_id`。
-4. 解析文件并切片。
-5. 写入 `index_chunks(source_type=knowledge, source_id=document_id)`。
-6. 更新文档状态和 `chunk_count`，SSE 返回处理进度。
+3. 通过 `StorageService` 保存原始上传文件。
+4. 写入 `storage_objects` 和 `documents(source_type=knowledge)`。
+5. 从存储层读取原文件，解析文件并切片。
+6. 写入 `index_chunks(source_type=knowledge, document_id=document_id)`。
+7. 更新文档状态和 `chunk_count`，SSE 返回处理进度。
 
-支持的知识库文件类型由 `backend/src/config/vector_store.yaml` 控制：`txt`、`pdf`、`md`、`pptx`、`docx`。
+知识库文件保持用户上传的原始格式；只有笔记导入会转为 Markdown 后保存。
 
 ### RAG 问答
 
@@ -206,7 +222,7 @@ flowchart LR
 
 1. 前端选择来源、题数、难度和关注点。
 2. `SourceRegistry` 收集笔记、知识库或混合片段。
-3. LLM 生成首题并写入 `study_test_sessions`、`study_test_turns`。
+3. LLM 生成首题并写入 `quiz_sessions`、`quiz_turns`。
 4. 用户答题后生成反馈、分数和下一题。
 5. 结束时生成总结、薄弱点和推荐引用。
 
@@ -224,14 +240,17 @@ flowchart LR
 
 | 配置 | 来源 |
 | --- | --- |
-| 服务端口、数据库、CORS、JWT、限流 | `config/.env` |
+| 统一启动配置 | `config/.env`，仅由 `start.py` 读取并注入 |
+| 后端单独启动配置 | `backend/.env` |
+| 前端单独启动配置 | `front/.env` |
 | 前端代理目标 | `VITE_BACKEND_TARGET` |
 | 阿里云真实 key | `config/apikey.txt` |
-| 向量库和切片 | `backend/src/config/vector_store.yaml` |
-| Prompt 映射 | `backend/src/config/prompt.yaml` |
-| Agent 配置 | `backend/src/config/agent.yaml` |
+| 文件存储 | `FILE_STORAGE_*` 环境变量 |
+| 切片默认值 | `backend/src/agent/rag/text_spliter.py` |
+| Prompt 模板 | `backend/src/agent/prompts/` |
+| Agent 配置 | `backend/config/agent.yaml` |
 
-模型工厂位于 `backend/src/utils/factory.py`：
+模型工厂位于 `backend/src/agent/models/factory.py`：
 
 - `ChatModelFactory`：根据 `LLM_TYPE=ALIYUN|OLLAMA` 创建聊天模型。
 - `EmbedModelFactory`：根据 `EMBED_MODEL_TYPE=ALIYUN|OLLAMA` 创建嵌入模型。
@@ -249,21 +268,21 @@ flowchart LR
 
 ### 新增后端接口
 
-1. 在 `backend/src/schemas/` 增加请求和响应模型。
-2. 如需持久化，在 `backend/src/models/` 增加 ORM。
+1. 在 `backend/src/mvc/schemas/` 增加请求和响应模型。
+2. 如需持久化，在 `backend/src/mvc/models/` 增加 ORM。
 3. 新增 Alembic revision。
-4. 在 `backend/src/services/` 或 `backend/src/repositories/` 实现业务逻辑和数据访问，保留 `user_id` 边界。
-5. 在 `backend/src/controllers/` 增加新路由，接入鉴权和限流。
-6. 在 `backend/src/main.py` 注册 router。
-7. 同步前端 endpoints、API 封装和类型。
+4. 在 `backend/src/mvc/services/` 或 `backend/src/mvc/repositories/` 实现业务逻辑和数据访问，保留 `user_id` 边界。
+5. 如需调用 LLM/RAG/索引能力，通过 `backend/src/mvc/agent_gateway/` 封装。
+6. 在 `backend/src/mvc/controllers/` 增加新路由，接入鉴权和限流。
+7. 在 `backend/src/main.py` 注册 router。
+8. 同步前端 endpoints、API 封装和类型。
 
 ### 新增文档类型
 
-1. 更新 `vector_store.yaml` 的 `allow_knowledge_file_types`。
-2. 在 `services/knowledge_service.py` 中补充扩展名和 MIME 校验。
-3. 在 `utils/file_handler.py` 实现 loader。
-4. 在 `repositories/document_parser.py` 或底层 loader 中接入同步和异步分支。
-5. 如涉及图片，补充图片存储和访问校验。
+1. 在 `services/knowledge_service.py` 中补充扩展名和 MIME 校验。
+2. 在 `utils/file_handler.py` 实现 loader。
+3. 在 `agent/indexing/document_parser.py` 或底层 loader 中接入同步和异步分支。
+4. 如涉及图片或附件，统一通过 `StorageService` 保存和访问。
 
 ### 新增 Agent 工具
 
@@ -325,5 +344,5 @@ $env:PYTHONPATH = "src"
 - 文档跟随代码更新，尤其是路由、表结构、配置项和核心数据流。
 - 关系表变更必须新增 Alembic 迁移。
 - 向量数据 metadata 必须保留可追踪字段。
-- Prompt 放在 `backend/src/prompt/`，避免长提示词硬编码。
+- Prompt 放在 `backend/src/agent/prompts/`，避免长提示词硬编码。
 - 运行时数据、真实 `config/.env`、密钥、模型文件和数据库卷不提交。

@@ -49,20 +49,19 @@ def get_data_path() -> str:
     return get_abstract_path('data')
 
 
-def get_media_path() -> str:
+def get_config_path(relative_path: str = "") -> str:
     """
-    获取上传媒体文件目录路径
-    :return: 上传媒体文件目录绝对路径
+    获取后端配置路径
+    :param relative_path: 相对 backend/config 的路径
+    :return: 配置目录或配置文件绝对路径
     """
-    return str(Path(get_data_path()) / 'media')
-
-
-def get_config_path() -> str:
-    """
-    获取配置目录路径
-    :return: 配置目录绝对路径
-    """
-    return get_source_path('config')
+    base = Path(get_project_root()) / "config"
+    path = Path(relative_path)
+    if not relative_path:
+        return str(base.resolve())
+    if path.is_absolute():
+        return str(path)
+    return str((base / path).resolve())
 
 
 if __name__ == '__main__':

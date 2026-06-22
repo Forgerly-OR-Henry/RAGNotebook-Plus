@@ -1,4 +1,4 @@
-from schemas import (
+from mvc.schemas import (
     MindMapGenerateRequest,
     MindMapNode,
     MindMapResponse,

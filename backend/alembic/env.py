@@ -17,11 +17,11 @@ PUBLIC_SCHEMA = "public"
 if str(SRC_DIR) not in sys.path:
     sys.path.insert(0, str(SRC_DIR))
 
-from models.chat_history import Base
+from mvc.models.base import Base
 from utils.env_loader import load_backend_env
 
 # Import all models so Alembic sees complete metadata.
-from models import chat_history, knowledge_document, mind_map, note, note_template, review_record, runtime_state, study_test, user_model  # noqa: F401
+from mvc.models import chat_history, document, mind_map, note, note_template, review_record, runtime_state, storage_object, study_test, user_model  # noqa: F401
 
 load_backend_env(BACKEND_DIR)
 

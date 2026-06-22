@@ -15,8 +15,9 @@ config/apikey.txt
 *.pfx
 
 ## Runtime data
-data/
-backend/data/
+/data/
+backend/data/*
+!backend/data/.gitkeep
 logs/
 backend/logs/
 uploads/
@@ -87,7 +88,10 @@ ehthumbs_vista.db
 ## Notebook and local caches
 .ipynb_checkpoints/
 .cache/
-/models/
+/models/*
+!/models/bge-reranker-v2-m3/
+/models/bge-reranker-v2-m3/*
+!/models/bge-reranker-v2-m3/.gitkeep
 
 ## Local AI and coding assistant state
 .agents/

@@ -2,10 +2,10 @@ import inspect
 import asyncio
 from pathlib import Path
 
-from controllers.knowledge_controller import knowledge_router
-from services.sources.models import SourceChunk
-from services.sources.registry import SourceRegistry
-from ai.rag.rag_service import RagService
+from mvc.controllers.knowledge_controller import knowledge_router
+from mvc.services.sources.models import SourceChunk
+from mvc.services.sources.registry import SourceRegistry
+from agent.rag.rag_service import RagService
 
 
 class FakeProvider:
@@ -37,11 +37,14 @@ class FakeProvider:
 
 
 def test_domain_migration_declares_document_and_index_tables():
-    migration = Path(__file__).resolve().parents[1] / "alembic" / "versions" / "20260622_0003_domain_index_knowledge_documents.py"
+    migration = Path(__file__).resolve().parents[1] / "alembic" / "versions" / "20260622_0001_storage_refactor_initial.py"
     text = migration.read_text(encoding="utf-8")
 
-    assert "knowledge_documents" in text
+    assert "storage_objects" in text
+    assert '"documents"' in text
     assert "index_chunks" in text
+    assert "vector_chunks" not in text
+    assert "knowledge_documents" not in text
     assert "knowledge_md5_records" not in text
 
 

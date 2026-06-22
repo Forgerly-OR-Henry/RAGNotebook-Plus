@@ -37,6 +37,7 @@ attrs==26.1.0
     #   jsonschema
     #   referencing
 bcrypt==4.3.0
+paramiko>=4.0.0
 beautifulsoup4==4.14.3
     # via unstructured
 blis==1.3.3
