@@ -7,6 +7,7 @@ from langchain_core.messages import HumanMessage
 
 from core.background_init import init_manager
 from core.logger_handler import logger
+from utils.env_loader import require_env_value
 
 # 批量视觉识别模板：要求模型按固定格式输出每个页面的描述，
 # 格式为 "--- Page N ---" + 描述内容，便于后续用正则解析。
@@ -182,7 +183,7 @@ class VisionService:
     def _dashscope_describe(self, img_b64: str, mime: str, existing_text: str) -> str:
         import dashscope
 
-        api_key = getattr(self._get_model(), 'api_key', None) or os.getenv("ALIYUN_ACCESS_KEY_SECRET")
+        api_key = getattr(self._get_model(), 'api_key', None) or require_env_value("ALIYUN_ACCESS_KEY_SECRET")
         model_name = self._get_model().model_name
 
         messages = [{
@@ -231,7 +232,7 @@ class VisionService:
     ) -> str:
         import dashscope
 
-        api_key = getattr(self._get_model(), 'api_key', None) or os.getenv("ALIYUN_ACCESS_KEY_SECRET")
+        api_key = getattr(self._get_model(), 'api_key', None) or require_env_value("ALIYUN_ACCESS_KEY_SECRET")
         model_name = self._get_model().model_name
 
         prompt = self._build_batch_prompt([

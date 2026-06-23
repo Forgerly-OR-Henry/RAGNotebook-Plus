@@ -16,6 +16,7 @@ import {
 } from '@lucide/vue'
 import CategoryManageDialog from '../components/CategoryManageDialog.vue'
 import { knowledgeApi } from '../api/knowledge'
+import { readJsonPref } from '../api/localPrefs'
 import type { KnowledgeDocument, KnowledgeFolder } from '../types/api'
 
 type ApiError = {
@@ -259,12 +260,7 @@ function categoryLabel(value: string | null | undefined) {
 }
 
 function getSavedOrder(): string[] {
-  try {
-    const raw = localStorage.getItem(CATEGORY_ORDER_KEY)
-    return raw ? JSON.parse(raw) : []
-  } catch {
-    return []
-  }
+  return readJsonPref<string[]>(CATEGORY_ORDER_KEY, [])
 }
 
 function buildCategoryList(customCategories: string[]) {

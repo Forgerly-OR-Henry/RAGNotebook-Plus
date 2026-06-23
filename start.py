@@ -93,6 +93,22 @@ def read_env_file(path: Path) -> dict[str, str]:
     return values
 
 
+def env_file_keys(path: Path) -> set[str]:
+    return set(read_env_file(path))
+
+
+def validate_env_declares_template_keys(env_file: Path, example_file: Path) -> None:
+    if not env_file.exists() or not example_file.exists():
+        return
+
+    missing = sorted(env_file_keys(example_file) - env_file_keys(env_file))
+    if missing:
+        fail(
+            f"{env_file} is missing config fields: {', '.join(missing)}. "
+            f"Copy the missing keys from {example_file}; values may be empty or use template defaults, but fields must be explicit."
+        )
+
+
 def secret_file_candidate(env_file: Path, value: str) -> Path | None:
     value = value.strip().strip('"').strip("'")
     if not value or value == "your_api_key" or value.startswith(("sk-", "ak-")):
@@ -153,10 +169,16 @@ def ensure_file_backed_secret_files() -> None:
 
 
 def required_env(env: dict[str, str], key: str) -> str:
-    value = env.get(key, "").strip()
+    value = declared_env(env, key).strip()
     if not value:
         fail(f"{key} is required in config/.env")
     return value
+
+
+def declared_env(env: dict[str, str], key: str) -> str:
+    if key not in env:
+        fail(f"{key} must be declared in config/.env")
+    return env[key]
 
 
 def env_int(env: dict[str, str], key: str) -> int:
@@ -168,6 +190,8 @@ def env_int(env: dict[str, str], key: str) -> int:
 
 
 def env_bool(env: dict[str, str], key: str, default: bool = False) -> bool:
+    if key not in env:
+        fail(f"{key} must be declared in config/.env")
     value = env.get(key)
     if value is None or value.strip() == "":
         return default
@@ -175,6 +199,8 @@ def env_bool(env: dict[str, str], key: str, default: bool = False) -> bool:
 
 
 def env_int_default(env: dict[str, str], key: str, default: int) -> int:
+    if key not in env:
+        fail(f"{key} must be declared in config/.env")
     value = env.get(key)
     if value is None or value.strip() == "":
         return default
@@ -185,6 +211,7 @@ def env_int_default(env: dict[str, str], key: str, default: int) -> int:
 
 
 def build_env() -> dict[str, str]:
+    validate_env_declares_template_keys(GLOBAL_ENV_FILE, GLOBAL_ENV_EXAMPLE)
     env = os.environ.copy()
     env.update(read_env_file(GLOBAL_ENV_FILE))
     resolve_file_backed_secrets(env, GLOBAL_ENV_FILE)
@@ -212,7 +239,7 @@ def apply_env_defaults(args: argparse.Namespace, env: dict[str, str]) -> None:
 
 
 def validate_database_config(env: dict[str, str]) -> None:
-    url = env.get("DATABASE_URL", "").strip()
+    url = declared_env(env, "DATABASE_URL").strip()
     if not url:
         return
 
@@ -226,7 +253,7 @@ def validate_database_config(env: dict[str, str]) -> None:
         ("POSTGRES_DB", (parsed.path or "").lstrip("/")),
     ]
     for key, actual in checks:
-        expected = env.get(key, "").strip()
+        expected = declared_env(env, key).strip()
         if expected and actual and expected != actual:
             shown_actual = "***" if key == "POSTGRES_PASSWORD" else actual
             shown_expected = "***" if key == "POSTGRES_PASSWORD" else expected
@@ -295,12 +322,12 @@ def check_frontend_dependencies(args: argparse.Namespace) -> None:
 
 
 def db_endpoint(env: dict[str, str]) -> tuple[str, int]:
-    url = env.get("DATABASE_URL", "")
+    url = declared_env(env, "DATABASE_URL").strip()
     if url:
         parsed = urlparse(url)
         if parsed.hostname:
             return parsed.hostname, parsed.port or 5432
-    return env.get("POSTGRES_HOST", "localhost"), int(env.get("POSTGRES_PORT", "5432"))
+    return declared_env(env, "POSTGRES_HOST").strip() or "localhost", env_int_default(env, "POSTGRES_PORT", 5432)
 
 
 def wait_for_port(host: str, port: int, timeout: int) -> bool:
@@ -345,7 +372,7 @@ def local_target_host(host: str) -> str:
 
 
 def backend_target(args: argparse.Namespace, backend_port: int, env: dict[str, str]) -> str:
-    configured = env.get("VITE_BACKEND_TARGET", "").strip()
+    configured = declared_env(env, "VITE_BACKEND_TARGET").strip()
     if args.frontend_only and configured:
         return configured
     return f"http://{local_target_host(args.backend_host)}:{backend_port}"

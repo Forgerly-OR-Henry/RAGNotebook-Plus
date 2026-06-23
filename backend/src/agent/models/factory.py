@@ -1,4 +1,3 @@
-import os
 from abc import ABC, abstractmethod
 from http import HTTPStatus
 
@@ -8,7 +7,12 @@ from langchain_core.language_models import BaseChatModel
 from langchain_ollama import ChatOllama, OllamaEmbeddings
 
 from core.logger_handler import logger
-from utils.env_loader import load_backend_env
+from utils.env_loader import (
+    load_backend_env,
+    require_env_declared,
+    require_env_int_value,
+    require_env_value,
+)
 
 # 加载环境变量
 load_backend_env()
@@ -23,9 +27,14 @@ class DashScopeEmbeddingsWrapper(Embeddings):
         try:
             import dashscope
             self.dashscope = dashscope
-            self.dashscope.api_key = api_key or os.getenv("ALIYUN_ACCESS_KEY_SECRET") or os.getenv("DASHSCOPE_API_KEY")
+            self.dashscope.api_key = (
+                api_key
+                or require_env_declared("ALIYUN_ACCESS_KEY_SECRET")
+                or require_env_declared("DASHSCOPE_API_KEY")
+                or None
+            )
             self.model_name = model_name
-            self.embedding_dim = embedding_dim if embedding_dim is not None else int(os.getenv("EMBEDDING_DIM", "1024"))
+            self.embedding_dim = embedding_dim if embedding_dim is not None else require_env_int_value("EMBEDDING_DIM", 1024)
         except ImportError:
             raise ImportError("需要安装 dashscope 库: pip install dashscope")
 
@@ -79,11 +88,15 @@ class ChatModelFactory(BaseModelFactory):
 
     def generator(self) -> Embeddings | BaseChatModel | None:
         """根据LLM_TYPE生成对应的聊天模型"""
-        llm_type = os.getenv("LLM_TYPE", "ALIYUN").upper()
+        llm_type = require_env_value("LLM_TYPE", "ALIYUN").upper()
 
         if llm_type == "OLLAMA":
-            model_name = os.getenv("OLLAMA_MODEL_NAME", os.getenv("OLLAMA_CHAT_MODEL_NAME", "qwen3:7b"))
-            base_url = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")
+            model_name = (
+                require_env_declared("OLLAMA_MODEL_NAME")
+                or require_env_declared("OLLAMA_CHAT_MODEL_NAME")
+                or "qwen3:7b"
+            )
+            base_url = require_env_value("OLLAMA_BASE_URL", "http://localhost:11434")
 
             logger.info(f"📦 ChatModel 使用Ollama模型: {model_name}, 地址: {base_url}")
 
@@ -95,9 +108,9 @@ class ChatModelFactory(BaseModelFactory):
             )
 
         elif llm_type == "ALIYUN":
-            model_name = os.getenv("ALIYUN_MODEL_NAME", os.getenv("CHAT_MODEL_NAME", "qwen3-max"))
-            api_key = os.getenv("ALIYUN_ACCESS_KEY_SECRET")
-            base_url = os.getenv("ALIYUN_BASE_URL")
+            model_name = require_env_declared("ALIYUN_MODEL_NAME") or require_env_value("CHAT_MODEL_NAME", "qwen3-max")
+            api_key = require_env_value("ALIYUN_ACCESS_KEY_SECRET")
+            base_url = require_env_value("ALIYUN_BASE_URL", "https://dashscope.aliyuncs.com/compatible-mode/v1")
 
             logger.info(f"📦 ChatModel 使用阿里云百炼模型: {model_name}")
 
@@ -117,11 +130,11 @@ class EmbedModelFactory(BaseModelFactory):
     """嵌入模型工厂 - 支持Ollama和阿里云百炼"""
     def generator(self) -> Embeddings | BaseChatModel | None:
         """根据EMBED_MODEL_TYPE生成对应的嵌入模型"""
-        embed_type = os.getenv("EMBED_MODEL_TYPE", "OLLAMA").upper()
+        embed_type = require_env_value("EMBED_MODEL_TYPE", "OLLAMA").upper()
 
         if embed_type == "OLLAMA":
-            model_name = os.getenv("TEXT_EMBEDDING_MODEL_NAME", "qwen3-embedding:0.6b")
-            base_url = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")
+            model_name = require_env_value("TEXT_EMBEDDING_MODEL_NAME", "qwen3-embedding:0.6b")
+            base_url = require_env_value("OLLAMA_BASE_URL", "http://localhost:11434")
 
             logger.info(f"📦 EmbedModel 使用Ollama嵌入模型: {model_name}, 地址: {base_url}")
 
@@ -131,9 +144,9 @@ class EmbedModelFactory(BaseModelFactory):
             )
 
         elif embed_type == "ALIYUN":
-            model_name = os.getenv("ALIYUN_EMBED_MODEL_NAME", "text-embedding-v4")
-            api_key = os.getenv("ALIYUN_ACCESS_KEY_SECRET")
-            embedding_dim = int(os.getenv("EMBEDDING_DIM", "1024"))
+            model_name = require_env_value("ALIYUN_EMBED_MODEL_NAME", "text-embedding-v4")
+            api_key = require_env_value("ALIYUN_ACCESS_KEY_SECRET")
+            embedding_dim = require_env_int_value("EMBEDDING_DIM", 1024)
 
             logger.info(f"📦 EmbedModel 使用阿里云嵌入模型: {model_name}, 维度: {embedding_dim}")
 
@@ -162,13 +175,13 @@ class VisionModelFactory(BaseModelFactory):
 
     def generator(self) -> BaseChatModel | None:
         """根据VISION_MODEL_TYPE生成对应的视觉模型"""
-        vision_type = os.getenv("VISION_MODEL_TYPE", "").strip().upper()
+        vision_type = require_env_declared("VISION_MODEL_TYPE").strip().upper()
         if not vision_type:
             raise ValueError("VISION_MODEL_TYPE 必须显式配置，可选值: ALIYUN, OLLAMA")
 
         if vision_type == "OLLAMA":
-            model_name = os.getenv("VISION_OLLAMA_MODEL_NAME") or os.getenv("OLLAMA_MODEL_NAME") or "qwen-vl:7b"
-            base_url = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")
+            model_name = require_env_declared("VISION_OLLAMA_MODEL_NAME") or require_env_declared("OLLAMA_MODEL_NAME") or "qwen-vl:7b"
+            base_url = require_env_value("OLLAMA_BASE_URL", "http://localhost:11434")
 
             logger.info(f"🎨 VisionModel 使用Ollama多模态模型: {model_name}, 地址: {base_url}")
 
@@ -181,9 +194,9 @@ class VisionModelFactory(BaseModelFactory):
             )
 
         elif vision_type == "ALIYUN":
-            model_name = os.getenv("VISION_CHAT_MODEL_NAME") or os.getenv("CHAT_MODEL_NAME") or "qwen3-max"
-            api_key = os.getenv("ALIYUN_ACCESS_KEY_SECRET")
-            base_url = os.getenv("ALIYUN_BASE_URL")
+            model_name = require_env_declared("VISION_CHAT_MODEL_NAME") or require_env_value("CHAT_MODEL_NAME", "qwen3-max")
+            api_key = require_env_value("ALIYUN_ACCESS_KEY_SECRET")
+            base_url = require_env_value("ALIYUN_BASE_URL", "https://dashscope.aliyuncs.com/compatible-mode/v1")
 
             logger.info(f"🎨 VisionModel 使用阿里云百炼多模态模型: {model_name}")
 

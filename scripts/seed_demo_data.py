@@ -5,7 +5,6 @@ import asyncio
 import hashlib
 import json
 import mimetypes
-import os
 import sys
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
@@ -205,28 +204,39 @@ def validate_manifest(manifest: dict[str, Any], fixture_dir: Path = FIXTURE_DIR)
 def load_seed_env() -> None:
     from dotenv import load_dotenv
 
-    from utils.env_loader import resolve_file_backed_secrets
+    from utils.env_loader import resolve_file_backed_secrets, validate_env_declares_template_keys
 
     config_env = REPO_ROOT / "config" / ".env"
     if config_env.is_file():
+        validate_env_declares_template_keys(config_env, REPO_ROOT / "config" / ".env.example")
         load_dotenv(config_env, override=False)
         resolve_file_backed_secrets(config_env)
 
 
 def validate_environment() -> tuple[list[str], list[str]]:
+    from utils.env_loader import require_env_declared, require_env_int_value
+
     errors: list[str] = []
     warnings: list[str] = []
 
     try:
-        embedding_dim = int(os.getenv("EMBEDDING_DIM", "1024"))
+        embedding_dim = require_env_int_value("EMBEDDING_DIM", 1024)
         if embedding_dim <= 0:
             errors.append("EMBEDDING_DIM must be a positive integer")
-    except ValueError:
-        errors.append("EMBEDDING_DIM must be a positive integer")
+    except RuntimeError as exc:
+        errors.append(str(exc))
 
-    if not os.getenv("DATABASE_URL"):
+    try:
+        database_url = require_env_declared("DATABASE_URL")
+        secret_key = require_env_declared("SECRET_KEY")
+        algorithm = require_env_declared("ALGORITHM")
+    except RuntimeError as exc:
+        errors.append(str(exc))
+        return errors, warnings
+
+    if not database_url:
         warnings.append("DATABASE_URL is not set; the seed command will rely on POSTGRES_* defaults")
-    if not os.getenv("SECRET_KEY") or not os.getenv("ALGORITHM"):
+    if not secret_key or not algorithm:
         warnings.append("SECRET_KEY or ALGORITHM is missing; login token generation may fail when the app runs")
 
     return errors, warnings

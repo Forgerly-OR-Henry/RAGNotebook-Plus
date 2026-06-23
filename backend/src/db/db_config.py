@@ -1,11 +1,15 @@
-import os
-
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
 from core.logger_handler import logger
 from mvc.models.base import Base
-from utils.env_loader import load_backend_env
+from utils.env_loader import (
+    load_backend_env,
+    require_env_bool_value,
+    require_env_declared,
+    require_env_int_value,
+    require_env_value,
+)
 
 # 加载环境变量
 load_backend_env()
@@ -35,15 +39,15 @@ RESET_DATABASE_HINT = (
 
 
 def _build_database_url() -> str:
-    configured_url = os.getenv("DATABASE_URL")
+    configured_url = require_env_declared("DATABASE_URL")
     if configured_url:
         return configured_url
 
-    user = os.getenv("POSTGRES_USER", "rag")
-    password = os.getenv("POSTGRES_PASSWORD", "rag")
-    host = os.getenv("POSTGRES_HOST", "localhost")
-    port = os.getenv("POSTGRES_PORT", "5432")
-    database = os.getenv("POSTGRES_DB", "rag_notebook")
+    user = require_env_value("POSTGRES_USER", "rag")
+    password = require_env_value("POSTGRES_PASSWORD", "rag")
+    host = require_env_value("POSTGRES_HOST", "localhost")
+    port = require_env_value("POSTGRES_PORT", "5432")
+    database = require_env_value("POSTGRES_DB", "rag_notebook")
     return f"postgresql+asyncpg://{user}:{password}@{host}:{port}/{database}"
 
 
@@ -52,10 +56,10 @@ ASYNC_DATABSE_URL = _build_database_url()
 # 创建异步引擎
 async_engine = create_async_engine(
     ASYNC_DATABSE_URL,
-    pool_size=int(os.getenv("DB_POOL_SIZE", "10")),
-    max_overflow=int(os.getenv("DB_MAX_OVERFLOW", "20")),
+    pool_size=require_env_int_value("DB_POOL_SIZE", 10),
+    max_overflow=require_env_int_value("DB_MAX_OVERFLOW", 20),
     pool_pre_ping=True,
-    echo=os.getenv("SQL_ECHO", "false").lower() == "true",
+    echo=require_env_bool_value("SQL_ECHO", False),
     connect_args={"server_settings": {"search_path": "public"}},
 )
 
@@ -161,13 +165,9 @@ async def _public_base_tables(conn) -> set[str]:
 
 
 def _embedding_dim() -> int:
-    value = os.getenv("EMBEDDING_DIM", "1024")
-    try:
-        dim = int(value)
-    except ValueError as exc:
-        raise RuntimeError(f"EMBEDDING_DIM 必须是正整数，当前值：{value}") from exc
+    dim = require_env_int_value("EMBEDDING_DIM", 1024)
     if dim <= 0:
-        raise RuntimeError(f"EMBEDDING_DIM 必须是正整数，当前值：{value}")
+        raise RuntimeError(f"EMBEDDING_DIM 必须是正整数，当前值：{dim}")
     return dim
 
 

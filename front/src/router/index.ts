@@ -1,17 +1,19 @@
 import { createRouter, createWebHistory } from 'vue-router'
+import { getJwtToken } from '../api/authToken'
 import AppShell from '../components/AppShell.vue'
 import LoginView from '../views/LoginView.vue'
 import RegisterView from '../views/RegisterView.vue'
-import NoteListView from '../views/NoteListView.vue'
-import NoteEditorView from '../views/NoteEditorView.vue'
-import ChatView from '../views/ChatView.vue'
-import KnowledgeView from '../views/KnowledgeView.vue'
-import KnowledgeDetailView from '../views/KnowledgeDetailView.vue'
-import QuickTestView from '../views/QuickTestView.vue'
-import MindMapView from '../views/MindMapView.vue'
-import ProfileView from '../views/ProfileView.vue'
-import SettingsView from '../views/SettingsView.vue'
-import AboutView from '../views/AboutView.vue'
+
+const NoteListView = () => import('../views/NoteListView.vue')
+const NoteEditorView = () => import('../views/NoteEditorView.vue')
+const ChatView = () => import('../views/ChatView.vue')
+const KnowledgeView = () => import('../views/KnowledgeView.vue')
+const KnowledgeDetailView = () => import('../views/KnowledgeDetailView.vue')
+const QuickTestView = () => import('../views/QuickTestView.vue')
+const MindMapView = () => import('../views/MindMapView.vue')
+const ProfileView = () => import('../views/ProfileView.vue')
+const SettingsView = () => import('../views/SettingsView.vue')
+const AboutView = () => import('../views/AboutView.vue')
 
 const router = createRouter({
   history: createWebHistory(),
@@ -46,7 +48,7 @@ const router = createRouter({
 })
 
 router.beforeEach((to) => {
-  if (to.meta.requiresAuth && !localStorage.getItem('jwt_token')) {
+  if (to.meta.requiresAuth && !getJwtToken()) {
     return '/login'
   }
   return true

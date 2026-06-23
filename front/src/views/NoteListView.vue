@@ -24,6 +24,7 @@ import BatchActionBar from '../components/BatchActionBar.vue'
 import CategoryManageDialog from '../components/CategoryManageDialog.vue'
 import ConfirmDialog from '../components/ConfirmDialog.vue'
 import MindMapModal from '../components/MindMapModal.vue'
+import { readJsonPref } from '../api/localPrefs'
 import { notesApi } from '../api/notes'
 import type { Note, NoteFolder } from '../types/api'
 
@@ -178,12 +179,7 @@ const parentOptions = computed(() => {
 })
 
 function getSavedOrder(): string[] {
-  try {
-    const raw = localStorage.getItem(CATEGORY_ORDER_KEY)
-    return raw ? JSON.parse(raw) : []
-  } catch {
-    return []
-  }
+  return readJsonPref<string[]>(CATEGORY_ORDER_KEY, [])
 }
 
 function buildCategoryList(customCategories: string[]) {

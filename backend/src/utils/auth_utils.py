@@ -1,9 +1,10 @@
-import os
 import time
 import uuid
-from typing import Any
 from datetime import datetime, timezone
+from importlib.metadata import PackageNotFoundError, version as package_version
+from typing import Any
 
+import bcrypt as _bcrypt
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from jose import JWTError, jwt
@@ -13,18 +14,42 @@ from sqlalchemy import select
 from core.failed_response import logger
 from db.db_config import AsyncSessionLocal
 from mvc.repositories.runtime_store import blacklist_jti, delete_cache, get_cache, is_jti_blacklisted, set_cache
-from utils.env_loader import load_backend_env
+from utils.env_loader import load_backend_env, require_env_value
 
 load_backend_env()
 
-SECRET_KEY = os.getenv("SECRET_KEY")
-ALGORITHM = os.getenv("ALGORITHM")
+SECRET_KEY = require_env_value("SECRET_KEY")
+ALGORITHM = require_env_value("ALGORITHM")
 
 security = HTTPBearer()
 
+
+def _ensure_bcrypt_about_metadata() -> None:
+    if hasattr(_bcrypt, "__about__"):
+        return
+
+    try:
+        bcrypt_version = package_version("bcrypt")
+    except PackageNotFoundError:
+        bcrypt_version = "unknown"
+
+    _bcrypt.__about__ = type("_BcryptAbout", (), {"__version__": bcrypt_version})()
+
+
+_ensure_bcrypt_about_metadata()
+
 pwd_context = CryptContext(schemes=["bcrypt", "django_pbkdf2_sha256"], deprecated="auto")
 
-_BLACKLIST_CACHE_TTL_SECONDS = float(os.getenv("TOKEN_BLACKLIST_CACHE_TTL_SECONDS", "5"))
+
+def _blacklist_cache_ttl_seconds() -> float:
+    value = require_env_value("TOKEN_BLACKLIST_CACHE_TTL_SECONDS", "5")
+    try:
+        return float(value)
+    except ValueError as exc:
+        raise RuntimeError(f"TOKEN_BLACKLIST_CACHE_TTL_SECONDS 必须是数字，当前值：{value}") from exc
+
+
+_BLACKLIST_CACHE_TTL_SECONDS = _blacklist_cache_ttl_seconds()
 _BLACKLIST_CACHE_MAX_SIZE = 10000
 _blacklist_cache: dict[str, tuple[bool, float]] = {}
 

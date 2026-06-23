@@ -238,10 +238,12 @@ onMounted(() => {
       </div>
     </div>
 
-    <p v-if="message" class="rounded-md px-4 py-2 text-sm" :class="{
-      'bg-[var(--color-success-bg)] text-[var(--color-success)]': messageType === 'success',
-      'bg-[var(--color-danger-bg)] text-[var(--color-danger)]': messageType === 'error',
-    }">
+    <p
+      v-if="message" class="rounded-md px-4 py-2 text-sm" :class="{
+        'bg-[var(--color-success-bg)] text-[var(--color-success)]': messageType === 'success',
+        'bg-[var(--color-danger-bg)] text-[var(--color-danger)]': messageType === 'error',
+      }"
+    >
       {{ message }}
     </p>
 
@@ -295,11 +297,11 @@ onMounted(() => {
           <span class="text-[var(--color-text-secondary)]">性别</span>
           <div v-if="editing" class="flex gap-4">
             <label class="flex items-center gap-1.5 cursor-pointer">
-              <input type="radio" value="1" v-model="form.gender" />
+              <input v-model="form.gender" type="radio" value="1" />
               <span class="text-[var(--color-text)]">男</span>
             </label>
             <label class="flex items-center gap-1.5 cursor-pointer">
-              <input type="radio" value="2" v-model="form.gender" />
+              <input v-model="form.gender" type="radio" value="2" />
               <span class="text-[var(--color-text)]">女</span>
             </label>
           </div>
@@ -348,8 +350,8 @@ onMounted(() => {
             <label class="text-sm text-[var(--color-text-secondary)]">原密码</label>
             <div class="relative">
               <input
-                :type="showPwd.old ? 'text' : 'password'"
                 v-model="oldPassword"
+                :type="showPwd.old ? 'text' : 'password'"
                 class="w-full rounded-md border border-[var(--color-border)] bg-transparent px-3 py-2 pr-10 text-sm text-[var(--color-text)] outline-none"
               />
               <button
@@ -367,8 +369,8 @@ onMounted(() => {
             <label class="text-sm text-[var(--color-text-secondary)]">新密码</label>
             <div class="relative">
               <input
-                :type="showPwd.new ? 'text' : 'password'"
                 v-model="newPassword"
+                :type="showPwd.new ? 'text' : 'password'"
                 class="w-full rounded-md border border-[var(--color-border)] bg-transparent px-3 py-2 pr-10 text-sm text-[var(--color-text)] outline-none"
               />
               <button
@@ -386,8 +388,8 @@ onMounted(() => {
             <label class="text-sm text-[var(--color-text-secondary)]">确认新密码</label>
             <div class="relative">
               <input
-                :type="showPwd.confirm ? 'text' : 'password'"
                 v-model="confirmPassword"
+                :type="showPwd.confirm ? 'text' : 'password'"
                 class="w-full rounded-md border border-[var(--color-border)] bg-transparent px-3 py-2 pr-10 text-sm text-[var(--color-text)] outline-none"
               />
               <button
@@ -416,7 +418,7 @@ onMounted(() => {
             :disabled="pwdLoading"
             @click="changePassword"
           >
-            <Lock :size="14" v-if="!pwdLoading" />
+            <Lock v-if="!pwdLoading" :size="14" />
             <span>{{ pwdLoading ? '处理中...' : '确认修改' }}</span>
           </button>
         </div>

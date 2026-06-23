@@ -1,6 +1,8 @@
 import asyncio
 from datetime import datetime, timezone
 
+from sqlalchemy import select
+
 from core.logger_handler import logger
 from db.db_config import AsyncSessionLocal
 from mvc.models.chat_history import ChatMessage, ChatSession
@@ -27,9 +29,9 @@ class DatabaseSessionManager:
         """获取会话"""
         async with AsyncSessionLocal() as db:
             # 尝试查找会话，验证属于该用户
-            result = await db.run_sync(
-                lambda session: session.query(ChatSession).filter(ChatSession.id == session_id, ChatSession.user_id == user_id).first()
-            )
+            result = (
+                await db.execute(select(ChatSession).where(ChatSession.id == session_id, ChatSession.user_id == user_id))
+            ).scalar_one_or_none()
 
             if result:
                 if project_id is not None and result.project_id != project_id:
@@ -40,9 +42,13 @@ class DatabaseSessionManager:
                         detail="当前会话不属于该项目"
                     )
                 # 获取会话历史
-                messages = await db.run_sync(
-                    lambda session: session.query(ChatMessage).filter(ChatMessage.session_id == result.id).order_by(ChatMessage.created_at).all()
-                )
+                messages = (
+                    await db.execute(
+                        select(ChatMessage)
+                        .where(ChatMessage.session_id == result.id)
+                        .order_by(ChatMessage.created_at)
+                    )
+                ).scalars().all()
                 # 转换为 (user_message, assistant_message) 格式
                 history = []
                 i = 0
@@ -55,9 +61,9 @@ class DatabaseSessionManager:
                 return {"history": history}
             else:
                 # 检查会话id是否存在
-                existing_session = await db.run_sync(
-                    lambda session: session.query(ChatSession).filter(ChatSession.id == session_id).first()
-                )
+                existing_session = (
+                    await db.execute(select(ChatSession).where(ChatSession.id == session_id))
+                ).scalar_one_or_none()
 
                 if existing_session:
                     # 会话存在但不属于当前用户
@@ -93,9 +99,9 @@ class DatabaseSessionManager:
         """添加消息并保存到数据库"""
         async with AsyncSessionLocal() as db:
             # 检查会话id是否存在
-            existing_session = await db.run_sync(
-                lambda session: session.query(ChatSession).filter(ChatSession.id == session_id).first()
-            )
+            existing_session = (
+                await db.execute(select(ChatSession).where(ChatSession.id == session_id))
+            ).scalar_one_or_none()
 
             if existing_session:
                 # 检查会话是否属于当前用户
@@ -173,9 +179,9 @@ class DatabaseSessionManager:
         """清除会话"""
         async with AsyncSessionLocal() as db:
             # 查找会话，验证属于该用户
-            session = await db.run_sync(
-                lambda session: session.query(ChatSession).filter(ChatSession.id == session_id, ChatSession.user_id == user_id).first()
-            )
+            session = (
+                await db.execute(select(ChatSession).where(ChatSession.id == session_id, ChatSession.user_id == user_id))
+            ).scalar_one_or_none()
 
             if session:
                 # 删除会话（级联删除消息）
@@ -187,25 +193,25 @@ class DatabaseSessionManager:
         """获取所有会话 ID，如果提供了 user_id，则只返回该用户的会话"""
         async with AsyncSessionLocal() as db:
             if user_id:
-                sessions = await db.run_sync(
-                    lambda session: session.query(ChatSession).filter(ChatSession.user_id == user_id).all()
-                )
+                sessions = (
+                    await db.execute(select(ChatSession).where(ChatSession.user_id == user_id))
+                ).scalars().all()
             else:
-                sessions = await db.run_sync(
-                    lambda session: session.query(ChatSession).all()
-                )
+                sessions = (await db.execute(select(ChatSession))).scalars().all()
             return [session.id for session in sessions]
 
     async def get_user_sessions(self, user_id: str, project_id: str | None = None) -> list[dict]:
         """获取用户所有会话详细信息，按更新时间降序排列"""
         async with AsyncSessionLocal() as db:
-            sessions = await db.run_sync(
-                lambda session: session.query(ChatSession)
-                .filter(ChatSession.user_id == user_id)
-                .filter(ChatSession.project_id == project_id if project_id is not None else ChatSession.project_id.is_(None))
-                .order_by(ChatSession.updated_at.desc())
-                .all()
-            )
+            project_filter = ChatSession.project_id == project_id if project_id is not None else ChatSession.project_id.is_(None)
+            sessions = (
+                await db.execute(
+                    select(ChatSession)
+                    .where(ChatSession.user_id == user_id)
+                    .where(project_filter)
+                    .order_by(ChatSession.updated_at.desc())
+                )
+            ).scalars().all()
             return [
                 {
                     "id": session.id,

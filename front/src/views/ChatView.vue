@@ -658,11 +658,11 @@ watch(ragEnabled, (value) => {
         >
           <div v-if="message.references?.length" class="mb-2 flex flex-wrap gap-1">
             <span
-              v-for="ref in message.references"
-              :key="`${ref.source_type}:${ref.source_id}`"
+              v-for="sourceRef in message.references"
+              :key="`${sourceRef.source_type}:${sourceRef.source_id}`"
               class="rounded-md bg-[var(--color-card)] px-2 py-0.5 text-xs text-[var(--color-text-secondary)]"
             >
-              @{{ ref.source_type === 'note' ? '笔记' : '知识库' }}
+              @{{ sourceRef.source_type === 'note' ? '笔记' : '知识库' }}
             </span>
           </div>
           <p class="whitespace-pre-wrap text-sm leading-6">{{ message.content }}</p>
@@ -675,13 +675,13 @@ watch(ragEnabled, (value) => {
 
         <div v-if="selectedRefs.length" class="mb-2 flex flex-wrap gap-2">
           <button
-            v-for="ref in selectedRefs"
-            :key="`${ref.source_type}:${ref.source_id}`"
+            v-for="sourceRef in selectedRefs"
+            :key="`${sourceRef.source_type}:${sourceRef.source_id}`"
             class="inline-flex items-center gap-1 rounded-md bg-[var(--color-accent-bg)] px-2 py-1 text-xs text-[var(--color-accent)]"
             type="button"
-            @click="removeReference(ref)"
+            @click="removeReference(sourceRef)"
           >
-            @{{ ref.title }}
+            @{{ sourceRef.title }}
             <X :size="13" />
           </button>
         </div>

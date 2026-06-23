@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, ref, watch, type Component } from 'vue'
+import { computed, defineAsyncComponent, onBeforeUnmount, ref, watch, type Component } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import {
   BookMarked,
@@ -22,8 +22,8 @@ import {
 import ConfirmDialog from '../components/ConfirmDialog.vue'
 import OutlinePanel from '../components/OutlinePanel.vue'
 import RelatedFragments from '../components/RelatedFragments.vue'
-import RichEditor from '../components/RichEditor.vue'
 import TagInput from '../components/TagInput.vue'
+import { readJsonPref, removePref, writeJsonPref } from '../api/localPrefs'
 import { noteTemplatesApi } from '../api/noteTemplates'
 import { notesApi } from '../api/notes'
 import type { Note, NoteFolder, NoteTemplate } from '../types/api'
@@ -58,6 +58,7 @@ interface FolderOption {
 
 const route = useRoute()
 const router = useRouter()
+const RichEditor = defineAsyncComponent(() => import('../components/RichEditor.vue'))
 const DRAFT_KEY = 'note_draft'
 const TEMPLATE_ORDER_KEY = 'template_order'
 
@@ -128,13 +129,7 @@ function routeNoteId() {
 }
 
 function draftField<T>(key: string, fallback: T): T {
-  try {
-    const raw = localStorage.getItem(DRAFT_KEY)
-    if (!raw) return fallback
-    return (JSON.parse(raw)?.[key] ?? fallback) as T
-  } catch {
-    return fallback
-  }
+  return (readJsonPref<Record<string, unknown>>(DRAFT_KEY, {})[key] ?? fallback) as T
 }
 
 function loadDraft() {
@@ -192,20 +187,11 @@ function folderOptionLabel(item: FolderOption) {
 }
 
 function loadTemplateOrder(): string[] {
-  try {
-    const raw = localStorage.getItem(TEMPLATE_ORDER_KEY)
-    return raw ? JSON.parse(raw) : []
-  } catch {
-    return []
-  }
+  return readJsonPref<string[]>(TEMPLATE_ORDER_KEY, [])
 }
 
 function saveTemplateOrder(ids: string[]) {
-  try {
-    localStorage.setItem(TEMPLATE_ORDER_KEY, JSON.stringify(ids))
-  } catch {
-    // Local template ordering is best-effort only.
-  }
+  writeJsonPref(TEMPLATE_ORDER_KEY, ids)
 }
 
 async function refreshTemplates() {
@@ -286,7 +272,7 @@ async function save() {
 
     if (isNew.value) {
       const res = await notesApi.create(payload)
-      localStorage.removeItem(DRAFT_KEY)
+      removePref(DRAFT_KEY)
       currentNoteId.value = res.data.id
       await router.replace(`/notes/${res.data.id}`)
       message.value = '已保存'
@@ -515,13 +501,13 @@ watch(
     saveStatus.value = 'unsaved'
     window.clearTimeout(autosaveTimer)
     autosaveTimer = window.setTimeout(() => {
-      localStorage.setItem(DRAFT_KEY, JSON.stringify({
+      writeJsonPref(DRAFT_KEY, {
         title: title.value,
         content: content.value,
         category: category.value,
         tags: tags.value,
         folder_id: folderId.value,
-      }))
+      })
       saveStatus.value = 'saved'
     }, 2000)
   },

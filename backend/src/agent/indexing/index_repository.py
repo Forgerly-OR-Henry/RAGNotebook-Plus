@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import hashlib
 import json
-import os
 from collections import OrderedDict
 from dataclasses import dataclass
 from datetime import datetime, timezone
@@ -14,6 +13,7 @@ from sqlalchemy import text
 from core.background_init import init_manager
 from core.logger_handler import logger
 from db.db_config import AsyncSessionLocal
+from utils.env_loader import require_env_int_value
 
 _QUERY_EMBEDDING_CACHE: OrderedDict[tuple[int, str], list[float]] = OrderedDict()
 
@@ -139,11 +139,7 @@ class IndexRepository:
 
         embedding = await self._to_thread(model.embed_query, query)
         _QUERY_EMBEDDING_CACHE[cache_key] = list(embedding)
-        try:
-            max_size = max(1, int(os.getenv("QUERY_EMBEDDING_CACHE_MAX", "128")))
-        except ValueError:
-            logger.warning("QUERY_EMBEDDING_CACHE_MAX 配置无效，已回退到 128")
-            max_size = 128
+        max_size = max(1, require_env_int_value("QUERY_EMBEDDING_CACHE_MAX", 128))
         while len(_QUERY_EMBEDDING_CACHE) > max_size:
             _QUERY_EMBEDDING_CACHE.popitem(last=False)
         return embedding
@@ -264,4 +260,7 @@ def assert_embedding_dimension(embedding: list[float]) -> None:
 
 
 def embedding_dimension() -> int:
-    return int(os.getenv("EMBEDDING_DIM", "1024"))
+    expected = require_env_int_value("EMBEDDING_DIM", 1024)
+    if expected <= 0:
+        raise RuntimeError(f"EMBEDDING_DIM 必须是正整数，当前值：{expected}")
+    return expected

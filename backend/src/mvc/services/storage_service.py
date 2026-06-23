@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import asyncio
 import hashlib
-import os
 import posixpath
 import re
 from dataclasses import dataclass
@@ -10,6 +9,7 @@ from pathlib import Path
 
 from db.db_config import AsyncSessionLocal
 from mvc.models.storage_object import StorageObject
+from utils.env_loader import require_env_declared
 
 
 LOCAL_HOSTS = {"localhost", "127.0.0.1"}
@@ -17,8 +17,8 @@ BACKEND_DIR = Path(__file__).resolve().parents[3]
 DEFAULT_LOCAL_BASE_DIR = BACKEND_DIR / "data"
 
 
-def _env(name: str, default: str = "") -> str:
-    return os.getenv(name, default).strip()
+def _env(name: str) -> str:
+    return require_env_declared(name)
 
 
 def _safe_segment(value: str) -> str:
@@ -52,12 +52,12 @@ class StorageSettings:
 
 
 def load_storage_settings() -> StorageSettings:
-    host = _env("FILE_STORAGE_HOST", "localhost").lower() or "localhost"
-    protocol = _env("FILE_STORAGE_PROTOCOL", "sftp").lower() or "sftp"
-    port = int(_env("FILE_STORAGE_PORT", "22") or "22")
+    host = _env("FILE_STORAGE_HOST").lower() or "localhost"
+    protocol = _env("FILE_STORAGE_PROTOCOL").lower() or "sftp"
+    port = int(_env("FILE_STORAGE_PORT") or "22")
     username = _env("FILE_STORAGE_USERNAME")
     password = _env("FILE_STORAGE_PASSWORD")
-    uri_alias = _env("FILE_STORAGE_URI_ALIAS", "files") or "files"
+    uri_alias = _env("FILE_STORAGE_URI_ALIAS") or "files"
     base_dir = _env("FILE_STORAGE_BASE_DIR")
 
     if host in LOCAL_HOSTS:
@@ -102,7 +102,9 @@ class LocalStorageAdapter:
     def resolve_path(self, relative_path: str) -> str:
         path = (self.base_dir / relative_path).resolve()
         base = self.base_dir.resolve()
-        if not str(path).startswith(str(base)):
+        try:
+            path.relative_to(base)
+        except ValueError:
             raise ValueError("非法存储路径")
         return str(path)
 

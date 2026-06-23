@@ -1,12 +1,12 @@
 import argparse
-import os
 import time
+from contextlib import asynccontextmanager
 from pathlib import Path
 
 from fastapi import FastAPI, Request
 from starlette.middleware.cors import CORSMiddleware
 
-from utils.env_loader import load_backend_env
+from utils.env_loader import load_backend_env, require_env_bool, require_env_declared, require_env_int_value, require_env_value
 
 BACKEND_DIR = Path(__file__).resolve().parents[1]
 load_backend_env(BACKEND_DIR)
@@ -19,7 +19,17 @@ from db.db_config import init_db, seed_test_user
 from mvc.repositories.runtime_store import cleanup_expired_runtime_state
 from mvc.services.database_session_manager import init_database_session_manager
 
-app = FastAPI()
+
+@asynccontextmanager
+async def lifespan(_app: FastAPI):
+    await startup_event()
+    try:
+        yield
+    finally:
+        await shutdown_event()
+
+
+app = FastAPI(lifespan=lifespan)
 
 # 集成限流中间件（暂时注释掉，以免在调试阶段干扰正常请求）
 # RateLimitMiddleware 基于令牌桶实现，每 60 秒允许 100 个请求
@@ -44,7 +54,7 @@ for router in routers:
 
 cors_origins = [
     origin.strip()
-    for origin in os.getenv("CORS_ALLOW_ORIGINS", "").split(",")
+    for origin in require_env_declared("CORS_ALLOW_ORIGINS").split(",")
     if origin.strip()
 ]
 
@@ -64,20 +74,20 @@ async def root():
     return {"message": "Hello World"}
 
 
-@app.get("/hello/{name}")
-async def say_hello(name: str):
-    return {"message": f"Hello {name}"}
+def should_seed_test_user() -> bool:
+    return require_env_bool("SEED_TEST_USER")
 
 
-@app.on_event("startup")
 async def startup_event():
     """应用启动时初始化会话管理器"""
     # 初始化数据库表结构（仅支持新库/空库，不兼容旧迁移链）
     await init_db()
     logger.info("数据库表结构初始化完成")
 
-    # 确保测试用户存在
-    await seed_test_user()
+    if should_seed_test_user():
+        await seed_test_user()
+    else:
+        logger.info("已跳过默认测试用户初始化（SEED_TEST_USER=false）")
 
     # 使用数据库版本的会话管理器
     await init_database_session_manager()
@@ -90,7 +100,6 @@ async def startup_event():
     await init_manager.start()
     logger.info("部分资源正在初始化（模型加载、pgvector服务等将在后台继续加载）")
 
-@app.on_event("shutdown")
 async def shutdown_event():
     """应用关闭时清理资源"""
     # 关闭 SQLAlchemy 引擎（释放 asyncpg 连接池，避免 GC 时事件循环已关闭）
@@ -100,11 +109,10 @@ async def shutdown_event():
 
 
 def _env_int(name: str, default: int) -> int:
-    value = os.getenv(name, str(default)).strip()
     try:
-        return int(value)
-    except ValueError as exc:
-        raise SystemExit(f"{name} must be an integer, got: {value}") from exc
+        return require_env_int_value(name, default)
+    except RuntimeError as exc:
+        raise SystemExit(str(exc)) from exc
 
 
 def run_standalone() -> None:
@@ -121,7 +129,7 @@ def run_standalone() -> None:
     parser.add_argument("--no-reload", action="store_true", help="Disable uvicorn reload.")
     args = parser.parse_args()
 
-    host = args.host or os.getenv("BACKEND_HOST", "0.0.0.0")
+    host = args.host or require_env_value("BACKEND_HOST", "0.0.0.0")
     port = args.port or _env_int("BACKEND_PORT", 10000)
     log_config = BACKEND_DIR / "config" / "uvicorn_log_config.json"
 

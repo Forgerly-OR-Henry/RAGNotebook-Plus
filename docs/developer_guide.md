@@ -118,7 +118,7 @@ cd backend
 `backend/src/main.py` 启动事件：
 
 1. `init_db()`：只支持新库/空库或已由当前版本创建的库；启动时创建 ORM 表、pgvector 扩展和 `index_chunks`，遇到旧库/不匹配 schema 会要求重建数据库。
-2. `seed_test_user()`：确保默认测试用户存在。
+2. 当 `SEED_TEST_USER=true` 时执行 `seed_test_user()`：确保本地默认测试用户 `admin/admin1234` 存在；非本地环境建议关闭。
 3. `init_database_session_manager()`：启用 PostgreSQL 会话管理器。
 4. `cleanup_expired_runtime_state()`：清理缓存、限流计数和 Token 黑名单。
 5. `init_manager.start()`：后台初始化模型、笔记向量服务和重排序模型。

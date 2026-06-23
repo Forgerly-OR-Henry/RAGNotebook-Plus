@@ -1,6 +1,6 @@
 import asyncio
+import logging
 import os
-import sys
 
 from langchain_community.document_loaders import (
     PyPDFLoader,
@@ -12,18 +12,14 @@ from core.logger_handler import logger
 from utils.path_tool import get_abstract_path
 
 
-class FontBBoxStreamFilter:
-    def __init__(self, stream):
-        self.stream = stream
+class FontBBoxLogFilter(logging.Filter):
+    def filter(self, record: logging.LogRecord) -> bool:
+        return "FontBBox from font descriptor" not in record.getMessage()
 
-    def write(self, data):
-        if 'FontBBox from font descriptor' not in data:
-            self.stream.write(data)
 
-    def flush(self):
-        self.stream.flush()
-
-sys.stderr = FontBBoxStreamFilter(sys.stderr)
+_font_bbox_filter = FontBBoxLogFilter()
+for _logger_name in ("pypdf", "pypdf._reader", "pypdf.generic"):
+    logging.getLogger(_logger_name).addFilter(_font_bbox_filter)
 
 async def listdir_allowed_type(path: str, allowed_types: tuple[str]) -> tuple:
     """

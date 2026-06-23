@@ -181,9 +181,12 @@ VISION_OLLAMA_MODEL_NAME=qwen-vl:7b
 
 RERANKER_MODEL_PATH=D:\Hugging_Face\models\bge-reranker-v2-m3
 RATE_LIMIT_ENABLED=false
+SEED_TEST_USER=true
 SECRET_KEY=change-me
 ALGORITHM=HS256
 ```
+
+`SEED_TEST_USER=true` 仅面向本地开发，会在空库中确保 `admin/admin1234` 测试用户存在；非本地环境建议设为 `false`。
 
 真实模型 API Key 请写入 `config/apikey.txt`，不要提交，文件内只放一行 key：
 

@@ -3,6 +3,7 @@ import { ref, watch } from 'vue'
 import { FolderTree, GripVertical, Plus, Trash2, X } from '@lucide/vue'
 import ConfirmDialog from './ConfirmDialog.vue'
 import { notesApi } from '../api/notes'
+import { writeJsonPref } from '../api/localPrefs'
 
 interface CategoryItem {
   category: string
@@ -18,6 +19,7 @@ const props = withDefaults(defineProps<{
 }>(), {
   storageKey: 'note_category_order',
   itemName: '笔记',
+  deleteCategory: undefined,
 })
 
 const emit = defineEmits<{
@@ -58,11 +60,7 @@ function close() {
 }
 
 function saveOrder(nextItems: CategoryItem[]) {
-  try {
-    localStorage.setItem(props.storageKey, JSON.stringify(nextItems.map((item) => item.category)))
-  } catch {
-    // Local ordering is best-effort only.
-  }
+  writeJsonPref(props.storageKey, nextItems.map((item) => item.category))
 }
 
 function createCategory() {

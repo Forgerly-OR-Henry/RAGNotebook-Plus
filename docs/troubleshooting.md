@@ -211,7 +211,7 @@ netstat -ano | findstr :10000
 - 确认当前请求携带 `Authorization: Bearer <token>`。
 - 确认数据库连接正常。
 - 确认业务查询按当前用户隔离，不要手动复用其他用户的 ID。
-- 对于本地开发库，可重建数据库或清空 `public` schema，再启动后端自动创建当前表结构并使用默认测试用户验证。
+- 对于本地开发库，可重建数据库或清空 `public` schema，再启动后端自动创建当前表结构；`SEED_TEST_USER=true` 时会创建 `admin/admin1234` 便于验证。
 
 ## 13. 日志和调试
 

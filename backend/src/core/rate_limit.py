@@ -1,12 +1,14 @@
-import os
-
 from fastapi import HTTPException, Request
 
 from mvc.repositories.runtime_store import hit_rate_limit
+from utils.env_loader import load_backend_env, require_env_bool_value
+
+
+load_backend_env()
 
 # 全局开关：通过环境变量 RATE_LIMIT_ENABLED 控制所有限流是否生效
 # 当设置为 false 时，rate_limit 依赖和 RateLimitMiddleware 均直接放行
-_RATE_LIMIT_ENABLED = os.getenv("RATE_LIMIT_ENABLED", "true").lower() == "true"
+_RATE_LIMIT_ENABLED = require_env_bool_value("RATE_LIMIT_ENABLED", True)
 
 
 def rate_limit(limit: int = 1, window: int = 60):

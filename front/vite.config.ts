@@ -1,6 +1,37 @@
 import { defineConfig, loadEnv } from 'vite'
 import vue from '@vitejs/plugin-vue'
 import path from 'path'
+import fs from 'fs'
+
+function envFileKeys(filePath: string): Set<string> {
+  if (!fs.existsSync(filePath)) {
+    return new Set()
+  }
+
+  return new Set(
+    fs
+      .readFileSync(filePath, 'utf-8')
+      .split(/\r?\n/)
+      .map((line) => line.trim())
+      .filter((line) => line && !line.startsWith('#') && line.includes('='))
+      .map((line) => line.split('=', 1)[0].trim().replace(/^\uFEFF/, '')),
+  )
+}
+
+function validateEnvDeclaresTemplateKeys(envPath: string, examplePath: string): void {
+  if (!fs.existsSync(envPath) || !fs.existsSync(examplePath)) {
+    return
+  }
+
+  const envKeys = envFileKeys(envPath)
+  const missing = Array.from(envFileKeys(examplePath)).filter((key) => !envKeys.has(key))
+  if (missing.length > 0) {
+    throw new Error(
+      `${envPath} is missing config fields: ${missing.join(', ')}. ` +
+        `Copy the missing keys from ${examplePath}; values may be empty or use template defaults, but fields must be explicit.`,
+    )
+  }
+}
 
 function requiredEnv(env: Record<string, string>, key: string): string {
   const value = env[key]?.trim()
@@ -25,8 +56,12 @@ function processEnv(): Record<string, string> {
 }
 
 export default defineConfig(({ mode }) => {
-  const fileEnv = loadEnv(mode, process.cwd(), '')
   const injected = process.env.RAGNOTEBOOK_ENV_INJECTED?.toLowerCase()
+  if (!['1', 'true', 'yes', 'on'].includes(injected || '')) {
+    validateEnvDeclaresTemplateKeys(path.resolve(__dirname, '.env'), path.resolve(__dirname, '.env.example'))
+  }
+
+  const fileEnv = loadEnv(mode, process.cwd(), '')
   const env = ['1', 'true', 'yes', 'on'].includes(injected || '') ? { ...fileEnv, ...processEnv() } : fileEnv
   const backendTarget = requiredEnv(env, 'VITE_BACKEND_TARGET')
 
@@ -57,6 +92,23 @@ export default defineConfig(({ mode }) => {
         '/user': { target: backendTarget, changeOrigin: true },
         '/file': { target: backendTarget, changeOrigin: true },
         '/media': { target: backendTarget, changeOrigin: true },
+      },
+    },
+    build: {
+      rollupOptions: {
+        output: {
+          manualChunks(id) {
+            if (id.includes('node_modules/@tiptap') || id.includes('node_modules/prosemirror')) {
+              return 'editor-prosemirror'
+            }
+            if (id.includes('node_modules/lowlight') || id.includes('node_modules/turndown')) {
+              return 'editor-tools'
+            }
+            if (id.includes('node_modules/marked') || id.includes('node_modules/dompurify')) {
+              return 'markdown-rendering'
+            }
+          },
+        },
       },
     },
   }

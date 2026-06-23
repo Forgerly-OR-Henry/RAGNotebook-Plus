@@ -1,6 +1,6 @@
 import axios from 'axios'
+import { clearAuthAndRedirect, getJwtToken } from './authToken'
 
-const JWT_KEY = 'jwt_token'
 const API_TIMEOUT_MS = Number(import.meta.env.VITE_API_TIMEOUT_MS)
 
 if (!Number.isFinite(API_TIMEOUT_MS) || API_TIMEOUT_MS <= 0) {
@@ -14,7 +14,7 @@ const client = axios.create({
 })
 
 client.interceptors.request.use((config) => {
-  const token = localStorage.getItem(JWT_KEY)
+  const token = getJwtToken()
   if (token) {
     config.headers.Authorization = `Bearer ${token}`
   }
@@ -25,8 +25,7 @@ client.interceptors.response.use(
   (response) => response,
   (error) => {
     if (error.response?.status === 401) {
-      localStorage.removeItem(JWT_KEY)
-      window.location.href = '/login'
+      clearAuthAndRedirect()
     }
     return Promise.reject(error)
   }

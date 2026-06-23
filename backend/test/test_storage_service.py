@@ -17,6 +17,21 @@ FILE_STORAGE_KEYS = {
 }
 
 
+def _set_storage_env(monkeypatch, **overrides):
+    values = {
+        "FILE_STORAGE_HOST": "localhost",
+        "FILE_STORAGE_PROTOCOL": "sftp",
+        "FILE_STORAGE_PORT": "22",
+        "FILE_STORAGE_USERNAME": "",
+        "FILE_STORAGE_PASSWORD": "",
+        "FILE_STORAGE_BASE_DIR": "",
+        "FILE_STORAGE_URI_ALIAS": "files",
+    }
+    values.update(overrides)
+    for key, value in values.items():
+        monkeypatch.setenv(key, value)
+
+
 def _env_keys(path: Path) -> set[str]:
     keys = set()
     for raw_line in path.read_text(encoding="utf-8").splitlines():
@@ -36,12 +51,14 @@ def test_file_storage_keys_are_declared_in_env_templates(relative_path):
 
 
 def test_localhost_uses_local_adapter_and_default_backend_data(monkeypatch):
-    monkeypatch.setenv("FILE_STORAGE_HOST", "localhost")
-    monkeypatch.delenv("FILE_STORAGE_BASE_DIR", raising=False)
-    monkeypatch.setenv("FILE_STORAGE_PROTOCOL", "sftp")
-    monkeypatch.setenv("FILE_STORAGE_PORT", "2222")
-    monkeypatch.setenv("FILE_STORAGE_USERNAME", "ignored")
-    monkeypatch.setenv("FILE_STORAGE_PASSWORD", "ignored")
+    _set_storage_env(
+        monkeypatch,
+        FILE_STORAGE_HOST="localhost",
+        FILE_STORAGE_PORT="2222",
+        FILE_STORAGE_USERNAME="ignored",
+        FILE_STORAGE_PASSWORD="ignored",
+        FILE_STORAGE_BASE_DIR="",
+    )
 
     settings = load_storage_settings()
     service = StorageService(settings)
@@ -56,8 +73,7 @@ def test_localhost_uses_local_adapter_and_default_backend_data(monkeypatch):
 
 
 def test_loopback_uses_configured_local_directory(monkeypatch, tmp_path):
-    monkeypatch.setenv("FILE_STORAGE_HOST", "127.0.0.1")
-    monkeypatch.setenv("FILE_STORAGE_BASE_DIR", str(tmp_path))
+    _set_storage_env(monkeypatch, FILE_STORAGE_HOST="127.0.0.1", FILE_STORAGE_BASE_DIR=str(tmp_path))
 
     settings = load_storage_settings()
 
@@ -65,13 +81,34 @@ def test_loopback_uses_configured_local_directory(monkeypatch, tmp_path):
     assert Path(settings.base_dir) == tmp_path.resolve()
 
 
+def test_local_storage_rejects_prefix_path_escape(monkeypatch, tmp_path):
+    _set_storage_env(monkeypatch)
+    settings = load_storage_settings()
+    settings = storage_module.StorageSettings(
+        host=settings.host,
+        protocol=settings.protocol,
+        port=settings.port,
+        username=settings.username,
+        password=settings.password,
+        base_dir=str(tmp_path / "base"),
+        uri_alias=settings.uri_alias,
+        backend=settings.backend,
+    )
+    adapter = LocalStorageAdapter(settings)
+
+    with pytest.raises(ValueError, match="非法存储路径"):
+        adapter.resolve_path("../base_evil/file.txt")
+
+
 def test_remote_sftp_uses_sftp_adapter(monkeypatch):
-    monkeypatch.setenv("FILE_STORAGE_HOST", "db.example.internal")
-    monkeypatch.setenv("FILE_STORAGE_PROTOCOL", "sftp")
-    monkeypatch.setenv("FILE_STORAGE_PORT", "2200")
-    monkeypatch.setenv("FILE_STORAGE_USERNAME", "ragfiles")
-    monkeypatch.setenv("FILE_STORAGE_PASSWORD", "secret")
-    monkeypatch.setenv("FILE_STORAGE_BASE_DIR", "/srv/ragnotebook/files")
+    _set_storage_env(
+        monkeypatch,
+        FILE_STORAGE_HOST="db.example.internal",
+        FILE_STORAGE_PORT="2200",
+        FILE_STORAGE_USERNAME="ragfiles",
+        FILE_STORAGE_PASSWORD="secret",
+        FILE_STORAGE_BASE_DIR="/srv/ragnotebook/files",
+    )
 
     settings = load_storage_settings()
     service = StorageService(settings)
@@ -82,11 +119,21 @@ def test_remote_sftp_uses_sftp_adapter(monkeypatch):
 
 
 def test_remote_storage_requires_base_dir(monkeypatch):
-    monkeypatch.setenv("FILE_STORAGE_HOST", "db.example.internal")
-    monkeypatch.setenv("FILE_STORAGE_PROTOCOL", "sftp")
-    monkeypatch.setenv("FILE_STORAGE_USERNAME", "ragfiles")
-    monkeypatch.setenv("FILE_STORAGE_PASSWORD", "secret")
-    monkeypatch.delenv("FILE_STORAGE_BASE_DIR", raising=False)
+    _set_storage_env(
+        monkeypatch,
+        FILE_STORAGE_HOST="db.example.internal",
+        FILE_STORAGE_USERNAME="ragfiles",
+        FILE_STORAGE_PASSWORD="secret",
+        FILE_STORAGE_BASE_DIR="",
+    )
 
     with pytest.raises(ValueError, match="FILE_STORAGE_BASE_DIR"):
+        load_storage_settings()
+
+
+def test_storage_settings_requires_declared_fields(monkeypatch):
+    _set_storage_env(monkeypatch)
+    monkeypatch.delenv("FILE_STORAGE_HOST", raising=False)
+
+    with pytest.raises(RuntimeError, match="FILE_STORAGE_HOST"):
         load_storage_settings()

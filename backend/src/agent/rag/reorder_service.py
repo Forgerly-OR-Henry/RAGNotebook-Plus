@@ -3,7 +3,7 @@ from pathlib import Path
 from typing import Any
 
 from core.logger_handler import logger
-from utils.env_loader import load_backend_env
+from utils.env_loader import load_backend_env, require_env_value
 
 # 加载环境变量
 load_backend_env()
@@ -16,7 +16,7 @@ def project_root() -> Path:
 
 
 def resolve_reranker_model_path(path_value: str | None = None) -> Path:
-    configured_path = path_value or os.getenv("RERANKER_MODEL_PATH", DEFAULT_RERANKER_MODEL_PATH)
+    configured_path = path_value or require_env_value("RERANKER_MODEL_PATH", DEFAULT_RERANKER_MODEL_PATH)
     model_path = Path(configured_path.strip().strip('"').strip("'"))
     if model_path.is_absolute():
         return model_path

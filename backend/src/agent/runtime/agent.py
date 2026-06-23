@@ -1,6 +1,5 @@
 import asyncio
 import json
-import os
 from collections.abc import AsyncGenerator, Awaitable, Callable
 
 from langchain_classic.agents import AgentExecutor, create_tool_calling_agent
@@ -26,6 +25,15 @@ from agent.runtime.agent_tools import (
 )
 from core.logger_handler import logger
 from agent.prompts.loader import load_prompt
+from utils.env_loader import (
+    load_backend_env,
+    require_env_declared,
+    require_env_int_value,
+    require_env_value,
+)
+
+
+load_backend_env()
 
 
 class AgentFactory:
@@ -53,7 +61,7 @@ class AgentFactory:
         :param default_system_prompt: 默认系统提示词
         """
         self.model = model
-        self.api_key = api_key or os.getenv("CHAT_API_KEY")
+        self.api_key = api_key or require_env_declared("CHAT_API_KEY") or None
         self.default_tools = default_tools or self._get_default_tools()
         self.default_middleware = default_middleware or self._get_default_middleware()
         self.default_system_prompt = default_system_prompt or self._get_default_system_prompt()
@@ -82,11 +90,16 @@ class AgentFactory:
 
     def _create_chat_model(self, custom_model: str | None = None):
         """内部方法：根据LLM_TYPE创建聊天模型实例"""
-        llm_type = os.getenv("LLM_TYPE", "ALIYUN").upper()
+        llm_type = require_env_value("LLM_TYPE", "ALIYUN").upper()
 
         if llm_type == "OLLAMA":
-            model_name = custom_model or os.getenv("OLLAMA_MODEL_NAME", self.model)
-            base_url = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")
+            model_name = (
+                custom_model
+                or require_env_declared("OLLAMA_MODEL_NAME")
+                or require_env_declared("OLLAMA_CHAT_MODEL_NAME")
+                or self.model
+            )
+            base_url = require_env_value("OLLAMA_BASE_URL", "http://localhost:11434")
 
             logger.info(f"🤖 Agent使用Ollama模型: {model_name}")
 
@@ -98,9 +111,9 @@ class AgentFactory:
             )
 
         elif llm_type == "ALIYUN":
-            api_key = os.getenv("ALIYUN_ACCESS_KEY_SECRET")
-            base_url = os.getenv("ALIYUN_BASE_URL")
-            model_name = custom_model or os.getenv("ALIYUN_MODEL_NAME", self.model)
+            api_key = require_env_value("ALIYUN_ACCESS_KEY_SECRET")
+            base_url = require_env_value("ALIYUN_BASE_URL", "https://dashscope.aliyuncs.com/compatible-mode/v1")
+            model_name = custom_model or require_env_declared("ALIYUN_MODEL_NAME") or require_env_value("CHAT_MODEL_NAME", self.model)
 
             logger.info(f"🤖 Agent使用阿里云百炼模型: {model_name}")
 
@@ -190,12 +203,7 @@ RAG_CHAT_SYSTEM_PROMPT = (
 
 
 def _history_turn_limit() -> int:
-    value = os.getenv("CHAT_HISTORY_TURNS", "6")
-    try:
-        return max(0, int(value))
-    except ValueError:
-        logger.warning(f"CHAT_HISTORY_TURNS 配置无效，已回退到 6: {value}")
-        return 6
+    return max(0, require_env_int_value("CHAT_HISTORY_TURNS", 6))
 
 
 def _content_to_text(content) -> str:

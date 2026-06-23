@@ -10,16 +10,20 @@ from langchain_core.documents import Document
 from core.logger_handler import logger
 from utils.path_tool import get_abstract_path
 from agent.vision.vision_service import VisionService
+from utils.env_loader import load_backend_env, require_env_bool_value, require_env_int_value
+
+
+load_backend_env()
 
 # 环境变量配置项，用于控制多模态 PDF 加载的行为：
 # - BATCH_SIZE:    每批次发送给视觉模型的页数（越大越快，但受限于视觉模型的上下文窗口）
 # - DEDUP_ENABLED: 是否对视觉相似的页面去重（如 PPT 模板页、重复的页眉页脚）
 # - DEDUP_THRESHOLD: 感知哈希的汉明距离阈值，越小去重越严格
 # - BATCH_LOW_RES: 使用低分辨率渲染页面图片（节省带宽和视觉模型的计算成本）
-_BATCH_SIZE = int(os.getenv("VISION_BATCH_SIZE", "5"))
-_DEDUP_ENABLED = os.getenv("VISION_DEDUP_ENABLED", "true").lower() == "true"
-_DEDUP_THRESHOLD = int(os.getenv("VISION_DEDUP_THRESHOLD", "10"))
-_LOW_RES_BATCH = os.getenv("VISION_BATCH_LOW_RES", "true").lower() == "true"
+_BATCH_SIZE = require_env_int_value("VISION_BATCH_SIZE", 5)
+_DEDUP_ENABLED = require_env_bool_value("VISION_DEDUP_ENABLED", True)
+_DEDUP_THRESHOLD = require_env_int_value("VISION_DEDUP_THRESHOLD", 10)
+_LOW_RES_BATCH = require_env_bool_value("VISION_BATCH_LOW_RES", True)
 
 
 @dataclass

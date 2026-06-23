@@ -97,6 +97,51 @@
         ]
       }
     },
+    "/chat/quiz/generate": {
+      "post": {
+        "tags": [
+          "chat"
+        ],
+        "summary": "Generate Quiz",
+        "description": "根据选择的笔记或知识库文档生成快速测验。",
+        "operationId": "generate_quiz_chat_quiz_generate_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/QuizGenerateRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
     "/chat/session/{session_id}": {
       "get": {
         "tags": [
@@ -431,6 +476,15 @@
               "default": false,
               "title": "Unfiled"
             }
+          },
+          {
+            "name": "category",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "title": "Category"
+            }
           }
         ],
         "responses": {
@@ -661,6 +715,179 @@
         }
       }
     },
+    "/knowledge/documents/{document_id}/metadata": {
+      "put": {
+        "tags": [
+          "knowledge"
+        ],
+        "summary": "Update Document Metadata",
+        "operationId": "update_document_metadata_knowledge_documents__document_id__metadata_put",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "document_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Document Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/KnowledgeDocumentMetadataUpdate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DocumentResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/knowledge/documents/{document_id}/auto-tag": {
+      "post": {
+        "tags": [
+          "knowledge"
+        ],
+        "summary": "Auto Tag Document",
+        "operationId": "auto_tag_document_knowledge_documents__document_id__auto_tag_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "document_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Document Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DocumentResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/knowledge/stats": {
+      "get": {
+        "tags": [
+          "knowledge"
+        ],
+        "summary": "Get Knowledge Stats",
+        "operationId": "get_knowledge_stats_knowledge_stats_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/knowledge/category/{category}": {
+      "delete": {
+        "tags": [
+          "knowledge"
+        ],
+        "summary": "Delete Knowledge Category",
+        "operationId": "delete_knowledge_category_knowledge_category__category__delete",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "category",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Category"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/knowledge/folders": {
       "get": {
         "tags": [
@@ -848,6 +1075,50 @@
             "application/json": {
               "schema": {
                 "$ref": "#/components/schemas/KnowledgeBatchFolderRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/knowledge/batch/category": {
+      "put": {
+        "tags": [
+          "knowledge"
+        ],
+        "summary": "Batch Update Knowledge Category",
+        "operationId": "batch_update_knowledge_category_knowledge_batch_category_put",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/KnowledgeBatchCategoryRequest"
               }
             }
           },
@@ -3554,43 +3825,6 @@
           }
         }
       }
-    },
-    "/hello/{name}": {
-      "get": {
-        "summary": "Say Hello",
-        "operationId": "say_hello_hello__name__get",
-        "parameters": [
-          {
-            "name": "name",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "title": "Name"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
     }
   },
   "components": {
@@ -3794,6 +4028,10 @@
           "folder_id": {
             "type": "string",
             "title": "Folder Id"
+          },
+          "category": {
+            "type": "string",
+            "title": "Category"
           }
         },
         "type": "object",
@@ -4065,6 +4303,31 @@
             ],
             "title": "Mime Type"
           },
+          "category": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Category"
+          },
+          "tags": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tags"
+          },
           "status": {
             "anyOf": [
               {
@@ -4256,6 +4519,31 @@
             ],
             "title": "Mime Type"
           },
+          "category": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Category"
+          },
+          "tags": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tags"
+          },
           "status": {
             "anyOf": [
               {
@@ -4343,6 +4631,33 @@
         "type": "object",
         "title": "HTTPValidationError"
       },
+      "KnowledgeBatchCategoryRequest": {
+        "properties": {
+          "ids": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Ids"
+          },
+          "category": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Category"
+          }
+        },
+        "type": "object",
+        "required": [
+          "ids"
+        ],
+        "title": "KnowledgeBatchCategoryRequest"
+      },
       "KnowledgeBatchFolderRequest": {
         "properties": {
           "ids": {
@@ -4369,6 +4684,37 @@
           "ids"
         ],
         "title": "KnowledgeBatchFolderRequest"
+      },
+      "KnowledgeDocumentMetadataUpdate": {
+        "properties": {
+          "category": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Category"
+          },
+          "tags": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tags"
+          }
+        },
+        "type": "object",
+        "title": "KnowledgeDocumentMetadataUpdate"
       },
       "KnowledgeFolderCreate": {
         "properties": {
@@ -5699,6 +6045,41 @@
           "question"
         ],
         "title": "QuickTestTurnResponse"
+      },
+      "QuizGenerateRequest": {
+        "properties": {
+          "selected_files": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Selected Files"
+          },
+          "selected_notes": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Selected Notes"
+          }
+        },
+        "type": "object",
+        "title": "QuizGenerateRequest",
+        "description": "快速测验生成请求。兼容旧前端的 selected_files/selected_notes 字段。"
       },
       "RAGRequest": {
         "properties": {
