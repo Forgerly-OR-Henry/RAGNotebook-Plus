@@ -1,9 +1,6 @@
 import asyncio
 import json
 
-import pytest
-from fastapi import HTTPException
-
 from mvc.controllers import health_controller as health
 
 
@@ -30,12 +27,13 @@ def test_health_ready_waits_for_model_runtime(monkeypatch):
     monkeypatch.setattr(health, "check_runtime_store_connection", ok_connection)
     monkeypatch.setattr(health.init_manager, "status_snapshot", lambda: _runtime_status("starting"))
 
-    with pytest.raises(HTTPException) as exc_info:
-        asyncio.run(health.get_health_readiness())
+    response = asyncio.run(health.get_health_readiness())
+    payload = json.loads(response.body)
 
-    assert exc_info.value.status_code == 503
-    assert exc_info.value.detail["status"] == "starting"
-    assert exc_info.value.detail["checks"]["model_runtime"]["status"] == "starting"
+    assert response.status_code == 503
+    assert payload["code"] == 503
+    assert payload["data"]["status"] == "starting"
+    assert payload["data"]["checks"]["model_runtime"]["status"] == "starting"
 
 
 def test_health_ready_returns_ok_when_model_runtime_ready(monkeypatch):

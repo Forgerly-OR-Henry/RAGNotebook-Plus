@@ -27,13 +27,13 @@ flowchart LR
 | 前端页面 | `front/src/views` | 页面状态、交互、SSE 消费和可视化渲染 |
 | 前端 API | `front/src/features/*/api.ts`、`front/src/api` | feature API 为主，旧 `front/src/api` 保留 re-export 和共享 client |
 | 控制器层 | `backend/src/mvc/controllers` | 参数声明、鉴权、限流、响应封装、流式响应 |
-| 服务层 | `backend/src/mvc/services` | 笔记、知识库、模板、回顾、测评、导图、用户、来源注册和业务用例 |
+| 服务层 | `backend/src/mvc/services` | 笔记、知识库、模板、测评、导图、用户、来源注册和业务用例 |
 | 仓储层 | `backend/src/mvc/repositories` | 运行态存储和用户数据访问 |
 | 模型层 | `backend/src/mvc/models` | SQLAlchemy ORM |
 | View/DTO | `backend/src/mvc/schemas` | Pydantic 请求、响应和引用模型 |
 | Agent Gateway | `backend/src/mvc/agent_gateway` | MVC 调用 Agent 能力的唯一入口 |
 | Agent 域 | `backend/src/agent` | RAG、Agent、重排序、检索器、Prompt、模型和索引 |
-| 数据库启动 | `backend/src/db` | engine/session、自动迁移和测试用户初始化 |
+| 数据库启动 | `backend/src/db` | engine/session、新库/空库建表和测试用户初始化 |
 | 公共能力 | `backend/src/core`、`backend/src/utils` | 日志、异常、限流、配置、文件解析和路径工具 |
 
 ## 2. 目录职责
@@ -63,11 +63,10 @@ flowchart LR
 | `backend/src/mvc/models/` | SQLAlchemy ORM |
 | `backend/src/mvc/agent_gateway/` | MVC 到 Agent 的调用门面 |
 | `backend/src/agent/` | RAG、Agent、重排序、检索器、模型工厂、Prompt 和索引 |
-| `backend/src/db/` | 数据库 URL 解析、engine/session 和自动迁移 |
+| `backend/src/db/` | 数据库 URL 解析、engine/session 和新库/空库建表 |
 | `backend/config/` | Agent 和 Uvicorn 配置 |
 | `backend/.env` | 后端单独启动时读取的本地配置，不提交 |
 | `backend/src/agent/prompts/` | 自动标签、写作、问答、测评、总结等提示词 |
-| `backend/alembic/` | 数据库迁移脚本 |
 | `backend/openapi.json` | 当前 API 静态快照 |
 
 ### 前端
@@ -102,7 +101,7 @@ flowchart LR
 6. 可选安装依赖：后端优先 `uv sync`，前端运行 `npm install`。
 7. 检查后端依赖、`python-magic` 原生库和前端 `node_modules`。
 8. 通过 Docker Compose 启动 PostgreSQL，并等待端口可用。
-9. 启动 `uvicorn main:app --reload`；数据库检查和空库 Alembic 初始化由 FastAPI startup 执行。
+9. 启动 `uvicorn main:app --reload`；数据库检查和新库/空库建表由 FastAPI startup 执行。
 
 ### 后端单独启动
 
@@ -118,7 +117,7 @@ cd backend
 
 `backend/src/main.py` 启动事件：
 
-1. `init_db()`：根据 `PG_AUTO_INIT` 初始化空数据库；已有 Alembic 版本表时执行 `upgrade head` 应用新增迁移，本地兜底可用 `DB_AUTO_CREATE_TABLES`。
+1. `init_db()`：只支持新库/空库或已由当前版本创建的库；启动时创建 ORM 表、pgvector 扩展和 `index_chunks`，遇到旧库/不匹配 schema 会要求重建数据库。
 2. `seed_test_user()`：确保默认测试用户存在。
 3. `init_database_session_manager()`：启用 PostgreSQL 会话管理器。
 4. `cleanup_expired_runtime_state()`：清理缓存、限流计数和 Token 黑名单。
@@ -137,7 +136,6 @@ cd backend
 | `/knowledge` | `api/knowledge.py` | 文档资源上传、SSE 进度、列表、详情、切片、图片和 deprecated 兼容入口 |
 | `/note` | `note_router.py` | 笔记 CRUD、搜索、批量操作、补全、写作辅助、关联推荐 |
 | `/note-template` | `note_template_router.py` | 笔记模板 |
-| `/review` | `review_router.py` | 每日回顾、标记完成、生成问题 |
 | `/quick-test` | `quick_test_router.py` | 快速测试创建、答题、查询、结束 |
 | `/mindmaps` | `mindmap_router.py` | 思维导图生成、查询、更新、导出 |
 
@@ -159,7 +157,6 @@ cd backend
 | `documents` | 笔记和知识库的统一文档元数据，保存 `source_type`、标题、存储对象、内容 hash、状态和切片数量 |
 | `notes` | 笔记业务元数据，正文通过 `document_id` 指向 Markdown 文件 |
 | `note_templates` | 用户模板和默认模板 |
-| `review_schedules` | 回顾次数、间隔、下次回顾时间 |
 | `chat_sessions` | 对话会话元数据 |
 | `chat_messages` | 对话消息 |
 | `quiz_sessions` | 快速测试会话 |
@@ -184,7 +181,7 @@ cd backend
 
 - 所有用户数据查询必须带 `user_id`。
 - 索引检索和删除必须带 `user_id` 与 `document_id`/`source_type` 边界。
-- 表结构变更通过 Alembic 表达，不依赖运行时隐式补表。
+- 表结构变更当前按新库基线处理；本地旧库不做兼容迁移，需重建数据库或清空 `public` schema。
 - `EMBEDDING_DIM` 必须与嵌入模型输出维度一致。
 
 ## 6. 核心链路
@@ -195,7 +192,6 @@ cd backend
 2. `NoteService` 将正文保存为 Markdown 文件，并写入 `storage_objects`、`documents(source_type=note)` 和 `notes`。
 3. `NoteIndexService` 异步写入 `index_chunks(source_type=note, document_id=document_id)`。
 4. 如缺少标签或分类，后台调用 LLM 自动补齐。
-5. 创建初始回顾记录。
 
 ### 知识库上传
 
@@ -232,7 +228,7 @@ cd backend
 2. 后端收集来源片段。
 3. LLM 生成 nodes/edges JSON。
 4. 图结构保存到 `mind_maps.graph`。
-5. 前端用 Vue Flow 渲染，可更新节点边并导出 JSON/Mermaid。
+5. 前端用树状画布渲染，支持拖拽缩放、复制大纲并导出 JSON/Mermaid。
 
 ## 7. 配置和模型
 
@@ -270,7 +266,7 @@ cd backend
 
 1. 在 `backend/src/mvc/schemas/` 增加请求和响应模型。
 2. 如需持久化，在 `backend/src/mvc/models/` 增加 ORM。
-3. 新增 Alembic revision。
+3. 更新 SQLAlchemy ORM 和 `backend/src/db/db_config.py` 中的非 ORM 表初始化逻辑。
 4. 在 `backend/src/mvc/services/` 或 `backend/src/mvc/repositories/` 实现业务逻辑和数据访问，保留 `user_id` 边界。
 5. 如需调用 LLM/RAG/索引能力，通过 `backend/src/mvc/agent_gateway/` 封装。
 6. 在 `backend/src/mvc/controllers/` 增加新路由，接入鉴权和限流。
@@ -312,7 +308,7 @@ backend\.venv\Scripts\python.exe scripts\seed_demo_data.py
 
 演示账号为 `demo_user / demo1234`。默认 seed 为幂等追加，只更新固定 demo 用户、固定 demo ID 和 fixture 文件名对应的数据；如需重建演示数据，可加 `--reset-demo`。当本地嵌入模型或 API Key 暂不可用时，可先用 `--skip-knowledge` 只写入关系型演示数据并跳过向量同步。
 
-运行完整 seed 前需确认数据库迁移已完成、pgvector 扩展可用，并且 `EMBED_MODEL_TYPE`、`EMBEDDING_DIM` 与实际嵌入模型输出一致。
+运行完整 seed 前需确认后端已在新库/空库完成 schema 初始化、pgvector 扩展可用，并且 `EMBED_MODEL_TYPE`、`EMBEDDING_DIM` 与实际嵌入模型输出一致。
 
 前端：
 
@@ -336,13 +332,13 @@ $env:PYTHONPATH = "src"
 2. 登录后能创建笔记、搜索笔记、上传知识库文件。
 3. AI 问答能返回 SSE 流式结果。
 4. 快速测试能创建、答题、结束。
-5. 思维导图能生成、编辑、导出。
+5. 思维导图能生成、查看、交互浏览和导出。
 6. 登出后受保护页面跳转登录页。
 
 ## 11. 维护约定
 
 - 文档跟随代码更新，尤其是路由、表结构、配置项和核心数据流。
-- 关系表变更必须新增 Alembic 迁移。
+- 关系表变更必须同步 ORM、数据库初始化逻辑、契约测试和文档；本地旧库不做兼容迁移。
 - 向量数据 metadata 必须保留可追踪字段。
 - Prompt 放在 `backend/src/agent/prompts/`，避免长提示词硬编码。
 - 运行时数据、真实 `config/.env`、密钥、模型文件和数据库卷不提交。

@@ -1,28 +1,81 @@
 from __future__ import annotations
 
+import asyncio
+import json
 from collections.abc import AsyncGenerator
 
 from agent.rag.rag_service import RagService
 from agent.rag.reorder_service import reorder_service
 from agent.runtime.agent import get_agent_response as runtime_get_agent_response
-from agent.runtime.agent import get_agent_stream_response as runtime_get_agent_stream_response
+from agent.runtime.agent import stream_chat_model_response
 from agent.runtime.agent_tools import AgentToolCallbacks
 from core.background_init import init_manager
 from core.logger_handler import logger
 from db.db_config import AsyncSessionLocal
 from mvc.schemas import NoteCreate
+from mvc.schemas.sources import SourceReference
 from mvc.services import session_manager as sm
-from mvc.services.review_service import review_service
 from mvc.services.sources.registry import get_source_registry
 
 
-async def _search_sources(user_id: str, query: str, source_type: str, top_k: int) -> list:
+def _source_ref_dict(ref: SourceReference) -> dict:
+    return {"source_type": ref.source_type, "source_id": ref.source_id}
+
+
+async def _search_sources(
+    user_id: str,
+    query: str,
+    source_type: str,
+    top_k: int,
+    source_refs: list[SourceReference] | None = None,
+) -> list:
     async with AsyncSessionLocal() as db:
-        return await get_source_registry().search(db, user_id, query, source_type=source_type, top_k=top_k)
+        registry = get_source_registry()
+        if source_refs is None:
+            return await registry.search(db, user_id, query, source_type=source_type, top_k=top_k)
+
+        refs_by_type: dict[str, list[str]] = {"note": [], "knowledge": []}
+        for ref in source_refs:
+            refs_by_type.setdefault(ref.source_type, []).append(ref.source_id)
+
+        if source_type == "mixed":
+            chunks = []
+            for scoped_type, source_ids in refs_by_type.items():
+                if not source_ids:
+                    continue
+                chunks.extend(
+                    await registry.search(
+                        db,
+                        user_id,
+                        query,
+                        source_type=scoped_type,
+                        top_k=top_k,
+                        source_ids=source_ids,
+                    )
+                )
+            chunks.sort(key=lambda chunk: chunk.score if chunk.score is not None else 999999.0)
+            return chunks[:top_k]
+
+        scoped_ids = refs_by_type.get(source_type, [])
+        if not scoped_ids:
+            return []
+        return await registry.search(db, user_id, query, source_type=source_type, top_k=top_k, source_ids=scoped_ids)
 
 
-async def get_documents_and_summary(query: str, user_id: str, thinking_callback=None) -> dict:
-    service = RagService(user_id, thinking_callback=thinking_callback, source_search=_search_sources)
+def _build_source_search(source_refs: list[SourceReference] | None = None):
+    async def search(user_id: str, query: str, source_type: str, top_k: int) -> list:
+        return await _search_sources(user_id, query, source_type, top_k, source_refs=source_refs)
+
+    return search
+
+
+async def get_documents_and_summary(
+    query: str,
+    user_id: str,
+    thinking_callback=None,
+    source_refs: list[SourceReference] | None = None,
+) -> dict:
+    service = RagService(user_id, thinking_callback=thinking_callback, source_search=_build_source_search(source_refs))
     return await service.get_documents_and_summary(query)
 
 
@@ -31,11 +84,16 @@ async def rag_summary(query: str, user_id: str, thinking_callback=None) -> str:
     return result.get("summary", "抱歉，处理您的请求时出现了错误。")
 
 
-async def rag_summary_tool_result(query: str, user_id: str | None, thinking_callback=None) -> str:
+async def rag_summary_tool_result(
+    query: str,
+    user_id: str | None,
+    thinking_callback=None,
+    source_refs: list[SourceReference] | None = None,
+) -> str:
     if not user_id:
         return "错误: 无法确定用户身份，请提供有效的user_id"
 
-    result = await get_documents_and_summary(query, user_id, thinking_callback=thinking_callback)
+    result = await get_documents_and_summary(query, user_id, thinking_callback=thinking_callback, source_refs=source_refs)
     documents = result.get("documents", [])
     summary = result.get("summary", "")
 
@@ -88,35 +146,6 @@ async def _note_stats_callback(user_id: str) -> str:
             return f"获取笔记统计时出错: {str(e)}"
 
 
-async def _today_reviews_callback(user_id: str) -> str:
-    async with AsyncSessionLocal() as db:
-        try:
-            reviews = await review_service.get_today_reviews(db, user_id)
-            if not reviews:
-                return "今日没有待回顾的笔记，继续保持！"
-            lines = [f"📅 今日待回顾笔记（共 {len(reviews)} 篇）\n"]
-            for i, rv in enumerate(reviews, 1):
-                lines.append(f"{i}. **{rv['title']}**")
-                lines.append(f"   回顾次数: 第 {rv['review_count'] + 1} 次")
-                lines.append(f"   内容预览: {rv['content_preview'][:100]}...\n")
-            return "\n".join(lines)
-        except Exception as e:
-            logger.error(f"获取今日回顾失败: {e}")
-            return f"获取今日回顾时出错: {str(e)}"
-
-
-async def _mark_reviewed_callback(note_id: str, user_id: str) -> str:
-    async with AsyncSessionLocal() as db:
-        try:
-            result = await review_service.mark_reviewed(db, note_id, user_id)
-            if result["success"]:
-                return f"✅ 已标记回顾完成！第 {result['review_count']} 次回顾，下次回顾间隔 {result['interval_days']} 天。"
-            return f"标记失败: {result['message']}"
-        except Exception as e:
-            logger.error(f"标记回顾失败: {e}")
-            return f"标记回顾时出错: {str(e)}"
-
-
 async def _create_note_callback(title: str, content: str, user_id: str) -> str:
     async with AsyncSessionLocal() as db:
         try:
@@ -146,13 +175,14 @@ async def _related_notes_callback(note_id: str, top_k: int, user_id: str) -> str
             return f"获取关联推荐时出错: {str(e)}"
 
 
-def _build_tool_callbacks() -> AgentToolCallbacks:
+def _build_tool_callbacks(source_refs: list[SourceReference] | None = None) -> AgentToolCallbacks:
+    async def scoped_rag_summary(query: str, user_id: str | None, thinking_callback=None) -> str:
+        return await rag_summary_tool_result(query, user_id, thinking_callback=thinking_callback, source_refs=source_refs)
+
     return AgentToolCallbacks(
-        rag_summary=rag_summary_tool_result,
+        rag_summary=scoped_rag_summary,
         search_notes=_search_notes_callback,
         note_stats=_note_stats_callback,
-        today_reviews=_today_reviews_callback,
-        mark_reviewed=_mark_reviewed_callback,
         create_note=_create_note_callback,
         related_notes=_related_notes_callback,
     )
@@ -167,18 +197,91 @@ async def get_agent_response(query: str, history: list[tuple] | None, user_id: s
     )
 
 
-async def stream_agent_response(query: str, session_id: str, user_id: str) -> AsyncGenerator[str, None]:
-    history = await sm.session_manager.get_history(session_id, user_id)
+async def stream_agent_response(
+    query: str,
+    session_id: str,
+    user_id: str,
+    project_id: str | None = None,
+    source_refs: list[SourceReference] | None = None,
+    rag_enabled: bool = True,
+) -> AsyncGenerator[str, None]:
+    history = await sm.session_manager.get_history(session_id, user_id, project_id=project_id)
 
     async def persist_message(user_query: str, response: str) -> None:
-        await sm.session_manager.add_message(session_id, user_id, user_query, response)
+        reference_payload = [_source_ref_dict(ref) for ref in source_refs] if source_refs else None
+        await sm.session_manager.add_message(
+            session_id,
+            user_id,
+            user_query,
+            response,
+            project_id=project_id,
+            references=reference_payload,
+        )
 
-    async for event in runtime_get_agent_stream_response(
-        query,
-        session_id,
-        user_id,
-        history=history,
-        persist_message=persist_message,
-        tool_callbacks=_build_tool_callbacks(),
-    ):
-        yield event
+    def sse(payload: dict) -> str:
+        return f"data: {json.dumps(payload, ensure_ascii=False)}\n\n"
+
+    thinking_queue: asyncio.Queue[dict] = asyncio.Queue()
+
+    async def thinking_callback(data: dict) -> None:
+        logger.info(f"【思考过程】{data.get('stage', 'unknown')}: {data.get('content', '')}")
+        await thinking_queue.put(data)
+
+    async def drain_thinking_queue() -> list[str]:
+        events = []
+        while not thinking_queue.empty():
+            try:
+                event = thinking_queue.get_nowait()
+            except asyncio.QueueEmpty:
+                break
+            events.append(sse(event))
+            thinking_queue.task_done()
+        return events
+
+    try:
+        logger.info(f"【AI问答流式响应】开始处理请求，用户ID: {user_id}, 会话ID: {session_id}, RAG: {rag_enabled}, 查询: {query}")
+        yield sse({"type": "response", "content": "", "session_id": session_id})
+
+        context_documents: list[str] = []
+        if rag_enabled:
+            service = RagService(user_id, thinking_callback=thinking_callback, source_search=_build_source_search(source_refs))
+            retrieval_task = asyncio.create_task(service.get_reordered_documents(query, max_documents=3, use_hyde=False))
+            while not retrieval_task.done():
+                try:
+                    event = await asyncio.wait_for(thinking_queue.get(), timeout=0.1)
+                    yield sse(event)
+                    thinking_queue.task_done()
+                except asyncio.TimeoutError:
+                    continue
+            context_documents = await retrieval_task
+            for event in await drain_thinking_queue():
+                yield event
+
+            if not context_documents:
+                response = "抱歉，我没有找到相关资料。"
+                await persist_message(query, response)
+                yield sse({"type": "response", "content": response, "session_id": session_id})
+                yield sse({"type": "done", "session_id": session_id})
+                return
+
+        response_parts: list[str] = []
+        async for chunk in stream_chat_model_response(
+            query,
+            history=history,
+            context_documents=context_documents,
+            rag_enabled=rag_enabled,
+        ):
+            response_parts.append(chunk)
+            yield sse({"type": "response", "content": chunk, "session_id": session_id})
+
+        response = "".join(response_parts).strip() or "抱歉，我无法理解您的请求。"
+        await persist_message(query, response)
+        yield sse({"type": "done", "session_id": session_id})
+        logger.info(f"【AI问答流式响应】处理完成，会话ID: {session_id}")
+    except asyncio.CancelledError:
+        logger.info(f"【AI问答流式响应】客户端断开，会话ID: {session_id}")
+        raise
+    except Exception as e:
+        logger.error(f"【AI问答流式响应】处理请求失败: {e}", exc_info=True)
+        yield sse({"type": "error", "content": f"错误: {str(e)}", "session_id": session_id})
+        yield sse({"type": "done", "session_id": session_id})

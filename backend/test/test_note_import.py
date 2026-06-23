@@ -1,4 +1,5 @@
 import asyncio
+import io
 from datetime import datetime, timedelta, timezone
 
 import pytest
@@ -88,7 +89,32 @@ def test_text_import_payload_preserves_plain_text_and_uses_category():
 
     assert payload.title == "plain"
     assert payload.category == "导入"
-    assert payload.content == "第一段<script>\n第二行\n\n第三段"
+    assert payload.content == "第一段&lt;script&gt;\n第二行\n\n第三段"
+
+
+def test_docx_import_payload_keeps_common_document_structure():
+    docx = pytest.importorskip("docx")
+    document = docx.Document()
+    document.add_heading("项目计划", level=1)
+    document.add_paragraph("完成需求梳理", style="List Bullet")
+    document.add_paragraph("输出初版方案", style="List Number")
+    table = document.add_table(rows=2, cols=2)
+    table.cell(0, 0).text = "阶段"
+    table.cell(0, 1).text = "状态"
+    table.cell(1, 0).text = "导入"
+    table.cell(1, 1).text = "完成"
+
+    buf = io.BytesIO()
+    document.save(buf)
+
+    payload = build_imported_note_payload("plan.docx", buf.getvalue())
+
+    assert payload.title == "项目计划"
+    assert "# 项目计划" in payload.content
+    assert "- 完成需求梳理" in payload.content
+    assert "1. 输出初版方案" in payload.content
+    assert "| 阶段 | 状态 |" in payload.content
+    assert "| 导入 | 完成 |" in payload.content
 
 
 def test_note_import_rejects_unsupported_extension():

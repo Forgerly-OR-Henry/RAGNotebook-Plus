@@ -231,6 +231,22 @@
               "type": "string",
               "title": "User Id"
             }
+          },
+          {
+            "name": "project_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Project Id"
+            }
           }
         ],
         "responses": {
@@ -343,45 +359,26 @@
       }
     },
     "/knowledge/documents": {
-      "get": {
-        "tags": [
-          "knowledge"
-        ],
-        "summary": "List Documents",
-        "operationId": "list_documents_knowledge_documents_get",
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/KnowledgeListResponse"
-                }
-              }
-            }
-          }
-        },
-        "security": [
-          {
-            "HTTPBearer": []
-          }
-        ]
-      },
       "post": {
         "tags": [
           "knowledge"
         ],
         "summary": "Upload Documents",
         "operationId": "upload_documents_knowledge_documents_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
         "requestBody": {
+          "required": true,
           "content": {
             "multipart/form-data": {
               "schema": {
                 "$ref": "#/components/schemas/Body_upload_documents_knowledge_documents_post"
               }
             }
-          },
-          "required": true
+          }
         },
         "responses": {
           "200": {
@@ -402,12 +399,62 @@
               }
             }
           }
-        },
+        }
+      },
+      "get": {
+        "tags": [
+          "knowledge"
+        ],
+        "summary": "List Documents",
+        "operationId": "list_documents_knowledge_documents_get",
         "security": [
           {
             "HTTPBearer": []
           }
-        ]
+        ],
+        "parameters": [
+          {
+            "name": "folder_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "title": "Folder Id"
+            }
+          },
+          {
+            "name": "unfiled",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "default": false,
+              "title": "Unfiled"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/KnowledgeListResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
       },
       "delete": {
         "tags": [
@@ -415,6 +462,11 @@
         ],
         "summary": "Clean Documents",
         "operationId": "clean_documents_knowledge_documents_delete",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
         "responses": {
           "200": {
             "description": "Successful Response",
@@ -424,12 +476,7 @@
               }
             }
           }
-        },
-        "security": [
-          {
-            "HTTPBearer": []
-          }
-        ]
+        }
       }
     },
     "/knowledge/documents/{document_id}": {
@@ -522,6 +569,51 @@
         }
       }
     },
+    "/knowledge/documents/{document_id}/file": {
+      "get": {
+        "tags": [
+          "knowledge"
+        ],
+        "summary": "Get Document File",
+        "operationId": "get_document_file_knowledge_documents__document_id__file_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "document_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Document Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/knowledge/documents/{document_id}/chunks": {
       "get": {
         "tags": [
@@ -567,6 +659,225 @@
             }
           }
         }
+      }
+    },
+    "/knowledge/folders": {
+      "get": {
+        "tags": [
+          "knowledge"
+        ],
+        "summary": "List Knowledge Folders",
+        "operationId": "list_knowledge_folders_knowledge_folders_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      },
+      "post": {
+        "tags": [
+          "knowledge"
+        ],
+        "summary": "Create Knowledge Folder",
+        "operationId": "create_knowledge_folder_knowledge_folders_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/KnowledgeFolderCreate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/knowledge/folders/{folder_id}": {
+      "put": {
+        "tags": [
+          "knowledge"
+        ],
+        "summary": "Update Knowledge Folder",
+        "operationId": "update_knowledge_folder_knowledge_folders__folder_id__put",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "folder_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Folder Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/KnowledgeFolderUpdate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "knowledge"
+        ],
+        "summary": "Delete Knowledge Folder",
+        "operationId": "delete_knowledge_folder_knowledge_folders__folder_id__delete",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "folder_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Folder Id"
+            }
+          },
+          {
+            "name": "mode",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "pattern": "^(unfile|delete_documents)$",
+              "default": "unfile",
+              "title": "Mode"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/knowledge/batch/folder": {
+      "put": {
+        "tags": [
+          "knowledge"
+        ],
+        "summary": "Batch Update Knowledge Folder",
+        "operationId": "batch_update_knowledge_folder_knowledge_batch_folder_put",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/KnowledgeBatchFolderRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
       }
     },
     "/health/live": {
@@ -912,7 +1223,7 @@
           "note"
         ],
         "summary": "Create Note",
-        "description": "创建笔记：\n1. PostgreSQL 写入 + pgvector 向量化\n2. 立即返回笔记（tags/category 初始为空）\n3. 后台异步生成标签和回顾记录",
+        "description": "创建笔记：\n1. PostgreSQL 写入 + pgvector 向量化\n2. 立即返回笔记（tags/category 初始为空）\n3. 后台异步生成标签",
         "operationId": "create_note_note_create_post",
         "requestBody": {
           "content": {
@@ -1052,6 +1363,25 @@
             }
           },
           {
+            "name": "folder_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "title": "Folder Id"
+            }
+          },
+          {
+            "name": "unfiled",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "default": false,
+              "title": "Unfiled"
+            }
+          },
+          {
             "name": "sort_by",
             "in": "query",
             "required": false,
@@ -1120,6 +1450,25 @@
               "minimum": 1,
               "default": 30,
               "title": "Limit"
+            }
+          },
+          {
+            "name": "folder_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "title": "Folder Id"
+            }
+          },
+          {
+            "name": "unfiled",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "default": false,
+              "title": "Unfiled"
             }
           }
         ],
@@ -1280,6 +1629,51 @@
         ]
       }
     },
+    "/note/batch/folder": {
+      "put": {
+        "tags": [
+          "note"
+        ],
+        "summary": "Batch Update Folder",
+        "description": "批量移动笔记到文件夹。folder_id 为 null 时移回未归档。",
+        "operationId": "batch_update_folder_note_batch_folder_put",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BatchFolderRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
     "/note/batch/pin": {
       "put": {
         "tags": [
@@ -1348,6 +1742,185 @@
             "HTTPBearer": []
           }
         ]
+      }
+    },
+    "/note/folders": {
+      "get": {
+        "tags": [
+          "note"
+        ],
+        "summary": "List Note Folders",
+        "description": "获取当前用户的多级笔记文件夹树及未归档数量。",
+        "operationId": "list_note_folders_note_folders_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      },
+      "post": {
+        "tags": [
+          "note"
+        ],
+        "summary": "Create Note Folder",
+        "description": "新建笔记文件夹，可指定 parent_id 创建子文件夹。",
+        "operationId": "create_note_folder_note_folders_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/NoteFolderCreate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/note/folders/{folder_id}": {
+      "put": {
+        "tags": [
+          "note"
+        ],
+        "summary": "Update Note Folder",
+        "description": "重命名文件夹或移动父级。",
+        "operationId": "update_note_folder_note_folders__folder_id__put",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "folder_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Folder Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/NoteFolderUpdate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "note"
+        ],
+        "summary": "Delete Note Folder",
+        "description": "删除文件夹。mode=unfile 时笔记移回未归档，mode=delete_notes 时同步删除文件夹内笔记。",
+        "operationId": "delete_note_folder_note_folders__folder_id__delete",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "folder_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Folder Id"
+            }
+          },
+          {
+            "name": "mode",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "pattern": "^(unfile|delete_notes)$",
+              "default": "unfile",
+              "title": "Mode"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
       }
     },
     "/note/category/{category}": {
@@ -1546,7 +2119,7 @@
           "note"
         ],
         "summary": "Delete Note",
-        "description": "删除笔记：联删 PostgreSQL 记录、远端 Markdown 文件、向量索引以及级联的复习计划。",
+        "description": "删除笔记：联删 PostgreSQL 记录、远端 Markdown 文件以及向量索引。",
         "operationId": "delete_note_note__note_id__delete",
         "security": [
           {
@@ -1682,7 +2255,7 @@
           "note"
         ],
         "summary": "Regenerate Tags",
-        "description": "手动触发重新生成标签。",
+        "description": "手动触发 AI 重新生成分类与关键词，并返回更新后的笔记。",
         "operationId": "regenerate_tags_note__note_id__auto_tag_post",
         "security": [
           {
@@ -1930,6 +2503,51 @@
         ]
       }
     },
+    "/note-template/reorder": {
+      "put": {
+        "tags": [
+          "note-template"
+        ],
+        "summary": "Reorder Templates",
+        "description": "重新排序模板。",
+        "operationId": "reorder_templates_note_template_reorder_put",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/NoteTemplateReorder"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
     "/note-template/{template_id}": {
       "put": {
         "tags": [
@@ -2030,19 +2648,42 @@
         }
       }
     },
-    "/note-template/reorder": {
-      "put": {
+    "/projects": {
+      "get": {
         "tags": [
-          "note-template"
+          "projects"
         ],
-        "summary": "Reorder Templates",
-        "description": "重新排序模板。",
-        "operationId": "reorder_templates_note_template_reorder_put",
+        "summary": "List Projects",
+        "operationId": "list_projects_projects_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProjectListResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      },
+      "post": {
+        "tags": [
+          "projects"
+        ],
+        "summary": "Create Project",
+        "operationId": "create_project_projects_post",
         "requestBody": {
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/NoteTemplateReorder"
+                "$ref": "#/components/schemas/ProjectCreateRequest"
               }
             }
           },
@@ -2053,7 +2694,9 @@
             "description": "Successful Response",
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/ProjectResponse"
+                }
               }
             }
           },
@@ -2075,39 +2718,13 @@
         ]
       }
     },
-    "/review/today": {
+    "/projects/{project_id}": {
       "get": {
         "tags": [
-          "review"
+          "projects"
         ],
-        "summary": "Get Today Reviews",
-        "description": "获取今日待回顾的笔记列表。\n返回关联的笔记标题、内容预览、回顾次数、间隔天数等信息。",
-        "operationId": "get_today_reviews_review_today_get",
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            }
-          }
-        },
-        "security": [
-          {
-            "HTTPBearer": []
-          }
-        ]
-      }
-    },
-    "/review/done/{note_id}": {
-      "post": {
-        "tags": [
-          "review"
-        ],
-        "summary": "Mark Reviewed",
-        "description": "标记笔记已回顾。更新 review_count 并根据艾宾浩斯算法计算下次回顾时间。",
-        "operationId": "mark_reviewed_review_done__note_id__post",
+        "summary": "Get Project",
+        "operationId": "get_project_projects__project_id__get",
         "security": [
           {
             "HTTPBearer": []
@@ -2115,12 +2732,112 @@
         ],
         "parameters": [
           {
-            "name": "note_id",
+            "name": "project_id",
             "in": "path",
             "required": true,
             "schema": {
               "type": "string",
-              "title": "Note Id"
+              "title": "Project Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProjectResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "patch": {
+        "tags": [
+          "projects"
+        ],
+        "summary": "Update Project",
+        "operationId": "update_project_projects__project_id__patch",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "project_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Project Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ProjectUpdateRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProjectResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "projects"
+        ],
+        "summary": "Delete Project",
+        "operationId": "delete_project_projects__project_id__delete",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "project_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Project Id"
             }
           }
         ],
@@ -2146,14 +2863,13 @@
         }
       }
     },
-    "/review/question/{note_id}": {
+    "/projects/{project_id}/sources": {
       "get": {
         "tags": [
-          "review"
+          "projects"
         ],
-        "summary": "Get Review Question",
-        "description": "根据笔记内容生成一道回顾选择题。\n返回 {question, choices, answer} 结构。",
-        "operationId": "get_review_question_review_question__note_id__get",
+        "summary": "List Project Sources",
+        "operationId": "list_project_sources_projects__project_id__sources_get",
         "security": [
           {
             "HTTPBearer": []
@@ -2161,15 +2877,245 @@
         ],
         "parameters": [
           {
-            "name": "note_id",
+            "name": "project_id",
             "in": "path",
             "required": true,
             "schema": {
               "type": "string",
-              "title": "Note Id"
+              "title": "Project Id"
             }
           }
         ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProjectSourcesResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "projects"
+        ],
+        "summary": "Add Project Sources",
+        "operationId": "add_project_sources_projects__project_id__sources_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "project_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Project Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ProjectSourcesAddRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProjectSourcesResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/projects/{project_id}/sources/{source_type}/{source_id}": {
+      "delete": {
+        "tags": [
+          "projects"
+        ],
+        "summary": "Remove Project Source",
+        "operationId": "remove_project_source_projects__project_id__sources__source_type___source_id__delete",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "project_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Project Id"
+            }
+          },
+          {
+            "name": "source_type",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Source Type"
+            }
+          },
+          {
+            "name": "source_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Source Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/projects/{project_id}/knowledge/documents": {
+      "post": {
+        "tags": [
+          "projects"
+        ],
+        "summary": "Upload Project Documents",
+        "operationId": "upload_project_documents_projects__project_id__knowledge_documents_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "project_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Project Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_upload_project_documents_projects__project_id__knowledge_documents_post"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/projects/{project_id}/notes/import": {
+      "post": {
+        "tags": [
+          "projects"
+        ],
+        "summary": "Import Project Note",
+        "operationId": "import_project_note_projects__project_id__notes_import_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "project_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Project Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_import_project_note_projects__project_id__notes_import_post"
+              }
+            }
+          }
+        },
         "responses": {
           "200": {
             "description": "Successful Response",
@@ -2704,6 +3650,34 @@
         "title": "BatchCategoryRequest",
         "description": "批量更新分类请求模型"
       },
+      "BatchFolderRequest": {
+        "properties": {
+          "ids": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Ids"
+          },
+          "folder_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Folder Id"
+          }
+        },
+        "type": "object",
+        "required": [
+          "ids"
+        ],
+        "title": "BatchFolderRequest",
+        "description": "批量移动到文件夹请求模型"
+      },
       "BatchIdsRequest": {
         "properties": {
           "ids": {
@@ -2761,6 +3735,17 @@
               }
             ],
             "title": "Category"
+          },
+          "folder_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Folder Id"
           }
         },
         "type": "object",
@@ -2768,6 +3753,32 @@
           "file"
         ],
         "title": "Body_import_note_note_import_post"
+      },
+      "Body_import_project_note_projects__project_id__notes_import_post": {
+        "properties": {
+          "file": {
+            "type": "string",
+            "format": "binary",
+            "title": "File",
+            "description": "支持 Markdown、TXT、Word 文件"
+          },
+          "category": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Category"
+          }
+        },
+        "type": "object",
+        "required": [
+          "file"
+        ],
+        "title": "Body_import_project_note_projects__project_id__notes_import_post"
       },
       "Body_upload_documents_knowledge_documents_post": {
         "properties": {
@@ -2779,6 +3790,10 @@
             "type": "array",
             "title": "Files",
             "description": "要上传的文件列表，支持 PDF、TXT、Markdown、Word、PPT"
+          },
+          "folder_id": {
+            "type": "string",
+            "title": "Folder Id"
           }
         },
         "type": "object",
@@ -2800,6 +3815,24 @@
           "file"
         ],
         "title": "Body_upload_file_file_upload__post"
+      },
+      "Body_upload_project_documents_projects__project_id__knowledge_documents_post": {
+        "properties": {
+          "files": {
+            "items": {
+              "type": "string",
+              "format": "binary"
+            },
+            "type": "array",
+            "title": "Files",
+            "description": "要上传到项目知识库的文件"
+          }
+        },
+        "type": "object",
+        "required": [
+          "files"
+        ],
+        "title": "Body_upload_project_documents_projects__project_id__knowledge_documents_post"
       },
       "ChunkDetail": {
         "properties": {
@@ -2831,8 +3864,7 @@
               "type": "string"
             },
             "type": "array",
-            "title": "Images",
-            "default": []
+            "title": "Images"
           }
         },
         "type": "object",
@@ -2842,7 +3874,7 @@
           "content"
         ],
         "title": "ChunkDetail",
-        "description": "文档切片详情（含对应图片）。\nimages 字段保存该切片所涉及的所有图片URL，前端可据此在切片旁边展示图片。"
+        "description": "??????????????\nimages ???????????????URL????????????????"
       },
       "ChunkInfo": {
         "properties": {
@@ -2868,8 +3900,7 @@
               "type": "string"
             },
             "type": "array",
-            "title": "Images",
-            "default": []
+            "title": "Images"
           }
         },
         "type": "object",
@@ -2880,7 +3911,7 @@
           "metadata"
         ],
         "title": "ChunkInfo",
-        "description": "文档切片信息模型。\nimages 字段保存该切片关联的图片URL，前端在\"查看切片\"页面中可以按切片展示对应的图片。"
+        "description": "?????????\nimages ????????????URL????\"????\"????????????????"
       },
       "DocumentChunksResponse": {
         "properties": {
@@ -2918,7 +3949,7 @@
           "chunks"
         ],
         "title": "DocumentChunksResponse",
-        "description": "文档切片列表响应模型"
+        "description": "??????????"
       },
       "DocumentDetailResponse": {
         "properties": {
@@ -3064,21 +4095,30 @@
             "type": "string",
             "title": "Content"
           },
+          "folder_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Folder Id"
+          },
           "chunks": {
             "items": {
               "$ref": "#/components/schemas/ChunkDetail"
             },
             "type": "array",
-            "title": "Chunks",
-            "default": []
+            "title": "Chunks"
           },
           "images": {
             "items": {
               "type": "string"
             },
             "type": "array",
-            "title": "Images",
-            "default": []
+            "title": "Images"
           },
           "created_at": {
             "anyOf": [
@@ -3111,7 +4151,7 @@
           "content"
         ],
         "title": "DocumentDetailResponse",
-        "description": "知识库文档详情响应模型。\n相比旧版本新增了 chunks（切片级详情，包含每段文本对应的图片）和 images（文档全量图片列表）字段，\n前端可以在文档详情页同时展示文本和图片。"
+        "description": "????????????\n???????? chunks??????????????????? images?????????????\n????????????????????"
       },
       "DocumentResponse": {
         "properties": {
@@ -3205,17 +4245,6 @@
             ],
             "title": "File Ext"
           },
-          "file_size": {
-            "anyOf": [
-              {
-                "type": "integer"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "File Size"
-          },
           "mime_type": {
             "anyOf": [
               {
@@ -3257,6 +4286,17 @@
             "type": "string",
             "title": "Preview"
           },
+          "folder_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Folder Id"
+          },
           "created_at": {
             "anyOf": [
               {
@@ -3288,7 +4328,7 @@
           "preview"
         ],
         "title": "DocumentResponse",
-        "description": "知识库文档信息模型"
+        "description": "?????????"
       },
       "HTTPValidationError": {
         "properties": {
@@ -3302,6 +4342,89 @@
         },
         "type": "object",
         "title": "HTTPValidationError"
+      },
+      "KnowledgeBatchFolderRequest": {
+        "properties": {
+          "ids": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Ids"
+          },
+          "folder_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Folder Id"
+          }
+        },
+        "type": "object",
+        "required": [
+          "ids"
+        ],
+        "title": "KnowledgeBatchFolderRequest"
+      },
+      "KnowledgeFolderCreate": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "maxLength": 120,
+            "minLength": 1,
+            "title": "Name"
+          },
+          "parent_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Parent Id"
+          }
+        },
+        "type": "object",
+        "required": [
+          "name"
+        ],
+        "title": "KnowledgeFolderCreate"
+      },
+      "KnowledgeFolderUpdate": {
+        "properties": {
+          "name": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 120,
+                "minLength": 1
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          },
+          "parent_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Parent Id"
+          }
+        },
+        "type": "object",
+        "title": "KnowledgeFolderUpdate"
       },
       "KnowledgeListResponse": {
         "properties": {
@@ -3323,7 +4446,7 @@
           "total_count"
         ],
         "title": "KnowledgeListResponse",
-        "description": "知识库文档列表响应模型"
+        "description": "???????????"
       },
       "LoginRequest": {
         "properties": {
@@ -3402,8 +4525,7 @@
             "type": "string",
             "enum": [
               "note",
-              "knowledge",
-              "mixed"
+              "knowledge"
             ],
             "title": "Source Type"
           },
@@ -3412,6 +4534,8 @@
               "type": "string"
             },
             "type": "array",
+            "maxItems": 20,
+            "minItems": 1,
             "title": "Source Ids"
           },
           "max_nodes": {
@@ -3622,6 +4746,17 @@
               }
             ],
             "title": "Tags"
+          },
+          "folder_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Folder Id"
           }
         },
         "type": "object",
@@ -3631,6 +4766,64 @@
         ],
         "title": "NoteCreate",
         "description": "创建笔记请求模型"
+      },
+      "NoteFolderCreate": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "maxLength": 120,
+            "minLength": 1,
+            "title": "Name"
+          },
+          "parent_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Parent Id"
+          }
+        },
+        "type": "object",
+        "required": [
+          "name"
+        ],
+        "title": "NoteFolderCreate",
+        "description": "创建笔记文件夹请求模型"
+      },
+      "NoteFolderUpdate": {
+        "properties": {
+          "name": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 120,
+                "minLength": 1
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          },
+          "parent_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Parent Id"
+          }
+        },
+        "type": "object",
+        "title": "NoteFolderUpdate",
+        "description": "更新笔记文件夹请求模型"
       },
       "NoteTemplateCreate": {
         "properties": {
@@ -3816,6 +5009,17 @@
             ],
             "title": "Tags"
           },
+          "folder_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Folder Id"
+          },
           "is_pinned": {
             "anyOf": [
               {
@@ -3832,6 +5036,256 @@
         "title": "NoteUpdate",
         "description": "更新笔记请求模型（所有字段可选）"
       },
+      "ProjectCreateRequest": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "maxLength": 120,
+            "minLength": 1,
+            "title": "Name"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          }
+        },
+        "type": "object",
+        "required": [
+          "name"
+        ],
+        "title": "ProjectCreateRequest"
+      },
+      "ProjectListResponse": {
+        "properties": {
+          "projects": {
+            "items": {
+              "$ref": "#/components/schemas/ProjectResponse"
+            },
+            "type": "array",
+            "title": "Projects"
+          },
+          "total_count": {
+            "type": "integer",
+            "title": "Total Count"
+          }
+        },
+        "type": "object",
+        "required": [
+          "projects",
+          "total_count"
+        ],
+        "title": "ProjectListResponse"
+      },
+      "ProjectResponse": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "user_id": {
+            "type": "string",
+            "title": "User Id"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "source_count": {
+            "type": "integer",
+            "title": "Source Count",
+            "default": 0
+          },
+          "session_count": {
+            "type": "integer",
+            "title": "Session Count",
+            "default": 0
+          },
+          "created_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Created At"
+          },
+          "updated_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Updated At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "user_id",
+          "name"
+        ],
+        "title": "ProjectResponse"
+      },
+      "ProjectSourceResponse": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "project_id": {
+            "type": "string",
+            "title": "Project Id"
+          },
+          "source_type": {
+            "type": "string",
+            "enum": [
+              "note",
+              "knowledge"
+            ],
+            "title": "Source Type"
+          },
+          "source_id": {
+            "type": "string",
+            "title": "Source Id"
+          },
+          "title": {
+            "type": "string",
+            "title": "Title"
+          },
+          "preview": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Preview"
+          },
+          "status": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Status"
+          },
+          "created_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Created At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "project_id",
+          "source_type",
+          "source_id",
+          "title"
+        ],
+        "title": "ProjectSourceResponse"
+      },
+      "ProjectSourcesAddRequest": {
+        "properties": {
+          "sources": {
+            "items": {
+              "$ref": "#/components/schemas/SourceReference"
+            },
+            "type": "array",
+            "title": "Sources"
+          }
+        },
+        "type": "object",
+        "required": [
+          "sources"
+        ],
+        "title": "ProjectSourcesAddRequest"
+      },
+      "ProjectSourcesResponse": {
+        "properties": {
+          "sources": {
+            "items": {
+              "$ref": "#/components/schemas/ProjectSourceResponse"
+            },
+            "type": "array",
+            "title": "Sources"
+          },
+          "total_count": {
+            "type": "integer",
+            "title": "Total Count"
+          }
+        },
+        "type": "object",
+        "required": [
+          "sources",
+          "total_count"
+        ],
+        "title": "ProjectSourcesResponse"
+      },
+      "ProjectUpdateRequest": {
+        "properties": {
+          "name": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 120,
+                "minLength": 1
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          }
+        },
+        "type": "object",
+        "title": "ProjectUpdateRequest"
+      },
       "QueryRequest": {
         "properties": {
           "session_id": {
@@ -3844,6 +5298,36 @@
               }
             ],
             "title": "Session Id"
+          },
+          "project_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Project Id"
+          },
+          "references": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/SourceReference"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "References"
+          },
+          "rag_enabled": {
+            "type": "boolean",
+            "title": "Rag Enabled",
+            "default": true
           },
           "query": {
             "type": "string",
@@ -4363,6 +5847,17 @@
             "type": "string",
             "title": "Session Id"
           },
+          "project_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Project Id"
+          },
           "history": {
             "items": {
               "prefixItems": [
@@ -4438,6 +5933,28 @@
           "quote"
         ],
         "title": "SourceCitation"
+      },
+      "SourceReference": {
+        "properties": {
+          "source_type": {
+            "type": "string",
+            "enum": [
+              "note",
+              "knowledge"
+            ],
+            "title": "Source Type"
+          },
+          "source_id": {
+            "type": "string",
+            "title": "Source Id"
+          }
+        },
+        "type": "object",
+        "required": [
+          "source_type",
+          "source_id"
+        ],
+        "title": "SourceReference"
       },
       "TokenRefreshRequest": {
         "properties": {

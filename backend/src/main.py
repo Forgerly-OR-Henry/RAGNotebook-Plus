@@ -72,7 +72,7 @@ async def say_hello(name: str):
 @app.on_event("startup")
 async def startup_event():
     """应用启动时初始化会话管理器"""
-    # 初始化数据库表结构（自动创建/迁移）
+    # 初始化数据库表结构（仅支持新库/空库，不兼容旧迁移链）
     await init_db()
     logger.info("数据库表结构初始化完成")
 

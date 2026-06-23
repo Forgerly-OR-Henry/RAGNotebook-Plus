@@ -102,6 +102,10 @@ class ReorderService:
             logger.info(f"✅ 模型加载成功，使用设备：{self.device}")
         return self._model
 
+    async def warmup(self) -> None:
+        """Load the reranker model during background startup."""
+        await self._get_model()
+
     @property
     async def model(self):
         """获取模型实例（懒加载）"""

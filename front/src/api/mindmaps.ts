@@ -4,7 +4,7 @@ import type { ApiResponse, MindMapGenerateRequest, MindMapResponse } from '../ty
 
 export const mindmapApi = {
   generate: async (data: MindMapGenerateRequest) => {
-    const res = await client.post<ApiResponse<MindMapResponse>>(endpoints.mindmapGenerate, data)
+    const res = await client.post<ApiResponse<MindMapResponse>>(endpoints.mindmapGenerate, data, { timeout: 180000 })
     return res.data.data
   },
   get: async (id: string) => {

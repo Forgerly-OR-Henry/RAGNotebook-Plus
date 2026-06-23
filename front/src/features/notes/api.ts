@@ -1,9 +1,9 @@
 import client from '../../api/client'
 import { endpoints } from '../../api/endpoints'
-import type { ApiResponse, DeleteCategoryResponse, Note, NoteListResponse, NoteStats, RelatedFragment } from '../../types/api'
+import type { ApiResponse, DeleteCategoryResponse, Note, NoteFolder, NoteFolderTreeResponse, NoteListResponse, NoteStats, RelatedFragment } from '../../types/api'
 
 export const notesApi = {
-  list: async (params: { page?: number; page_size?: number; category?: string; tag?: string; sort_by?: string }) => {
+  list: async (params: { page?: number; page_size?: number; category?: string; tag?: string; folder_id?: string; unfiled?: boolean; sort_by?: string }) => {
     const res = await client.get<ApiResponse<NoteListResponse>>(endpoints.noteList, { params })
     return res.data
   },
@@ -13,16 +13,19 @@ export const notesApi = {
     return res.data
   },
 
-  create: async (data: { title: string; content: string; category?: string; tags?: string[] }) => {
+  create: async (data: { title: string; content: string; category?: string; tags?: string[]; folder_id?: string | null }) => {
     const res = await client.post<ApiResponse<Note>>(endpoints.noteCreate, data)
     return res.data
   },
 
-  importFile: async (file: File, category?: string) => {
+  importFile: async (file: File, category?: string, folderId?: string | null) => {
     const formData = new FormData()
     formData.append('file', file)
     if (category) {
       formData.append('category', category)
+    }
+    if (folderId) {
+      formData.append('folder_id', folderId)
     }
 
     const res = await client.post<ApiResponse<Note>>(endpoints.noteImport, formData, {
@@ -46,8 +49,28 @@ export const notesApi = {
     return res.data
   },
 
-  search: async (query: string, limit = 30) => {
-    const res = await client.get<ApiResponse<NoteListResponse>>(endpoints.noteSearch, { params: { q: query, limit } })
+  search: async (query: string, limit = 30, filters: { folder_id?: string; unfiled?: boolean } = {}) => {
+    const res = await client.get<ApiResponse<NoteListResponse>>(endpoints.noteSearch, { params: { q: query, limit, ...filters } })
+    return res.data
+  },
+
+  listFolders: async () => {
+    const res = await client.get<ApiResponse<NoteFolderTreeResponse>>(endpoints.noteFolders)
+    return res.data
+  },
+
+  createFolder: async (data: { name: string; parent_id?: string | null }) => {
+    const res = await client.post<ApiResponse<NoteFolder>>(endpoints.noteFolders, data)
+    return res.data
+  },
+
+  updateFolder: async (id: string, data: { name?: string; parent_id?: string | null }) => {
+    const res = await client.put<ApiResponse<NoteFolder>>(endpoints.noteFolder(id), data)
+    return res.data
+  },
+
+  deleteFolder: async (id: string, mode: 'unfile' | 'delete_notes') => {
+    const res = await client.delete<ApiResponse<null>>(endpoints.noteFolder(id), { params: { mode } })
     return res.data
   },
 
@@ -66,6 +89,11 @@ export const notesApi = {
     return res.data
   },
 
+  autoTag: async (id: string) => {
+    const res = await client.post<ApiResponse<Note>>(endpoints.noteAutoTag(id))
+    return res.data
+  },
+
   batchDelete: async (ids: string[]) => {
     const res = await client.post<ApiResponse<null>>(endpoints.noteBatchDelete, { ids })
     return res.data
@@ -78,6 +106,11 @@ export const notesApi = {
 
   batchUpdateCategory: async (ids: string[], category: string) => {
     const res = await client.put<ApiResponse<null>>(endpoints.noteBatchCategory, { ids, category })
+    return res.data
+  },
+
+  batchUpdateFolder: async (ids: string[], folder_id: string | null) => {
+    const res = await client.put<ApiResponse<null>>(endpoints.noteBatchFolder, { ids, folder_id })
     return res.data
   },
 

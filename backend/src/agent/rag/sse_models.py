@@ -20,6 +20,7 @@ class SSEEvent:
     slice_success_count: int = 0
     error_message: str | None = None
     chunk_count: int | None = None
+    document_id: str | None = None
 
     def to_sse(self) -> str:
         payload = {k: v for k, v in asdict(self).items() if v is not None}

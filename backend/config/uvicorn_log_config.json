@@ -5,6 +5,10 @@
     "info_or_lower": {
       "()": "core.logging_filters.MaxLevelFilter",
       "max_level": "INFO"
+    },
+    "exclude_health_ready": {
+      "()": "core.logging_filters.ExcludeAccessPathFilter",
+      "paths": ["/health/ready"]
     }
   },
   "formatters": {
@@ -35,7 +39,8 @@
     "access_stdout": {
       "formatter": "access",
       "class": "logging.StreamHandler",
-      "stream": "ext://sys.stdout"
+      "stream": "ext://sys.stdout",
+      "filters": ["exclude_health_ready"]
     }
   },
   "loggers": {

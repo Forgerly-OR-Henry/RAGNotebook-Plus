@@ -13,8 +13,6 @@ class AgentToolCallbacks:
     rag_summary: Callable[[str, str | None, Callable | None], Awaitable[str]] | None = None
     search_notes: Callable[[str, int, str], Awaitable[str]] | None = None
     note_stats: Callable[[str], Awaitable[str]] | None = None
-    today_reviews: Callable[[str], Awaitable[str]] | None = None
-    mark_reviewed: Callable[[str, str], Awaitable[str]] | None = None
     create_note: Callable[[str, str, str], Awaitable[str]] | None = None
     related_notes: Callable[[str, int, str], Awaitable[str]] | None = None
 
@@ -113,30 +111,6 @@ async def get_note_stats_tool() -> str:
     if callbacks is None or callbacks.note_stats is None:
         return _missing_tool()
     return await callbacks.note_stats(user_id)
-
-
-@tool(description="获取今日待回顾的笔记列表。返回每篇笔记的标题、内容预览和回顾次数，帮助用户进行间隔重复复习。")
-async def get_today_reviews_tool() -> str:
-    """获取今日回顾列表工具"""
-    user_id = get_current_user_id_from_context()
-    if not user_id:
-        return "错误: 无法确定用户身份"
-    callbacks = get_agent_tool_callbacks()
-    if callbacks is None or callbacks.today_reviews is None:
-        return _missing_tool()
-    return await callbacks.today_reviews(user_id)
-
-
-@tool(description="标记一篇笔记为已回顾。参数 note_id 为笔记ID。调用成功后笔记的下次回顾时间会自动按艾宾浩斯遗忘曲线延后。")
-async def mark_reviewed_tool(note_id: str) -> str:
-    """标记回顾完成工具"""
-    user_id = get_current_user_id_from_context()
-    if not user_id:
-        return "错误: 无法确定用户身份"
-    callbacks = get_agent_tool_callbacks()
-    if callbacks is None or callbacks.mark_reviewed is None:
-        return _missing_tool()
-    return await callbacks.mark_reviewed(note_id, user_id)
 
 
 @tool(description=(

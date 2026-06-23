@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import argparse
-import json
+import atexit
 import os
 import shutil
 import signal
@@ -11,9 +11,7 @@ import sys
 import threading
 import time
 from pathlib import Path
-from urllib.error import HTTPError, URLError
 from urllib.parse import unquote, urlparse
-from urllib.request import Request, urlopen
 
 
 ROOT = Path(__file__).resolve().parent
@@ -26,6 +24,8 @@ API_KEY_FILE = CONFIG_DIR / "apikey.txt"
 UVICORN_LOG_CONFIG = BACKEND_DIR / "config" / "uvicorn_log_config.json"
 INJECTED_ENV_FLAG = "RAGNOTEBOOK_ENV_INJECTED"
 FILE_BACKED_SECRET_KEYS = ("ALIYUN_ACCESS_KEY_SECRET",)
+BACKEND_READY_LOG_MARKER = "后台初始化完成"
+BACKEND_FAILED_LOG_MARKER = "后台初始化失败"
 
 
 def log(message: str) -> None:
@@ -266,8 +266,6 @@ def check_backend_dependencies(args: argparse.Namespace, env: dict[str, str]) ->
 
     modules = ["dotenv", "email_validator", "fastapi", "jose", "passlib", "shortuuid", "sqlalchemy", "uvicorn", "asyncpg"]
     script = "import importlib; [importlib.import_module(name) for name in " + repr(modules) + "]"
-    script += "; import importlib.metadata as m; m.version('alembic')"
-
     command = [
         backend_python(),
         "-c",
@@ -353,81 +351,32 @@ def backend_target(args: argparse.Namespace, backend_port: int, env: dict[str, s
     return f"http://{local_target_host(args.backend_host)}:{backend_port}"
 
 
-def readiness_detail(body: str) -> dict:
-    try:
-        payload = json.loads(body)
-    except json.JSONDecodeError:
-        return {}
-    if not isinstance(payload, dict):
-        return {}
-    data = payload.get("data")
-    if isinstance(data, dict):
-        return data
-    detail = payload.get("detail")
-    if isinstance(detail, dict):
-        return detail
-    return {}
+class ProcessOutputSignals:
+    def __init__(self):
+        self.ready = threading.Event()
+        self.failed = threading.Event()
 
 
-def readiness_summary(detail: dict) -> str:
-    status = str(detail.get("status") or "starting")
-    checks = detail.get("checks") if isinstance(detail.get("checks"), dict) else {}
-    model_runtime = checks.get("model_runtime") if isinstance(checks.get("model_runtime"), dict) else {}
-    current_step = model_runtime.get("current_step") or "waiting"
-    components = model_runtime.get("components") if isinstance(model_runtime.get("components"), dict) else {}
-    loaded = [name for name, ready in components.items() if ready]
-    loaded_text = f", loaded={','.join(loaded)}" if loaded else ""
-    return f"{status}; step={current_step}{loaded_text}"
-
-
-def wait_for_backend_readiness(
-    base_url: str,
+def wait_for_backend_ready_signal(
     timeout: int,
-    process: subprocess.Popen | None = None,
-    init_log_seen: threading.Event | None = None,
+    process: subprocess.Popen,
+    signals: ProcessOutputSignals,
 ) -> None:
-    ready_url = base_url.rstrip("/") + "/health/ready"
-    log(f"Waiting for backend readiness at {ready_url} ...")
+    log(f"Waiting for backend startup signal: {BACKEND_READY_LOG_MARKER} ...")
     deadline = time.time() + timeout
-    last_message = ""
-    last_log_time = 0.0
 
     while time.time() < deadline:
-        if process is not None and process.poll() is not None:
+        if process.poll() is not None:
             fail(f"Backend exited with code {process.returncode} before it became ready.", process.returncode or 1)
 
-        try:
-            request = Request(ready_url, headers={"Accept": "application/json"})
-            with urlopen(request, timeout=3) as response:
-                body = response.read().decode("utf-8", errors="replace")
-                if 200 <= response.status < 300:
-                    if init_log_seen is None or init_log_seen.is_set():
-                        log("Backend background initialization is complete; starting frontend.")
-                        return
-                    message = "ready endpoint ok; waiting for backend initialization log"
-        except HTTPError as exc:
-            body = exc.read().decode("utf-8", errors="replace")
-            detail = readiness_detail(body)
-            if detail.get("status") == "failed":
-                checks = detail.get("checks") if isinstance(detail.get("checks"), dict) else {}
-                model_runtime = checks.get("model_runtime") if isinstance(checks.get("model_runtime"), dict) else {}
-                error = model_runtime.get("error") or "unknown initialization error"
-                fail(f"Backend model initialization failed: {error}")
-            message = readiness_summary(detail)
-        except (OSError, URLError) as exc:
-            message = f"backend HTTP endpoint unavailable: {exc}"
-        else:
-            detail = readiness_detail(body)
-            message = readiness_summary(detail)
+        if signals.failed.is_set():
+            fail("Backend model initialization failed. Check backend logs above for details.")
 
-        now = time.time()
-        if message != last_message or now - last_log_time >= 5:
-            log(f"Backend not ready yet ({message}).")
-            last_message = message
-            last_log_time = now
-        time.sleep(1)
+        if signals.ready.wait(timeout=0.2):
+            log("Backend startup signal received; starting frontend.")
+            return
 
-    fail(f"Backend did not become ready within {timeout} seconds. Check backend logs for model initialization errors.")
+    fail(f"Backend did not emit startup signal within {timeout} seconds. Check backend logs for initialization errors.")
 
 
 def start_postgres(args: argparse.Namespace, env: dict[str, str]) -> None:
@@ -448,13 +397,11 @@ def start_postgres(args: argparse.Namespace, env: dict[str, str]) -> None:
 
 def popen(command: list[str], cwd: Path, env: dict[str, str], capture_output: bool = False) -> subprocess.Popen:
     log(f"Starting: {' '.join(command)}")
-    creationflags = subprocess.CREATE_NEW_PROCESS_GROUP if os.name == "nt" else 0
     if capture_output:
         return subprocess.Popen(
             command,
             cwd=str(cwd),
             env=env,
-            creationflags=creationflags,
             stdout=subprocess.PIPE,
             stderr=subprocess.STDOUT,
             text=True,
@@ -462,11 +409,15 @@ def popen(command: list[str], cwd: Path, env: dict[str, str], capture_output: bo
             errors="replace",
             bufsize=1,
         )
-    return subprocess.Popen(command, cwd=str(cwd), env=env, creationflags=creationflags)
+    return subprocess.Popen(command, cwd=str(cwd), env=env)
 
 
-def relay_process_output(process: subprocess.Popen, ready_marker: str | None = None) -> threading.Event:
-    marker_seen = threading.Event()
+def relay_process_output(
+    process: subprocess.Popen,
+    ready_marker: str | None = None,
+    failure_marker: str | None = None,
+) -> ProcessOutputSignals:
+    signals = ProcessOutputSignals()
 
     def relay() -> None:
         if process.stdout is None:
@@ -474,107 +425,173 @@ def relay_process_output(process: subprocess.Popen, ready_marker: str | None = N
         for line in process.stdout:
             print(line, end="", flush=True)
             if ready_marker and ready_marker in line:
-                marker_seen.set()
+                signals.ready.set()
+            if failure_marker and failure_marker in line:
+                signals.failed.set()
 
     threading.Thread(target=relay, daemon=True).start()
-    return marker_seen
+    return signals
 
 
-def terminate(process: subprocess.Popen) -> None:
+def terminate_windows_process_tree(process: subprocess.Popen) -> bool:
+    try:
+        result = subprocess.run(
+            ["taskkill", "/PID", str(process.pid), "/T", "/F"],
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            check=False,
+        )
+    except OSError:
+        return False
+    return result.returncode == 0
+
+
+def terminate(process: subprocess.Popen) -> bool:
     if process.poll() is not None:
-        return
+        return False
     try:
         if os.name == "nt":
-            process.terminate()
+            if not terminate_windows_process_tree(process):
+                process.terminate()
         else:
             process.send_signal(signal.SIGTERM)
         process.wait(timeout=8)
     except Exception:
         process.kill()
+    return True
+
+
+def service_label(name: str) -> str:
+    return {
+        "backend": "Backend",
+        "frontend": "Frontend",
+    }.get(name, name)
+
+
+def terminate_all(processes: list[tuple[str, subprocess.Popen]], announce: bool = False) -> bool:
+    had_services = bool(processes)
+    stopped_any = False
+    for name, process in list(processes):
+        if terminate(process):
+            stopped_any = True
+            if announce:
+                log(f"{service_label(name)} stopped.")
+    if announce and had_services:
+        log("All services stopped.")
+    return stopped_any
+
+
+def install_shutdown_signal_handlers() -> dict[int, signal.Handlers]:
+    previous_handlers: dict[int, signal.Handlers] = {}
+
+    def handle_shutdown(signum: int, _frame: object) -> None:
+        raise KeyboardInterrupt
+
+    for signum in [signal.SIGTERM, getattr(signal, "SIGBREAK", None)]:
+        if signum is None:
+            continue
+        previous_handlers[signum] = signal.getsignal(signum)
+        signal.signal(signum, handle_shutdown)
+    return previous_handlers
+
+
+def restore_signal_handlers(previous_handlers: dict[int, signal.Handlers]) -> None:
+    for signum, handler in previous_handlers.items():
+        signal.signal(signum, handler)
 
 
 def start_services(args: argparse.Namespace, env: dict[str, str]) -> int:
     processes: list[tuple[str, subprocess.Popen]] = []
-    backend_port = args.backend_port
-    frontend_port = args.frontend_port
+    previous_handlers = install_shutdown_signal_handlers()
 
-    if not args.frontend_only:
-        backend_port = choose_port(args.backend_host, args.backend_port, "Backend", args.strict_ports)
+    def cleanup_processes() -> None:
+        terminate_all(processes)
 
-    if not args.backend_only:
-        frontend_port = choose_port(args.frontend_host, args.frontend_port, "Frontend", args.strict_ports)
-
-    if not args.frontend_only:
-        backend_cmd = [
-            backend_python(),
-            "-m",
-            "uvicorn",
-            "main:app",
-            "--reload",
-            "--host",
-            args.backend_host,
-            "--port",
-            str(backend_port),
-            "--log-config",
-            str(UVICORN_LOG_CONFIG),
-        ]
-        backend_process = popen(backend_cmd, BACKEND_DIR, env, capture_output=True)
-        backend_init_log_seen = relay_process_output(backend_process, "后台初始化完成")
-        processes.append(("backend", backend_process))
-        if not args.backend_only:
-            try:
-                wait_for_backend_readiness(
-                    backend_target(args, backend_port, env),
-                    args.backend_ready_timeout,
-                    backend_process,
-                    backend_init_log_seen,
-                )
-            except SystemExit:
-                for _, process in processes:
-                    terminate(process)
-                raise
-
-    if not args.backend_only:
-        frontend_env = env.copy()
-        frontend_env["VITE_BACKEND_TARGET"] = backend_target(args, backend_port, env)
-
-        frontend_cmd = [
-            npm_command(),
-            "run",
-            "dev",
-            "--",
-            "--host",
-            args.frontend_host,
-            "--port",
-            str(frontend_port),
-        ]
-        if args.strict_ports:
-            frontend_cmd.append("--strictPort")
-        processes.append(("frontend", popen(frontend_cmd, FRONTEND_DIR, frontend_env)))
-
-    if not args.frontend_only:
-        log(f"Backend:  http://127.0.0.1:{backend_port}")
-    if not args.backend_only:
-        log(f"Frontend: http://127.0.0.1:{frontend_port}")
-    log("Press Ctrl+C to stop all services.")
-
+    atexit.register(cleanup_processes)
     try:
+        backend_port = args.backend_port
+        frontend_port = args.frontend_port
+
+        if not args.frontend_only:
+            backend_port = choose_port(args.backend_host, args.backend_port, "Backend", args.strict_ports)
+
+        if not args.backend_only:
+            frontend_port = choose_port(args.frontend_host, args.frontend_port, "Frontend", args.strict_ports)
+
+        if not args.frontend_only:
+            backend_cmd = [
+                backend_python(),
+                "-m",
+                "uvicorn",
+                "main:app",
+                "--reload",
+                "--host",
+                args.backend_host,
+                "--port",
+                str(backend_port),
+                "--log-config",
+                str(UVICORN_LOG_CONFIG),
+            ]
+            backend_process = popen(backend_cmd, BACKEND_DIR, env, capture_output=True)
+            backend_signals = relay_process_output(
+                backend_process,
+                ready_marker=BACKEND_READY_LOG_MARKER,
+                failure_marker=BACKEND_FAILED_LOG_MARKER,
+            )
+            processes.append(("backend", backend_process))
+            if not args.backend_only:
+                try:
+                    wait_for_backend_ready_signal(
+                        args.backend_ready_timeout,
+                        backend_process,
+                        backend_signals,
+                    )
+                except SystemExit:
+                    terminate_all(processes, announce=True)
+                    raise
+
+        if not args.backend_only:
+            frontend_env = env.copy()
+            frontend_env["VITE_BACKEND_TARGET"] = backend_target(args, backend_port, env)
+
+            frontend_cmd = [
+                npm_command(),
+                "run",
+                "dev",
+                "--",
+                "--host",
+                args.frontend_host,
+                "--port",
+                str(frontend_port),
+            ]
+            if args.strict_ports:
+                frontend_cmd.append("--strictPort")
+            processes.append(("frontend", popen(frontend_cmd, FRONTEND_DIR, frontend_env)))
+
+        if not args.frontend_only:
+            log(f"Backend:  http://127.0.0.1:{backend_port}")
+        if not args.backend_only:
+            log(f"Frontend: http://127.0.0.1:{frontend_port}")
+        log("Press Ctrl+C to stop all services.")
+
         while processes:
             for name, process in list(processes):
                 code = process.poll()
                 if code is None:
                     continue
                 log(f"{name} exited with code {code}. Stopping remaining services.")
-                for _, other in processes:
-                    if other is not process:
-                        terminate(other)
+                terminate_all(processes, announce=True)
                 return code or 0
             time.sleep(1)
+        return 0
     except KeyboardInterrupt:
         log("Stopping services ...")
-        for _, process in processes:
-            terminate(process)
-    return 0
+        terminate_all(processes, announce=True)
+        return 0
+    finally:
+        cleanup_processes()
+        atexit.unregister(cleanup_processes)
+        restore_signal_handlers(previous_handlers)
 
 
 def parse_args() -> argparse.Namespace:
@@ -592,7 +609,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--backend-ready-timeout",
         type=int,
-        help="Seconds to wait for backend model readiness before starting frontend. Defaults to BACKEND_READY_TIMEOUT in config/.env or 300.",
+        help="Seconds to wait for the backend startup signal before starting frontend. Defaults to BACKEND_READY_TIMEOUT in config/.env or 300.",
     )
     args = parser.parse_args()
 

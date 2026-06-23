@@ -9,9 +9,9 @@ import os
 import re
 import uuid
 import zipfile
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timezone
 
-from sqlalchemy import delete, func, select, update
+from sqlalchemy import and_, delete, func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from core.logger_handler import logger
@@ -20,13 +20,11 @@ from mvc.models.document import Document
 from mvc.services.note_index_service import NoteIndexService
 from mvc.services.sources.registry import get_source_registry
 from mvc.models.note import Note
-from mvc.models.review_record import ReviewRecord
+from mvc.models.note_folder import NoteFolder, NoteFolderAssignment
 from mvc.models.storage_object import StorageObject
-from mvc.schemas import NoteCreate, NoteResponse, NoteUpdate
+from mvc.schemas import NoteCreate, NoteFolderCreate, NoteFolderResponse, NoteFolderTreeResponse, NoteFolderUpdate, NoteResponse, NoteUpdate
 from mvc.services.storage_service import StorageService, get_storage_service
 
-# 艾宾浩斯间隔重复数组（天）
-INTERVALS = [1, 2, 4, 7, 15, 30]
 NOTE_IMPORT_ALLOWED_EXTENSIONS = {".md", ".markdown", ".txt", ".docx", ".doc"}
 NOTE_IMPORT_MAX_FILE_SIZE = 20 * 1024 * 1024
 
@@ -35,12 +33,16 @@ class NoteImportError(ValueError):
     """Raised when an uploaded note file cannot be imported."""
 
 
-def _safe_import_title(filename: str | None, fallback_text: str = "") -> str:
+class NoteFolderError(ValueError):
+    """Raised when a note folder operation is invalid."""
+
+
+def _safe_import_title(filename: str | None, fallback_text: str = "", prefer_content_title: bool = False) -> str:
     base_name = os.path.basename(filename or "").strip()
     stem = os.path.splitext(base_name)[0].strip()
     title = stem
 
-    if not title:
+    if prefer_content_title or not title:
         for line in fallback_text.splitlines():
             cleaned = re.sub(r"^#+\s*", "", line).strip()
             if cleaned:
@@ -64,7 +66,74 @@ def _normalize_import_text(text: str) -> str:
     return text.replace("\r\n", "\n").replace("\r", "\n").strip()
 
 
-def _extract_docx_text(content: bytes) -> str:
+def _escape_markdown_html(text: str) -> str:
+    return html.escape(text.replace("\xa0", " "), quote=False)
+
+
+def _plain_text_to_markdown(text: str) -> str:
+    normalized = _normalize_import_text(text)
+    return "\n".join(_escape_markdown_html(line.rstrip()) for line in normalized.split("\n")).strip()
+
+
+def _docx_block_items(document):
+    from docx.oxml.table import CT_Tbl
+    from docx.oxml.text.paragraph import CT_P
+    from docx.table import Table
+    from docx.text.paragraph import Paragraph
+
+    for child in document.element.body.iterchildren():
+        if isinstance(child, CT_P):
+            yield Paragraph(child, document)
+        elif isinstance(child, CT_Tbl):
+            yield Table(child, document)
+
+
+def _docx_paragraph_to_markdown(paragraph) -> str:
+    text = _escape_markdown_html(paragraph.text.strip())
+    if not text:
+        return ""
+
+    style_name = (paragraph.style.name if paragraph.style else "").lower()
+    heading_match = re.search(r"(?:heading|标题)\s*(\d+)", style_name)
+    if heading_match:
+        level = min(max(int(heading_match.group(1)), 1), 6)
+        return f"{'#' * level} {text}"
+
+    if "bullet" in style_name or "项目符号" in style_name:
+        return f"- {text}"
+    if "number" in style_name or "编号" in style_name:
+        return f"1. {text}"
+    if "list" in style_name or "列表" in style_name:
+        return f"- {text}"
+
+    return text
+
+
+def _markdown_table_cell(text: str) -> str:
+    return _escape_markdown_html(text.strip()).replace("\n", "<br>").replace("|", "\\|")
+
+
+def _docx_table_to_markdown(table) -> str:
+    rows = [[_markdown_table_cell(cell.text) for cell in row.cells] for row in table.rows]
+    rows = [row for row in rows if any(cell for cell in row)]
+    if not rows:
+        return ""
+
+    width = max(len(row) for row in rows)
+    normalized_rows = [row + [""] * (width - len(row)) for row in rows]
+    header = normalized_rows[0]
+    separator = ["---"] * width
+    body = normalized_rows[1:]
+
+    table_lines = [
+        "| " + " | ".join(header) + " |",
+        "| " + " | ".join(separator) + " |",
+    ]
+    table_lines.extend("| " + " | ".join(row) + " |" for row in body)
+    return "\n".join(table_lines)
+
+
+def _extract_docx_markdown(content: bytes) -> str:
     try:
         from docx import Document as DocxDocument
     except Exception as e:
@@ -76,21 +145,18 @@ def _extract_docx_text(content: bytes) -> str:
         raise NoteImportError("Word 文件解析失败，请确认文件未损坏且为 .docx 格式") from e
 
     parts: list[str] = []
-    for paragraph in document.paragraphs:
-        text = paragraph.text.strip()
-        if text:
-            parts.append(text)
-
-    for table in document.tables:
-        for row in table.rows:
-            cells = [cell.text.strip() for cell in row.cells]
-            if any(cells):
-                parts.append(" | ".join(cells))
+    for block in _docx_block_items(document):
+        if hasattr(block, "rows"):
+            markdown = _docx_table_to_markdown(block)
+        else:
+            markdown = _docx_paragraph_to_markdown(block)
+        if markdown:
+            parts.append(markdown)
 
     return "\n\n".join(parts)
 
 
-def _extract_doc_text(content: bytes) -> str:
+def _extract_doc_markdown(content: bytes) -> str:
     try:
         from unstructured.partition.doc import partition_doc
     except Exception as e:
@@ -105,7 +171,19 @@ def _extract_doc_text(content: bytes) -> str:
             temp_path = temp_file.name
 
         elements = partition_doc(filename=temp_path)
-        return "\n\n".join(str(element).strip() for element in elements if str(element).strip())
+        parts: list[str] = []
+        for element in elements:
+            text = _escape_markdown_html(str(element).strip())
+            if not text:
+                continue
+            category = (getattr(element, "category", "") or element.__class__.__name__).lower()
+            if "title" in category or "header" in category:
+                parts.append(f"## {text}")
+            elif "list" in category:
+                parts.append(f"- {text}")
+            else:
+                parts.append(text)
+        return "\n\n".join(parts)
     except NoteImportError:
         raise
     except Exception as e:
@@ -134,12 +212,12 @@ def build_imported_note_payload(filename: str | None, content: bytes, category: 
         note_markdown = _normalize_import_text(raw_text)
     elif extension == ".txt":
         raw_text = _decode_import_text(content)
-        note_markdown = _normalize_import_text(raw_text)
+        note_markdown = _plain_text_to_markdown(raw_text)
     elif extension == ".docx":
-        raw_text = _extract_docx_text(content)
+        raw_text = _extract_docx_markdown(content)
         note_markdown = _normalize_import_text(raw_text)
     else:
-        raw_text = _extract_doc_text(content)
+        raw_text = _extract_doc_markdown(content)
         note_markdown = _normalize_import_text(raw_text)
 
     if not _normalize_import_text(raw_text):
@@ -147,7 +225,7 @@ def build_imported_note_payload(filename: str | None, content: bytes, category: 
 
     normalized_category = category.strip() if category else None
     return NoteCreate(
-        title=_safe_import_title(filename, raw_text),
+        title=_safe_import_title(filename, raw_text, prefer_content_title=extension == ".docx"),
         content=note_markdown,
         category=normalized_category or None,
     )
@@ -247,16 +325,6 @@ def _note_search_sort_key(match: tuple[int, Note]) -> tuple[int, int, float, str
     )
 
 
-def _get_next_interval(review_count: int) -> int:
-    """
-    根据回顾次数返回下一次回顾间隔天数。
-    超出预定义数组后固定使用 30 天间隔。
-    """
-    if review_count < len(INTERVALS):
-        return INTERVALS[review_count]
-    return INTERVALS[-1]
-
-
 class NoteService:
     """
     笔记服务 —— 单例模式（模块级实例 note_service）。
@@ -292,7 +360,14 @@ class NoteService:
         ):
             setattr(target, field, getattr(source, field))
 
-    def _doc_to_response(self, note: Note, document: Document, storage_object: StorageObject, content: str) -> NoteResponse:
+    def _doc_to_response(
+        self,
+        note: Note,
+        document: Document,
+        storage_object: StorageObject,
+        content: str,
+        folder_id: str | None = None,
+    ) -> NoteResponse:
         """
         将 SQLAlchemy ORM 对象转换为 Pydantic 响应模型。
         """
@@ -305,6 +380,7 @@ class NoteService:
             storage_uri=storage_object.storage_uri,
             tags=note.tags if note.tags else None,
             category=note.category,
+            folder_id=folder_id,
             is_pinned=note.is_pinned if note.is_pinned else False,
             created_at=str(note.created_at) if note.created_at else None,
             updated_at=str(note.updated_at) if note.updated_at else None,
@@ -325,6 +401,137 @@ class NoteService:
             .where(Note.id == note_id, Note.user_id == user_id)
         )
         return result.one_or_none()
+
+    async def _get_note_folder_id(self, db: AsyncSession, user_id: str, note_id: str) -> str | None:
+        result = await db.execute(
+            select(NoteFolderAssignment.folder_id).where(
+                NoteFolderAssignment.user_id == user_id,
+                NoteFolderAssignment.note_id == note_id,
+            )
+        )
+        return result.scalar_one_or_none()
+
+    async def _folder_ids_for_notes(self, db: AsyncSession, user_id: str, note_ids: list[str]) -> dict[str, str]:
+        if not note_ids:
+            return {}
+        result = await db.execute(
+            select(NoteFolderAssignment.note_id, NoteFolderAssignment.folder_id).where(
+                NoteFolderAssignment.user_id == user_id,
+                NoteFolderAssignment.note_id.in_(note_ids),
+            )
+        )
+        return {note_id: folder_id for note_id, folder_id in result.all()}
+
+    async def _get_folder(self, db: AsyncSession, user_id: str, folder_id: str | None) -> NoteFolder | None:
+        if not folder_id:
+            return None
+        result = await db.execute(
+            select(NoteFolder).where(NoteFolder.id == folder_id, NoteFolder.user_id == user_id)
+        )
+        return result.scalar_one_or_none()
+
+    async def _ensure_folder(self, db: AsyncSession, user_id: str, folder_id: str | None) -> NoteFolder | None:
+        if not folder_id:
+            return None
+        folder = await self._get_folder(db, user_id, folder_id)
+        if not folder:
+            raise NoteFolderError("文件夹不存在")
+        return folder
+
+    async def _sibling_name_exists(
+        self,
+        db: AsyncSession,
+        user_id: str,
+        name: str,
+        parent_id: str | None,
+        exclude_id: str | None = None,
+    ) -> bool:
+        conditions = [NoteFolder.user_id == user_id, NoteFolder.name == name]
+        if parent_id:
+            conditions.append(NoteFolder.parent_id == parent_id)
+        else:
+            conditions.append(NoteFolder.parent_id.is_(None))
+        if exclude_id:
+            conditions.append(NoteFolder.id != exclude_id)
+        result = await db.execute(select(func.count(NoteFolder.id)).where(*conditions))
+        return bool(result.scalar() or 0)
+
+    async def _next_folder_sort_order(self, db: AsyncSession, user_id: str, parent_id: str | None) -> int:
+        conditions = [NoteFolder.user_id == user_id]
+        if parent_id:
+            conditions.append(NoteFolder.parent_id == parent_id)
+        else:
+            conditions.append(NoteFolder.parent_id.is_(None))
+        result = await db.execute(select(func.max(NoteFolder.sort_order)).where(*conditions))
+        current = result.scalar()
+        return int(current or 0) + 1
+
+    async def _descendant_folder_ids(self, db: AsyncSession, user_id: str, folder_id: str) -> list[str]:
+        result = await db.execute(select(NoteFolder.id, NoteFolder.parent_id).where(NoteFolder.user_id == user_id))
+        children: dict[str | None, list[str]] = {}
+        for current_id, parent_id in result.all():
+            children.setdefault(parent_id, []).append(current_id)
+
+        ordered: list[str] = []
+        stack = [folder_id]
+        while stack:
+            current = stack.pop()
+            ordered.append(current)
+            stack.extend(children.get(current, []))
+        return ordered
+
+    async def _would_create_folder_cycle(
+        self,
+        db: AsyncSession,
+        user_id: str,
+        folder_id: str,
+        next_parent_id: str | None,
+    ) -> bool:
+        current_parent_id = next_parent_id
+        while current_parent_id:
+            if current_parent_id == folder_id:
+                return True
+            parent = await self._get_folder(db, user_id, current_parent_id)
+            current_parent_id = parent.parent_id if parent else None
+        return False
+
+    async def _apply_note_folder_assignment(
+        self,
+        db: AsyncSession,
+        user_id: str,
+        note_id: str,
+        folder_id: str | None,
+    ) -> None:
+        if folder_id:
+            await self._ensure_folder(db, user_id, folder_id)
+        await db.execute(
+            delete(NoteFolderAssignment).where(
+                NoteFolderAssignment.user_id == user_id,
+                NoteFolderAssignment.note_id == note_id,
+            )
+        )
+        if folder_id:
+            db.add(
+                NoteFolderAssignment(
+                    id=str(uuid.uuid4()),
+                    user_id=user_id,
+                    note_id=note_id,
+                    folder_id=folder_id,
+                )
+            )
+
+    @staticmethod
+    def _folder_to_response(folder: NoteFolder, note_count: int, children: list[NoteFolderResponse]) -> NoteFolderResponse:
+        return NoteFolderResponse(
+            id=folder.id,
+            user_id=folder.user_id,
+            name=folder.name,
+            parent_id=folder.parent_id,
+            note_count=note_count,
+            children=children,
+            created_at=str(folder.created_at) if folder.created_at else None,
+            updated_at=str(folder.updated_at) if folder.updated_at else None,
+        )
 
     async def _upsert_note_vector(self, note_id: str, user_id: str, title: str, content: str) -> None:
         """
@@ -347,6 +554,138 @@ class NoteService:
         except Exception as e:
             logger.error(f"更新笔记索引失败 note_id={note_id}: {e}")
 
+    async def list_note_folders(self, db: AsyncSession, user_id: str) -> NoteFolderTreeResponse:
+        result = await db.execute(
+            select(NoteFolder).where(NoteFolder.user_id == user_id).order_by(NoteFolder.sort_order.asc(), NoteFolder.created_at.asc())
+        )
+        folders = list(result.scalars().all())
+
+        count_result = await db.execute(
+            select(NoteFolderAssignment.folder_id, func.count(NoteFolderAssignment.note_id))
+            .where(NoteFolderAssignment.user_id == user_id)
+            .group_by(NoteFolderAssignment.folder_id)
+        )
+        counts = {folder_id: count for folder_id, count in count_result.all()}
+
+        total_result = await db.execute(select(func.count(Note.id)).where(Note.user_id == user_id))
+        total_count = total_result.scalar() or 0
+
+        unfiled_result = await db.execute(
+            select(func.count(Note.id))
+            .select_from(Note)
+            .outerjoin(
+                NoteFolderAssignment,
+                and_(NoteFolderAssignment.note_id == Note.id, NoteFolderAssignment.user_id == user_id),
+            )
+            .where(Note.user_id == user_id, NoteFolderAssignment.id.is_(None))
+        )
+        unfiled_count = unfiled_result.scalar() or 0
+
+        by_parent: dict[str | None, list[NoteFolder]] = {}
+        for folder in folders:
+            by_parent.setdefault(folder.parent_id, []).append(folder)
+
+        def build(parent_id: str | None) -> list[NoteFolderResponse]:
+            return [
+                self._folder_to_response(folder, int(counts.get(folder.id, 0)), build(folder.id))
+                for folder in by_parent.get(parent_id, [])
+            ]
+
+        return NoteFolderTreeResponse(folders=build(None), total_count=total_count, unfiled_count=unfiled_count)
+
+    async def create_folder(self, db: AsyncSession, user_id: str, payload: NoteFolderCreate) -> NoteFolderResponse:
+        name = payload.name.strip()
+        parent_id = payload.parent_id or None
+        if parent_id:
+            await self._ensure_folder(db, user_id, parent_id)
+        if await self._sibling_name_exists(db, user_id, name, parent_id):
+            raise NoteFolderError("同级文件夹已存在")
+
+        folder = NoteFolder(
+            id=str(uuid.uuid4()),
+            user_id=user_id,
+            parent_id=parent_id,
+            name=name,
+            sort_order=await self._next_folder_sort_order(db, user_id, parent_id),
+        )
+        db.add(folder)
+        await db.commit()
+        await db.refresh(folder)
+        return self._folder_to_response(folder, 0, [])
+
+    async def update_folder(
+        self,
+        db: AsyncSession,
+        user_id: str,
+        folder_id: str,
+        payload: NoteFolderUpdate,
+    ) -> NoteFolderResponse | None:
+        folder = await self._get_folder(db, user_id, folder_id)
+        if not folder:
+            return None
+
+        fields = payload.model_fields_set
+        next_name = payload.name.strip() if payload.name is not None else folder.name
+        next_parent_id = folder.parent_id
+        if "parent_id" in fields:
+            next_parent_id = payload.parent_id or None
+            if next_parent_id:
+                await self._ensure_folder(db, user_id, next_parent_id)
+            if await self._would_create_folder_cycle(db, user_id, folder_id, next_parent_id):
+                raise NoteFolderError("不能把文件夹移动到自身或子文件夹下")
+
+        if await self._sibling_name_exists(db, user_id, next_name, next_parent_id, exclude_id=folder_id):
+            raise NoteFolderError("同级文件夹已存在")
+
+        folder.name = next_name
+        if "parent_id" in fields and next_parent_id != folder.parent_id:
+            folder.parent_id = next_parent_id
+            folder.sort_order = await self._next_folder_sort_order(db, user_id, next_parent_id)
+        folder.updated_at = datetime.now(timezone.utc)
+        await db.commit()
+        await db.refresh(folder)
+
+        note_count = await db.scalar(
+            select(func.count(NoteFolderAssignment.note_id)).where(
+                NoteFolderAssignment.user_id == user_id,
+                NoteFolderAssignment.folder_id == folder_id,
+            )
+        )
+        return self._folder_to_response(folder, int(note_count or 0), [])
+
+    async def delete_folder(self, db: AsyncSession, user_id: str, folder_id: str, mode: str = "unfile") -> int | None:
+        folder = await self._get_folder(db, user_id, folder_id)
+        if not folder:
+            return None
+        if mode not in {"unfile", "delete_notes"}:
+            raise NoteFolderError("删除模式无效")
+
+        folder_ids = await self._descendant_folder_ids(db, user_id, folder_id)
+        result = await db.execute(
+            select(NoteFolderAssignment.note_id).where(
+                NoteFolderAssignment.user_id == user_id,
+                NoteFolderAssignment.folder_id.in_(folder_ids),
+            )
+        )
+        note_ids = [row[0] for row in result.all()]
+
+        deleted_notes = 0
+        if mode == "delete_notes":
+            for note_id in note_ids:
+                if await self.delete_note(db, note_id, user_id):
+                    deleted_notes += 1
+        else:
+            await db.execute(
+                delete(NoteFolderAssignment).where(
+                    NoteFolderAssignment.user_id == user_id,
+                    NoteFolderAssignment.folder_id.in_(folder_ids),
+                )
+            )
+
+        await db.execute(delete(NoteFolder).where(NoteFolder.user_id == user_id, NoteFolder.id == folder_id))
+        await db.commit()
+        return deleted_notes
+
     async def create_note(self, db: AsyncSession, user_id: str, payload: NoteCreate) -> NoteResponse:
         """
         创建笔记：
@@ -355,6 +694,9 @@ class NoteService:
         3. pgvector 向量写入后台执行
         4. 若用户未提供 tags/category，后台异步任务自动生成
         """
+        if payload.folder_id:
+            await self._ensure_folder(db, user_id, payload.folder_id)
+
         note_id = str(uuid.uuid4())
         document_id = note_id
         now = datetime.now(timezone.utc)
@@ -396,6 +738,15 @@ class NoteService:
         db.add(storage_object)
         db.add(document)
         db.add(note)
+        if payload.folder_id:
+            db.add(
+                NoteFolderAssignment(
+                    id=str(uuid.uuid4()),
+                    user_id=user_id,
+                    note_id=note_id,
+                    folder_id=payload.folder_id,
+                )
+            )
         try:
             await db.commit()
         except Exception:
@@ -407,9 +758,9 @@ class NoteService:
         # 若用户已提供 tags/category，跳过自动标签生成
         user_provided_meta = payload.tags is not None or payload.category is not None
         if not user_provided_meta:
-            asyncio.create_task(self._auto_tag_and_review(note_id, user_id, payload.content))
+            asyncio.create_task(self._auto_tag_note_background(note_id, user_id, payload.content))
 
-        return self._doc_to_response(note, document, storage_object, payload.content)
+        return self._doc_to_response(note, document, storage_object, payload.content, payload.folder_id)
 
     async def import_note(
         self,
@@ -418,11 +769,13 @@ class NoteService:
         filename: str | None,
         content: bytes,
         category: str | None = None,
+        folder_id: str | None = None,
     ) -> NoteResponse:
         """
         从上传文件导入笔记内容，并复用标准创建流程写入数据库和向量库。
         """
         payload = build_imported_note_payload(filename, content, category)
+        payload.folder_id = folder_id
         return await self.create_note(db, user_id, payload)
 
     async def update_note(self, db: AsyncSession, note_id: str, user_id: str, payload: NoteUpdate) -> NoteResponse | None:
@@ -463,6 +816,8 @@ class NoteService:
             note.tags = payload.tags
         if payload.is_pinned is not None:
             note.is_pinned = payload.is_pinned
+        if "folder_id" in payload.model_fields_set:
+            await self._apply_note_folder_assignment(db, user_id, note_id, payload.folder_id)
 
         note.updated_at = datetime.now(timezone.utc)
         document.updated_at = note.updated_at
@@ -473,12 +828,41 @@ class NoteService:
             asyncio.create_task(self._refresh_note_vector(note_id, user_id, note.title, payload.content or ""))
 
         content = payload.content if payload.content is not None else await self._read_note_content(storage_object)
-        return self._doc_to_response(note, document, storage_object, content)
+        folder_id = await self._get_note_folder_id(db, user_id, note_id)
+        return self._doc_to_response(note, document, storage_object, content, folder_id)
+
+    async def auto_tag_note(self, db: AsyncSession, note_id: str, user_id: str) -> NoteResponse | None:
+        """
+        同步生成当前笔记的关键词和分类，并返回更新后的笔记。
+        """
+        row = await self._get_note_row(db, note_id, user_id)
+        if not row:
+            return None
+        note, document, storage_object = row
+        content = await self._read_note_content(storage_object)
+        source_text = "\n\n".join(part.strip() for part in (note.title, content) if part and part.strip())
+        folder_id = await self._get_note_folder_id(db, user_id, note_id)
+        if not source_text:
+            return self._doc_to_response(note, document, storage_object, content, folder_id)
+
+        result = await note_ai_gateway.generate_auto_tags(source_text)
+        tags = [tag for tag in result.get("tags", []) if isinstance(tag, str) and tag.strip()]
+        category = result.get("category") if isinstance(result.get("category"), str) else None
+
+        note.tags = tags[:5]
+        if category:
+            note.category = category
+        note.updated_at = datetime.now(timezone.utc)
+        document.updated_at = note.updated_at
+        await db.commit()
+
+        logger.info(f"手动 AI 标签识别完成 note_id={note_id}, tags={note.tags}, category={note.category}")
+        return self._doc_to_response(note, document, storage_object, content, folder_id)
 
     async def delete_note(self, db: AsyncSession, note_id: str, user_id: str) -> bool:
         """
         删除笔记：
-        1. 删除 PostgreSQL 中的笔记（复习计划通过 FK CASCADE 自动删除）
+        1. 删除 PostgreSQL 中的笔记
         2. 删除 pgvector 中的向量
         """
         row = await self._get_note_row(db, note_id, user_id)
@@ -513,7 +897,8 @@ class NoteService:
             return None
         note, document, storage_object = row
         content = await self._read_note_content(storage_object)
-        return self._doc_to_response(note, document, storage_object, content)
+        folder_id = await self._get_note_folder_id(db, user_id, note_id)
+        return self._doc_to_response(note, document, storage_object, content, folder_id)
 
     async def list_notes(
         self,
@@ -523,6 +908,8 @@ class NoteService:
         page_size: int = 20,
         category: str | None = None,
         tag: str | None = None,
+        folder_id: str | None = None,
+        unfiled: bool = False,
         sort_by: str = "updated_at",
     ) -> tuple[list[NoteResponse], int]:
         """
@@ -531,9 +918,24 @@ class NoteService:
         conditions = [Note.user_id == user_id]
         if category:
             conditions.append(Note.category == category)
+        if folder_id and unfiled:
+            raise NoteFolderError("folder_id 与 unfiled 不能同时使用")
+        if folder_id:
+            await self._ensure_folder(db, user_id, folder_id)
 
         # 先查总数
-        count_stmt = select(func.count(Note.id)).where(*conditions)
+        count_stmt = select(func.count(Note.id)).select_from(Note)
+        if folder_id:
+            count_stmt = count_stmt.join(
+                NoteFolderAssignment,
+                and_(NoteFolderAssignment.note_id == Note.id, NoteFolderAssignment.user_id == user_id),
+            ).where(NoteFolderAssignment.folder_id == folder_id)
+        elif unfiled:
+            count_stmt = count_stmt.outerjoin(
+                NoteFolderAssignment,
+                and_(NoteFolderAssignment.note_id == Note.id, NoteFolderAssignment.user_id == user_id),
+            ).where(NoteFolderAssignment.id.is_(None))
+        count_stmt = count_stmt.where(*conditions)
         result = await db.execute(count_stmt)
         total = result.scalar() or 0
 
@@ -553,18 +955,31 @@ class NoteService:
             select(Note, Document, StorageObject)
             .join(Document, Note.document_id == Document.id)
             .join(StorageObject, Document.storage_object_id == StorageObject.id)
-            .where(*conditions)
+        )
+        if folder_id:
+            stmt = stmt.join(
+                NoteFolderAssignment,
+                and_(NoteFolderAssignment.note_id == Note.id, NoteFolderAssignment.user_id == user_id),
+            ).where(NoteFolderAssignment.folder_id == folder_id)
+        elif unfiled:
+            stmt = stmt.outerjoin(
+                NoteFolderAssignment,
+                and_(NoteFolderAssignment.note_id == Note.id, NoteFolderAssignment.user_id == user_id),
+            ).where(NoteFolderAssignment.id.is_(None))
+        stmt = (
+            stmt.where(*conditions)
             .order_by(Note.is_pinned.desc(), order)
             .offset((page - 1) * page_size)
             .limit(page_size)
         )
         result = await db.execute(stmt)
         rows = result.all()
+        folder_map = await self._folder_ids_for_notes(db, user_id, [note.id for note, _, _ in rows])
 
         note_list = []
         for note, document, storage_object in rows:
             content = await self._read_note_content(storage_object)
-            note_list.append(self._doc_to_response(note, document, storage_object, content))
+            note_list.append(self._doc_to_response(note, document, storage_object, content, folder_map.get(note.id)))
 
         # tag 为 JSON 数组，在 Python 层面过滤
         if tag:
@@ -572,7 +987,15 @@ class NoteService:
 
         return note_list, total
 
-    async def search_notes(self, db: AsyncSession, user_id: str, query: str, top_k: int = 30) -> list[NoteResponse]:
+    async def search_notes(
+        self,
+        db: AsyncSession,
+        user_id: str,
+        query: str,
+        top_k: int = 30,
+        folder_id: str | None = None,
+        unfiled: bool = False,
+    ) -> list[NoteResponse]:
         """
         文本搜索笔记：准确匹配优先，模糊匹配在后。
 
@@ -587,13 +1010,27 @@ class NoteService:
         """
         if not _compact_search_text(query):
             return []
+        if folder_id and unfiled:
+            raise NoteFolderError("folder_id 与 unfiled 不能同时使用")
+        if folder_id:
+            await self._ensure_folder(db, user_id, folder_id)
 
         stmt = (
             select(Note, Document, StorageObject)
             .join(Document, Note.document_id == Document.id)
             .join(StorageObject, Document.storage_object_id == StorageObject.id)
-            .where(Note.user_id == user_id)
         )
+        if folder_id:
+            stmt = stmt.join(
+                NoteFolderAssignment,
+                and_(NoteFolderAssignment.note_id == Note.id, NoteFolderAssignment.user_id == user_id),
+            ).where(NoteFolderAssignment.folder_id == folder_id)
+        elif unfiled:
+            stmt = stmt.outerjoin(
+                NoteFolderAssignment,
+                and_(NoteFolderAssignment.note_id == Note.id, NoteFolderAssignment.user_id == user_id),
+            ).where(NoteFolderAssignment.id.is_(None))
+        stmt = stmt.where(Note.user_id == user_id)
         result = await db.execute(stmt)
         matches: list[tuple[int, Note, Document, StorageObject, str]] = []
 
@@ -604,7 +1041,12 @@ class NoteService:
                 matches.append((rank, note, document, storage_object, content))
 
         matches.sort(key=lambda item: _note_search_sort_key((item[0], item[1])))
-        return [self._doc_to_response(note, document, storage_object, content) for _, note, document, storage_object, content in matches[:top_k]]
+        selected = matches[:top_k]
+        folder_map = await self._folder_ids_for_notes(db, user_id, [note.id for _, note, _, _, _ in selected])
+        return [
+            self._doc_to_response(note, document, storage_object, content, folder_map.get(note.id))
+            for _, note, document, storage_object, content in selected
+        ]
 
     async def get_related_notes(
         self,
@@ -665,9 +1107,9 @@ class NoteService:
 
         return text
 
-    async def _auto_tag_and_review(self, note_id: str, user_id: str, content: str):
+    async def _auto_tag_note_background(self, note_id: str, user_id: str, content: str):
         """
-        后台异步任务：LLM 分析笔记内容 → 生成标签和分类 → 更新 PostgreSQL → 创建回顾记录。
+        后台异步任务：LLM 分析笔记内容 → 生成标签和分类 → 更新 PostgreSQL。
 
         此方法在 create_note 结束后通过 asyncio.create_task 执行，
         不阻塞用户保存响应。标签延迟出现是设计意图。
@@ -689,18 +1131,6 @@ class NoteService:
                     .values(tags=tags, category=category)
                 )
                 await session.execute(stmt)
-
-                # 创建回顾记录（首次间隔 1 天）
-                now = datetime.now()
-                review = ReviewRecord(
-                    id=str(uuid.uuid4()),
-                    note_id=note_id,
-                    user_id=user_id,
-                    next_review_at=now + timedelta(days=1),
-                    interval_days=1,
-                    review_count=0,
-                )
-                session.add(review)
                 await session.commit()
 
         except json.JSONDecodeError as e:
@@ -853,6 +1283,41 @@ class NoteService:
         result = await db.execute(stmt)
         await db.commit()
         return result.rowcount
+
+    async def batch_update_folder(
+        self, db: AsyncSession, user_id: str, note_ids: list[str], folder_id: str | None
+    ) -> int:
+        """
+        批量移动笔记到文件夹。folder_id 为 None 时移回未归档。
+        """
+        if not note_ids:
+            return 0
+        if folder_id:
+            await self._ensure_folder(db, user_id, folder_id)
+
+        result = await db.execute(select(Note.id).where(Note.id.in_(note_ids), Note.user_id == user_id))
+        existing_ids = [row[0] for row in result.all()]
+        if not existing_ids:
+            return 0
+
+        await db.execute(
+            delete(NoteFolderAssignment).where(
+                NoteFolderAssignment.user_id == user_id,
+                NoteFolderAssignment.note_id.in_(existing_ids),
+            )
+        )
+        if folder_id:
+            for note_id in existing_ids:
+                db.add(
+                    NoteFolderAssignment(
+                        id=str(uuid.uuid4()),
+                        user_id=user_id,
+                        note_id=note_id,
+                        folder_id=folder_id,
+                    )
+                )
+        await db.commit()
+        return len(existing_ids)
 
     async def batch_export_zip(self, db: AsyncSession, user_id: str, note_ids: list[str]) -> bytes:
         """

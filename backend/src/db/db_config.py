@@ -10,6 +10,30 @@ from utils.env_loader import load_backend_env
 # 加载环境变量
 load_backend_env()
 
+PUBLIC_SCHEMA = "public"
+INDEX_CHUNKS_TABLE = "index_chunks"
+CURRENT_EXTRA_TABLES = {INDEX_CHUNKS_TABLE}
+
+INDEX_CHUNKS_COLUMNS = {
+    "id",
+    "document_id",
+    "user_id",
+    "source_type",
+    "chunk_index",
+    "content",
+    "content_hash",
+    "metadata",
+    "embedding",
+    "created_at",
+    "updated_at",
+}
+
+RESET_DATABASE_HINT = (
+    "当前版本只支持新库/空库，不再兼容旧数据库迁移。"
+    "请清空 PostgreSQL public schema 或重建 POSTGRES_DB 后重新启动。"
+)
+
+
 def _build_database_url() -> str:
     configured_url = os.getenv("DATABASE_URL")
     if configured_url:
@@ -42,23 +66,186 @@ AsyncSessionLocal = async_sessionmaker(
     expire_on_commit=False
 )
 
+
 async def init_db():
-    """Initialize PostgreSQL schema for application startup."""
-    from mvc.models import chat_history, document, mind_map, note, note_template, review_record, runtime_state, storage_object, study_test, user_model  # noqa: F401
+    """Initialize the current schema for a new or already-current database."""
+    _import_all_models()
 
-    from db.pg_auto_init import auto_init_postgres, is_pg_auto_init_enabled
-
-    if is_pg_auto_init_enabled():
-        await auto_init_postgres()
-        return
-
-    if os.getenv("DB_AUTO_CREATE_TABLES", "false").lower() != "true":
-        logger.info("PG_AUTO_INIT=false 且 DB_AUTO_CREATE_TABLES=false，启动时跳过数据库结构初始化")
-        return
-
-    logger.warning("DB_AUTO_CREATE_TABLES=true，仅建议本地临时环境使用")
     async with async_engine.begin() as conn:
+        existing_tables = await _public_base_tables(conn)
+        unsupported_tables = _unsupported_schema_tables(existing_tables)
+        if unsupported_tables:
+            raise RuntimeError(
+                f"数据库 public schema 包含当前版本不管理的表：{_format_names(unsupported_tables)}。"
+                f"{RESET_DATABASE_HINT}"
+            )
+
+        await conn.execute(text("CREATE EXTENSION IF NOT EXISTS vector"))
         await conn.run_sync(Base.metadata.create_all)
+        await _ensure_knowledge_document_columns(conn)
+        await _create_index_chunks_table(conn)
+        await _backfill_knowledge_documents(conn)
+        await _validate_current_schema(conn)
+
+    logger.info("当前数据库 schema 初始化完成（仅支持新库/空库）")
+
+
+def _import_all_models() -> None:
+    from mvc.models import (
+        chat_history,
+        document,
+        knowledge_document,
+        knowledge_folder,
+        mind_map,
+        note,
+        note_folder,
+        note_template,
+        project,
+        runtime_state,
+        storage_object,
+        study_test,
+        user_model,
+    )  # noqa: F401
+
+
+async def _backfill_knowledge_documents(conn) -> None:
+    await conn.execute(
+        text(
+            """
+            INSERT INTO knowledge_documents (id, user_id, document_id, title, created_at, updated_at)
+            SELECT id, user_id, id, title, created_at, updated_at
+            FROM documents
+            WHERE source_type = 'knowledge'
+              AND id NOT IN (
+                  SELECT document_id
+                  FROM knowledge_documents
+                  WHERE document_id IS NOT NULL
+              )
+            ON CONFLICT (id) DO NOTHING
+            """
+        )
+    )
+
+
+async def _ensure_knowledge_document_columns(conn) -> None:
+    await conn.execute(text("ALTER TABLE IF EXISTS knowledge_documents ADD COLUMN IF NOT EXISTS category VARCHAR(50)"))
+    await conn.execute(text("ALTER TABLE IF EXISTS knowledge_documents ADD COLUMN IF NOT EXISTS tags JSONB"))
+
+
+def _current_schema_tables() -> set[str]:
+    _import_all_models()
+    return set(Base.metadata.tables) | CURRENT_EXTRA_TABLES
+
+
+def _unsupported_schema_tables(existing_tables: set[str]) -> set[str]:
+    return existing_tables - _current_schema_tables()
+
+
+def _format_names(names: set[str]) -> str:
+    return ", ".join(sorted(names))
+
+
+async def _public_base_tables(conn) -> set[str]:
+    result = await conn.execute(
+        text(
+            """
+            SELECT table_name
+            FROM information_schema.tables
+            WHERE table_schema = :schema
+              AND table_type = 'BASE TABLE'
+            """
+        ),
+        {"schema": PUBLIC_SCHEMA},
+    )
+    return {row[0] for row in result}
+
+
+def _embedding_dim() -> int:
+    value = os.getenv("EMBEDDING_DIM", "1024")
+    try:
+        dim = int(value)
+    except ValueError as exc:
+        raise RuntimeError(f"EMBEDDING_DIM 必须是正整数，当前值：{value}") from exc
+    if dim <= 0:
+        raise RuntimeError(f"EMBEDDING_DIM 必须是正整数，当前值：{value}")
+    return dim
+
+
+async def _create_index_chunks_table(conn) -> None:
+    embedding_dim = _embedding_dim()
+    await conn.execute(
+        text(
+            f"""
+            CREATE TABLE IF NOT EXISTS {INDEX_CHUNKS_TABLE} (
+                id VARCHAR(64) PRIMARY KEY,
+                document_id VARCHAR(36) NOT NULL REFERENCES documents(id) ON DELETE CASCADE,
+                user_id VARCHAR(36) NOT NULL,
+                source_type VARCHAR(20) NOT NULL,
+                chunk_index INTEGER NOT NULL,
+                content TEXT NOT NULL,
+                content_hash VARCHAR(64) NOT NULL,
+                metadata JSONB NOT NULL DEFAULT '{{}}'::jsonb,
+                embedding vector({embedding_dim}) NOT NULL,
+                created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+                updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+            )
+            """
+        )
+    )
+    await conn.execute(text(f"CREATE INDEX IF NOT EXISTS ix_{INDEX_CHUNKS_TABLE}_document_chunk ON {INDEX_CHUNKS_TABLE} (document_id, chunk_index)"))
+    await conn.execute(text(f"CREATE INDEX IF NOT EXISTS ix_{INDEX_CHUNKS_TABLE}_source_user ON {INDEX_CHUNKS_TABLE} (source_type, user_id)"))
+    await conn.execute(text(f"CREATE INDEX IF NOT EXISTS ix_{INDEX_CHUNKS_TABLE}_metadata ON {INDEX_CHUNKS_TABLE} USING gin (metadata jsonb_path_ops)"))
+    await conn.execute(text(f"CREATE INDEX IF NOT EXISTS ix_{INDEX_CHUNKS_TABLE}_embedding_hnsw ON {INDEX_CHUNKS_TABLE} USING hnsw (embedding vector_cosine_ops)"))
+
+
+def _expected_schema_columns() -> dict[str, set[str]]:
+    _import_all_models()
+    columns = {
+        table_name: {column.name for column in table.columns}
+        for table_name, table in Base.metadata.tables.items()
+    }
+    columns[INDEX_CHUNKS_TABLE] = INDEX_CHUNKS_COLUMNS
+    return columns
+
+
+async def _schema_columns(conn) -> dict[str, set[str]]:
+    result = await conn.execute(
+        text(
+            """
+            SELECT table_name, column_name
+            FROM information_schema.columns
+            WHERE table_schema = :schema
+            """
+        ),
+        {"schema": PUBLIC_SCHEMA},
+    )
+    columns: dict[str, set[str]] = {}
+    for table_name, column_name in result:
+        columns.setdefault(table_name, set()).add(column_name)
+    return columns
+
+
+async def _validate_current_schema(conn) -> None:
+    expected_columns = _expected_schema_columns()
+    actual_columns = await _schema_columns(conn)
+
+    missing_tables = set(expected_columns) - set(actual_columns)
+    if missing_tables:
+        raise RuntimeError(f"数据库缺少当前版本必需表：{_format_names(missing_tables)}。{RESET_DATABASE_HINT}")
+
+    missing_column_messages = []
+    for table_name, expected in sorted(expected_columns.items()):
+        missing_columns = expected - actual_columns.get(table_name, set())
+        if missing_columns:
+            missing_column_messages.append(f"{table_name} 缺少列 {_format_names(missing_columns)}")
+
+    if missing_column_messages:
+        raise RuntimeError(
+            "数据库 schema 与当前代码不匹配："
+            + "；".join(missing_column_messages)
+            + f"。{RESET_DATABASE_HINT}"
+        )
+
 
 # 依赖项
 async def get_db():

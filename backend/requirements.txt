@@ -8,8 +8,6 @@ aiofiles==25.1.0
     # via
     #   backend (pyproject.toml)
     #   unstructured-client
-alembic>=1.17.0
-    # via backend (pyproject.toml)
 aiohappyeyeballs==2.6.1
     # via aiohttp
 aiohttp==3.13.5

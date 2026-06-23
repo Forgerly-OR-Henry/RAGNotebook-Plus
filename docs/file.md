@@ -16,18 +16,12 @@ RAGNotebook/
 │   ├── apikey.txt                                  # 本地真实模型 API Key 文件；通常由 ALIYUN_ACCESS_KEY_SECRET=apikey.txt 引用；不提交。
 │   └── apikey.txt.example                          # API Key 文件模板，只保留占位内容。
 │
-├── backend/                                        # FastAPI 后端、数据库迁移、测试和 API 快照。
+├── backend/                                        # FastAPI 后端、数据库初始化、测试和 API 快照。
 │   ├── .python-version                             # 后端 Python 版本提示文件，供版本管理工具识别。
-│   ├── alembic.ini                                 # Alembic 配置入口；统一启动时使用注入配置，手动运行时读取 backend/.env。
 │   ├── .env.example                                # 后端手动启动配置模板；真实 backend/.env 不提交。
 │   ├── openapi.json                                # 当前后端 API 的静态 OpenAPI 快照。
 │   ├── pyproject.toml                              # 后端项目元数据、依赖和测试配置。
 │   ├── requirements.txt                            # pip 依赖清单，供非 uv 环境安装后端依赖。
-│   │
-│   ├── alembic/                                    # Alembic 数据库迁移目录。
-│   │   ├── env.py                                  # Alembic 运行环境；加载后端运行环境，导入 ORM 模型，配置 public schema 迁移。
-│   │   └── versions/                               # 迁移版本脚本目录。
-│   │       └── 20260622_0001_storage_refactor_initial.py  # 新初始迁移，创建 storage_objects、documents、notes、index_chunks 和当前业务表。
 │   │
 │   ├── config/                                     # 后端 YAML/JSON 配置目录，位于源码包之外。
 │   │   ├── agent.yaml                              # Agent 配置文件。
@@ -49,16 +43,17 @@ RAGNotebook/
 │   │   │   ├── models/                             # SQLAlchemy ORM 模型。
 │   │   │   ├── repositories/                       # MVC 仓储层，封装运行态存储和用户仓储。
 │   │   │   ├── schemas/                            # Pydantic 请求/响应模型，按业务拆分。
-│   │   │   └── services/                           # 业务服务层，封装笔记、模板、回顾、测评、导图、知识库、用户和来源聚合。
+│   │   │   └── services/                           # 业务服务层，封装笔记、模板、测评、导图、知识库、快速测验、用户和来源聚合。
 │   │   ├── core/                                   # 通用核心能力：响应、异常、日志、限流和后台初始化。
-│   │   ├── db/                                     # 数据库连接、自动迁移和测试用户初始化。
+│   │   ├── db/                                     # 数据库连接、新库/空库建表和测试用户初始化。
 │   │   └── utils/                                  # 通用工具层，包括鉴权、配置加载、文件处理和路径工具。
 │   │
 │   └── test/                                       # 后端测试和演示数据夹具。
 │       ├── test_demo_dataset.py                    # 演示数据 manifest 的结构和引用完整性测试。
-│       ├── test_enterprise_contracts.py            # 企业版关键契约测试，覆盖配置、迁移和主要能力边界。
+│       ├── test_enterprise_contracts.py            # 企业版关键契约测试，覆盖配置和主要能力边界。
 │       ├── test_knowledge_multimodal_defer.py      # 知识库上传阶段跳过视觉模型、按需保留多模态加载路径的回归测试。
 │       ├── test_note_import.py                     # 笔记文件导入解析和保存非阻塞行为测试。
+│       ├── test_quiz_generation.py                 # 快速测验生成请求、来源收集和空内容错误契约测试。
 │       └── fixtures/
 │           └── demo_dataset/
 │               ├── manifest.json                   # 演示数据声明文件，定义用户、笔记、模板、知识库、会话、测评和导图夹具。
@@ -88,21 +83,24 @@ RAGNotebook/
 │       ├── index.css                               # 全局样式、Tailwind 引入和应用主题样式。
 │       ├── main.ts                                 # Vue 应用入口，注册 Pinia 和 Router。
 │       ├── types/
-│       │   └── api.ts                              # 前端 API 类型定义，覆盖用户、笔记、知识库、聊天、回顾、测评和导图。
+│       │   └── api.ts                              # 前端 API 类型定义，覆盖用户、笔记、知识库、聊天、测评和导图。
 │       ├── api/                                    # 后端请求封装。
 │       │   ├── auth.ts                             # 登录、注册、刷新 Token、用户资料、登出和头像上传请求封装。
-│       │   ├── chat.ts                             # 聊天和 RAG 请求封装。
+│       │   ├── chat.ts                             # 聊天、RAG 和快速测验生成请求封装。
 │       │   ├── client.ts                           # Axios 实例、基础 URL、超时、JWT 注入和 401 处理。
 │       │   ├── endpoints.ts                        # 后端 API 路径集中定义。
 │       │   ├── knowledge.ts                        # 知识库 feature API 的兼容 re-export。
 │       │   ├── mindmaps.ts                         # 思维导图生成、获取、更新和导出请求封装。
 │       │   ├── noteTemplates.ts                    # 笔记模板请求封装。
 │       │   ├── notes.ts                            # 笔记 feature API 的兼容 re-export。
-│       │   ├── quickTest.ts                        # 快速测试创建、答题、查询和结束请求封装。
-│       │   ├── review.ts                           # 回顾列表、标记完成和问题生成请求封装。
+│       │   ├── quickTest.ts                        # 连续问答式快速测试创建、答题、查询和结束请求封装。
 │       │   └── sessions.ts                         # 聊天会话列表、详情和删除请求封装。
 │       ├── components/                             # 通用组件。
 │       │   ├── AppShell.vue                        # 登录后主布局，包含侧边导航、页面标题和退出登录入口。
+│       │   ├── BatchActionBar.vue                  # 笔记批量操作栏，支持置顶、分类、移动、导图、下载和删除。
+│       │   ├── MindMapCanvas.vue                   # 思维导图树状画布组件，支持拖拽、缩放、重置和复制大纲。
+│       │   ├── MindMapModal.vue                    # 批量选中笔记后生成导图的弹窗入口。
+│       │   ├── MindMapTreeNode.vue                 # 思维导图递归树节点组件。
 │       │   └── RichEditor.vue                      # Tiptap 富文本编辑器组件，使用 v-model 同步笔记正文。
 │       ├── router/
 │       │   └── index.ts                            # Vue Router 路由表和登录态守卫。
@@ -123,13 +121,12 @@ RAGNotebook/
 │           ├── ChatView.vue                        # AI 聊天页面，发起问答并展示消息。
 │           ├── KnowledgeView.vue                   # 知识库管理页面，支持拖拽/选择流式上传 PDF、TXT、Markdown、Word、PPT 文档，展示文档列表、点击预览内容并支持删除和清空。
 │           ├── LoginView.vue                       # 登录页面。
-│           ├── MindMapView.vue                     # 思维导图页面，选择来源、生成图谱并渲染 Vue Flow。
+│           ├── MindMapView.vue                     # 思维导图页面，支持多选笔记或知识库来源，生成可拖拽缩放的树状导图。
 │           ├── NoteEditorView.vue                  # 笔记编辑页面，创建、编辑或删除标题、正文和分类。
 │           ├── NoteListView.vue                    # 笔记列表页面，展示笔记并支持搜索、分类筛选、新建、文件导入、删除和卡片分类标识。
 │           ├── ProfileView.vue                     # 用户资料页面。
-│           ├── QuickTestView.vue                   # 快速测试页面，选择来源、答题、查看反馈和总结。
+│           ├── QuickTestView.vue                   # 快速测试页面，选择笔记/知识库来源，生成选择题测验、答题并查看得分解析。
 │           ├── RegisterView.vue                    # 注册页面。
-│           ├── ReviewView.vue                      # 每日回顾页面。
 │           ├── SessionsView.vue                    # 聊天会话列表页面。
 │           └── SettingsView.vue                    # 设置页面，管理主题和语言偏好。
 │

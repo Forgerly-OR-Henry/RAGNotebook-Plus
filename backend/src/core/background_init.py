@@ -126,7 +126,7 @@ class _BackgroundInitManager:
         if actual_dim != expected_dim:
             raise RuntimeError(
                 f"EMBEDDING_DIM={expected_dim} 与当前嵌入模型实际维度 {actual_dim} 不一致，"
-                "请调整当前运行环境配置后重建空库或迁移表结构。"
+                "请调整当前运行环境配置后重建空库。"
             )
         logger.info(f"✅ embedding 维度校验通过: {actual_dim}")
 
@@ -153,6 +153,7 @@ class _BackgroundInitManager:
 
         self._current_step = "loading_reranker_service"
         self.reorder_service = ReorderService()
+        await self.reorder_service.warmup()
         logger.info("✅ ReorderService 初始化完成")
         self.reranker_ready.set()
 

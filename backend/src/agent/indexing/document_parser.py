@@ -44,7 +44,11 @@ class DocumentParser:
                 user_id=user_id,
                 use_multimodal=use_multimodal,
             )
+            if not documents or not any(doc.page_content.strip() for doc in documents):
+                raise ValueError("文件未解析到可索引文本内容，请确认文件未损坏或另存为新版格式后重试")
             split_docs = self.processor.split_documents_sync(documents) if documents else []
+            if not split_docs:
+                raise ValueError("文件切片为空，请确认文件包含可识别文本")
             return ParsedDocument(content_hash=content_hash, documents=split_docs)
         finally:
             if temp_path:

@@ -32,17 +32,17 @@
       "is_pinned": true,
       "created_days_ago": 14,
       "updated_hours_ago": 2,
-      "content": "# RAGNotebook 架构速览\n\n当前系统由 Vue3 前端、FastAPI 后端、PostgreSQL 与 pgvector 构成。关系数据保存用户、笔记、模板、会话、回顾、测评和导图；文件事实写入 documents 与 storage_objects，笔记和知识库切片统一写入 index_chunks，并通过 user_id 隔离。\n\n关键链路：笔记创建后写入 Markdown 文件、documents 和 notes，再异步同步 note 索引；知识库上传保持原文件格式，解析后写入 index_chunks 并更新文档状态。"
+      "content": "# RAGNotebook 架构速览\n\n当前系统由 Vue3 前端、FastAPI 后端、PostgreSQL 与 pgvector 构成。关系数据保存用户、笔记、模板、会话、测评和导图；文件事实写入 documents 与 storage_objects，笔记和知识库切片统一写入 index_chunks，并通过 user_id 隔离。\n\n关键链路：笔记创建后写入 Markdown 文件、documents 和 notes，再异步同步 note 索引；知识库上传保持原文件格式，解析后写入 index_chunks 并更新文档状态。"
     },
     {
       "id": "00000000-0000-4000-8000-000000000102",
-      "title": "pgvector 迁移排查记录",
+      "title": "pgvector 初始化排查记录",
       "category": "work",
-      "tags": ["pgvector", "迁移", "数据库"],
+      "tags": ["pgvector", "初始化", "数据库"],
       "is_pinned": false,
       "created_days_ago": 9,
       "updated_hours_ago": 6,
-      "content": "# pgvector 迁移排查记录\n\n如果 Alembic 迁移失败，优先确认数据库用户有 CREATE EXTENSION 权限，然后检查 EMBEDDING_DIM 是否与实际嵌入模型一致。index_chunks.embedding 的维度一旦创建，切换嵌入模型后不能自动改变。\n\n本地排查顺序：启动 PostgreSQL、确认 vector 扩展、检查 alembic_version、执行只读连通性查询。"
+      "content": "# pgvector 初始化排查记录\n\n如果 schema 初始化失败，优先确认数据库用户有 CREATE EXTENSION 权限，然后检查 EMBEDDING_DIM 是否与实际嵌入模型一致。index_chunks.embedding 的维度一旦创建，切换嵌入模型后不能自动改变。\n\n本地排查顺序：启动 PostgreSQL、确认 vector 扩展、确认当前表结构、执行只读连通性查询。"
     },
     {
       "id": "00000000-0000-4000-8000-000000000103",
@@ -102,7 +102,7 @@
       "is_pinned": false,
       "created_days_ago": 2,
       "updated_hours_ago": 18,
-      "content": "# 每日复盘：知识整理流程\n\n每天结束前做三件事：把碎片想法整理成结构化笔记，为重要笔记设置标签和分类，选择一篇内容进入回顾队列。\n\n如果当天上传了知识库资料，需要检查文档列表、切片详情和问答引用是否正常。"
+      "content": "# 每日复盘：知识整理流程\n\n每天结束前做三件事：把碎片想法整理成结构化笔记，为重要笔记设置标签和分类，选择一篇内容进入快速测试或导图整理。\n\n如果当天上传了知识库资料，需要检查文档列表、切片详情和问答引用是否正常。"
     },
     {
       "id": "00000000-0000-4000-8000-000000000109",
@@ -112,7 +112,7 @@
       "is_pinned": false,
       "created_days_ago": 3,
       "updated_hours_ago": 16,
-      "content": "# 前端冒烟测试清单\n\n登录后依次检查笔记列表、笔记详情、知识库列表、会话列表、今日回顾、快速测试和思维导图。重点观察加载态、空状态、非空状态、错误提示和鉴权跳转。\n\n演示数据集的目标是让这些页面默认都有可点击的数据。"
+      "content": "# 前端冒烟测试清单\n\n登录后依次检查笔记列表、笔记详情、知识库列表、会话列表、快速测试和思维导图。重点观察加载态、空状态、非空状态、错误提示和鉴权跳转。\n\n演示数据集的目标是让这些页面默认都有可点击的数据。"
     },
     {
       "id": "00000000-0000-4000-8000-000000000110",
@@ -122,7 +122,7 @@
       "is_pinned": false,
       "created_days_ago": 8,
       "updated_hours_ago": 24,
-      "content": "# 用户隔离测试用例\n\n所有业务查询必须带 user_id。笔记、模板、回顾、快速测试、导图和向量检索都不能跨用户读取数据。\n\n手工测试可以使用 demo_user 登录后访问固定 ID，再切换其他账号确认无法读取这些资源。"
+      "content": "# 用户隔离测试用例\n\n所有业务查询必须带 user_id。笔记、模板、快速测试、导图和向量检索都不能跨用户读取数据。\n\n手工测试可以使用 demo_user 登录后访问固定 ID，再切换其他账号确认无法读取这些资源。"
     }
   ],
   "note_templates": [
@@ -157,57 +157,15 @@
       "sort_order": 102
     }
   ],
-  "review_schedules": [
-    {
-      "id": "00000000-0000-4000-8000-000000000301",
-      "note_id": "00000000-0000-4000-8000-000000000101",
-      "review_count": 1,
-      "interval_days": 2,
-      "last_review_days_ago": 2,
-      "next_review_days_offset": -1
-    },
-    {
-      "id": "00000000-0000-4000-8000-000000000302",
-      "note_id": "00000000-0000-4000-8000-000000000102",
-      "review_count": 2,
-      "interval_days": 4,
-      "last_review_days_ago": 4,
-      "next_review_days_offset": 0
-    },
-    {
-      "id": "00000000-0000-4000-8000-000000000303",
-      "note_id": "00000000-0000-4000-8000-000000000103",
-      "review_count": 0,
-      "interval_days": 1,
-      "last_review_days_ago": null,
-      "next_review_days_offset": 1
-    },
-    {
-      "id": "00000000-0000-4000-8000-000000000304",
-      "note_id": "00000000-0000-4000-8000-000000000107",
-      "review_count": 3,
-      "interval_days": 7,
-      "last_review_days_ago": 7,
-      "next_review_days_offset": -2
-    },
-    {
-      "id": "00000000-0000-4000-8000-000000000305",
-      "note_id": "00000000-0000-4000-8000-000000000109",
-      "review_count": 1,
-      "interval_days": 2,
-      "last_review_days_ago": 1,
-      "next_review_days_offset": 3
-    }
-  ],
   "chat_sessions": [
     {
       "id": "demo-chat-session-pgvector-runbook",
-      "title": "如何排查 pgvector 迁移失败？",
+      "title": "如何排查 pgvector 初始化失败？",
       "metadata": {"dataset": "demo", "topic": "pgvector"},
       "messages": [
         {
           "role": "user",
-          "content": "pgvector 迁移失败时，我应该先检查什么？"
+          "content": "pgvector 初始化失败时，我应该先检查什么？"
         },
         {
           "role": "assistant",
@@ -219,22 +177,22 @@
         },
         {
           "role": "assistant",
-          "content": "需要确认新模型维度。如果维度不同，现有 index_chunks.embedding 不能直接复用，应重建测试库或规划迁移。"
+          "content": "需要确认新模型维度。如果维度不同，现有 index_chunks.embedding 不能直接复用，应重建测试库。"
         }
       ]
     },
     {
       "id": "demo-chat-session-learning-loop",
-      "title": "快速测试和回顾怎么结合？",
+      "title": "快速测试和复盘怎么结合？",
       "metadata": {"dataset": "demo", "topic": "learning"},
       "messages": [
         {
           "role": "user",
-          "content": "快速测试和每日回顾分别解决什么问题？"
+          "content": "快速测试和每日复盘分别解决什么问题？"
         },
         {
           "role": "assistant",
-          "content": "快速测试用于即时检验理解，每日回顾用于按间隔重复巩固。两者结合后，可以从测评薄弱点回到笔记和知识库来源。"
+          "content": "快速测试用于即时检验理解，每日复盘用于整理薄弱点和后续行动。两者结合后，可以从测评薄弱点回到笔记和知识库来源。"
         }
       ]
     }
@@ -308,7 +266,7 @@
           "source_id": "00000000-0000-4000-8000-000000000101",
           "title": "RAGNotebook 架构速览",
           "chunk_id": "00000000-0000-4000-8000-000000000101",
-          "quote": "关系数据保存用户、笔记、模板、会话、回顾、测评和导图。",
+          "quote": "关系数据保存用户、笔记、模板、会话、测评和导图。",
           "score": 0.91
         },
         {
@@ -334,7 +292,7 @@
               "source_id": "00000000-0000-4000-8000-000000000101",
               "title": "RAGNotebook 架构速览",
               "chunk_id": "00000000-0000-4000-8000-000000000101",
-              "quote": "关系数据保存用户、笔记、模板、会话、回顾、测评和导图；向量数据统一写入 index_chunks。",
+              "quote": "关系数据保存用户、笔记、模板、会话、测评和导图；向量数据统一写入 index_chunks。",
               "score": 0.92
             }
           ]
@@ -382,7 +340,7 @@
           "label": "关系数据",
           "level": 1,
           "type": "concept",
-          "summary": "用户、笔记、回顾、测评和导图",
+          "summary": "用户、笔记、测评和导图",
           "source_refs": ["00000000-0000-4000-8000-000000000101"]
         },
         {
@@ -398,7 +356,7 @@
           "label": "学习闭环",
           "level": 1,
           "type": "concept",
-          "summary": "回顾、快速测试和引用推荐",
+          "summary": "快速测试、复盘和引用推荐",
           "source_refs": ["00000000-0000-4000-8000-000000000103"]
         }
       ],
@@ -413,7 +371,7 @@
           "source_id": "00000000-0000-4000-8000-000000000101",
           "title": "RAGNotebook 架构速览",
           "chunk_id": "00000000-0000-4000-8000-000000000101",
-          "quote": "关系数据保存用户、笔记、模板、会话、回顾、测评和导图；向量数据统一写入 index_chunks。",
+          "quote": "关系数据保存用户、笔记、模板、会话、测评和导图；向量数据统一写入 index_chunks。",
           "score": 0.93
         }
       ],
@@ -428,7 +386,7 @@
       "title": "学习闭环导图",
       "source_type": "note",
       "source_ids": ["00000000-0000-4000-8000-000000000103"],
-      "focus": "快速测试和回顾的协作",
+      "focus": "快速测试和复盘的协作",
       "version": 1,
       "nodes": [
         {"id": "m0", "label": "学习闭环", "level": 0, "type": "root", "summary": "从资料到测评再到复盘", "source_refs": ["00000000-0000-4000-8000-000000000103"]},

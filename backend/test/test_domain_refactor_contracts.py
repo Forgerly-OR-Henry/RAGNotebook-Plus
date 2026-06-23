@@ -1,8 +1,11 @@
 import inspect
 import asyncio
-from pathlib import Path
 
 from mvc.controllers.knowledge_controller import knowledge_router
+from db import db_config
+from mvc.models.base import Base
+from mvc.models.knowledge_document import KnowledgeDocument
+from mvc.models.knowledge_folder import KnowledgeFolder, KnowledgeFolderAssignment
 from mvc.services.sources.models import SourceChunk
 from mvc.services.sources.registry import SourceRegistry
 from agent.rag.rag_service import RagService
@@ -36,16 +39,29 @@ class FakeProvider:
         ][:top_k]
 
 
-def test_domain_migration_declares_document_and_index_tables():
-    migration = Path(__file__).resolve().parents[1] / "alembic" / "versions" / "20260622_0001_storage_refactor_initial.py"
-    text = migration.read_text(encoding="utf-8")
+def test_current_schema_declares_document_and_index_tables():
+    db_config._import_all_models()
 
-    assert "storage_objects" in text
-    assert '"documents"' in text
-    assert "index_chunks" in text
-    assert "vector_chunks" not in text
-    assert "knowledge_documents" not in text
-    assert "knowledge_md5_records" not in text
+    assert "storage_objects" in Base.metadata.tables
+    assert "documents" in Base.metadata.tables
+    assert "notes" in Base.metadata.tables
+    assert KnowledgeDocument.__tablename__ == "knowledge_documents"
+    assert KnowledgeFolder.__tablename__ == "knowledge_folders"
+    assert KnowledgeFolderAssignment.__tablename__ == "knowledge_folder_assignments"
+    assert {"knowledge_documents", "knowledge_folders", "knowledge_folder_assignments"} <= set(Base.metadata.tables)
+    assert db_config.INDEX_CHUNKS_TABLE == "index_chunks"
+    assert db_config.INDEX_CHUNKS_COLUMNS >= {
+        "document_id",
+        "source_type",
+        "content_hash",
+        "embedding",
+    }
+
+
+def test_current_schema_rejects_legacy_tables():
+    unsupported = db_config._unsupported_schema_tables({"notes", "user_service", "legacy_version"})
+
+    assert unsupported == {"user_service", "legacy_version"}
 
 
 def test_source_registry_collects_mixed_sources():
@@ -83,4 +99,15 @@ def test_knowledge_router_uses_document_id_resources():
     assert ("/knowledge/documents", "GET") in routes
     assert ("/knowledge/documents/{document_id}", "DELETE") in routes
     assert ("/knowledge/documents/{document_id}", "GET") in routes
+    assert ("/knowledge/documents/{document_id}/file", "GET") in routes
     assert ("/knowledge/documents/{document_id}/chunks", "GET") in routes
+    assert ("/knowledge/documents/{document_id}/metadata", "PUT") in routes
+    assert ("/knowledge/documents/{document_id}/auto-tag", "POST") in routes
+    assert ("/knowledge/folders", "GET") in routes
+    assert ("/knowledge/folders", "POST") in routes
+    assert ("/knowledge/folders/{folder_id}", "PUT") in routes
+    assert ("/knowledge/folders/{folder_id}", "DELETE") in routes
+    assert ("/knowledge/batch/folder", "PUT") in routes
+    assert ("/knowledge/batch/category", "PUT") in routes
+    assert ("/knowledge/stats", "GET") in routes
+    assert ("/knowledge/category/{category}", "DELETE") in routes

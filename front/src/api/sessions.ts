@@ -12,8 +12,10 @@ interface SessionDetailData {
 }
 
 export const sessionsApi = {
-  list: async (userId: string) => {
-    const res = await client.get<ApiResponse<SessionsData>>(endpoints.getUserSessions(userId))
+  list: async (userId: string, projectId?: string | null) => {
+    const res = await client.get<ApiResponse<SessionsData>>(endpoints.getUserSessions(userId), {
+      params: projectId ? { project_id: projectId } : undefined,
+    })
     return res.data
   },
 

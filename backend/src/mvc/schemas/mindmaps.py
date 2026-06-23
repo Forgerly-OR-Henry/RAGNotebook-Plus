@@ -1,11 +1,11 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
-from mvc.schemas.sources import SourceCitation, SourceType
+from mvc.schemas.sources import SourceCitation, SourceRefType
 
 
 class MindMapGenerateRequest(BaseModel):
-    source_type: SourceType
-    source_ids: list[str]
+    source_type: SourceRefType
+    source_ids: list[str] = Field(min_length=1, max_length=20)
     max_nodes: int = 40
     max_depth: int = 4
     focus: str | None = None

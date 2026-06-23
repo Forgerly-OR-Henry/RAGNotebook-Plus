@@ -27,7 +27,6 @@ REQUIRED_TABLES = (
     "documents",
     "notes",
     "note_templates",
-    "review_schedules",
     "chat_sessions",
     "chat_messages",
     "quiz_sessions",
@@ -146,13 +145,6 @@ def validate_manifest(manifest: dict[str, Any], fixture_dir: Path = FIXTURE_DIR)
         label = f"note_templates[{index}]"
         _validate_required(template, ("id", "name", "content"), label, errors)
         _register_id(errors, seen_ids, template.get("id"), f"{label}.id")
-
-    for index, review in enumerate(_items(manifest, "review_schedules")):
-        label = f"review_schedules[{index}]"
-        _validate_required(review, ("id", "note_id", "review_count", "interval_days", "next_review_days_offset"), label, errors)
-        _register_id(errors, seen_ids, review.get("id"), f"{label}.id")
-        if review.get("note_id") not in note_ids:
-            errors.append(f"{label}.note_id references unknown note: {review.get('note_id')}")
 
     for index, session in enumerate(_items(manifest, "chat_sessions")):
         label = f"chat_sessions[{index}]"
@@ -274,11 +266,11 @@ async def ensure_schema_available(session) -> None:
         if result.scalar_one_or_none() is None:
             missing.append(table)
     if missing:
-        raise SeedError(f"Database schema is missing tables: {', '.join(missing)}. Run Alembic migrations first.")
+        raise SeedError(f"Database schema is missing tables: {', '.join(missing)}. Start the backend with a new or empty database first.")
 
     result = await session.execute(text("SELECT EXISTS (SELECT 1 FROM pg_extension WHERE extname = 'vector')"))
     if not result.scalar():
-        raise SeedError("PostgreSQL extension 'vector' is not installed. Run the pgvector migration first.")
+        raise SeedError("PostgreSQL extension 'vector' is not installed. Start the backend with a new or empty database first.")
 
 
 async def delete_demo_indexes(session, document_ids: list[str], user_id: str) -> None:
@@ -307,7 +299,6 @@ async def reset_demo_data(session, manifest: dict[str, Any], user_id: str) -> No
     from mvc.models.mind_map import MindMap
     from mvc.models.note import Note
     from mvc.models.note_template import NoteTemplate
-    from mvc.models.review_record import ReviewRecord
     from mvc.models.storage_object import StorageObject
     from mvc.models.study_test import StudyTestSession, StudyTestTurn
     from mvc.services.storage_service import StorageService
@@ -316,7 +307,6 @@ async def reset_demo_data(session, manifest: dict[str, Any], user_id: str) -> No
     knowledge_ids = [item["id"] for item in _items(manifest, "knowledge_files")]
     document_ids = [*note_ids, *knowledge_ids]
     template_ids = [item["id"] for item in _items(manifest, "note_templates")]
-    review_ids = [item["id"] for item in _items(manifest, "review_schedules")]
     chat_ids = [item["id"] for item in _items(manifest, "chat_sessions")]
     quick_ids = [item["id"] for item in _items(manifest, "quick_test_sessions")]
     mindmap_ids = [item["id"] for item in _items(manifest, "mind_maps")]
@@ -331,8 +321,6 @@ async def reset_demo_data(session, manifest: dict[str, Any], user_id: str) -> No
         await session.execute(delete(StudyTestSession).where(StudyTestSession.user_id == user_id, StudyTestSession.id.in_(quick_ids)))
     if mindmap_ids:
         await session.execute(delete(MindMap).where(MindMap.user_id == user_id, MindMap.id.in_(mindmap_ids)))
-    if review_ids:
-        await session.execute(delete(ReviewRecord).where(ReviewRecord.user_id == user_id, ReviewRecord.id.in_(review_ids)))
     if template_ids:
         await session.execute(delete(NoteTemplate).where(NoteTemplate.user_id == user_id, NoteTemplate.id.in_(template_ids)))
     if document_ids:
@@ -492,26 +480,6 @@ async def upsert_note_templates(session, manifest: dict[str, Any], user_id: str,
         template.sort_order = int(item.get("sort_order", index + 100))
         template.created_at = _relative_datetime(base_time, days_offset=-5)
         template.updated_at = base_time
-
-
-async def upsert_review_schedules(session, manifest: dict[str, Any], user_id: str, base_time: datetime) -> None:
-    from mvc.models.review_record import ReviewRecord
-
-    for item in _items(manifest, "review_schedules"):
-        record = await session.get(ReviewRecord, item["id"])
-        if record:
-            _assert_owned(record, user_id, f"review_schedule {item['id']}")
-        else:
-            record = ReviewRecord(id=item["id"], user_id=user_id)
-            session.add(record)
-
-        last_review_offset = item.get("last_review_days_ago")
-        record.note_id = item["note_id"]
-        record.review_count = int(item.get("review_count", 0))
-        record.interval_days = int(item.get("interval_days", 1))
-        record.last_reviewed_at = None if last_review_offset is None else _relative_datetime(base_time, days_offset=-int(last_review_offset))
-        record.next_review_at = _relative_datetime(base_time, days_offset=int(item.get("next_review_days_offset", 0)))
-        record.created_at = _relative_datetime(base_time, days_offset=-10)
 
 
 async def upsert_chat_sessions(session, manifest: dict[str, Any], user_id: str, base_time: datetime) -> None:
@@ -847,7 +815,6 @@ async def seed_database(manifest: dict[str, Any], reset_demo: bool, skip_knowled
         user_id = await ensure_demo_user(session, manifest["user"])
         await upsert_notes(session, manifest, user_id, base_time)
         await upsert_note_templates(session, manifest, user_id, base_time)
-        await upsert_review_schedules(session, manifest, user_id, base_time)
         await upsert_chat_sessions(session, manifest, user_id, base_time)
         await upsert_quick_tests(session, manifest, user_id, base_time)
         await upsert_mind_maps(session, manifest, user_id, base_time)

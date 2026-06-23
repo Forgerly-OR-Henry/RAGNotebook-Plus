@@ -19,7 +19,7 @@ class RagService:
         self.prompt_text = load_prompt(prompt_type="rag_summary_prompt")
         self.prompt_template = PromptTemplate.from_template(self.prompt_text)
         self.chat_model = init_manager.chat_model
-        self.chain = self._init_chain()
+        self.chain = self._init_chain() if self.chat_model is not None else None
         self.hyde_prompt_template = PromptTemplate.from_template(
             "基于以下问题，生成一个详细的假设性回答，我会根据你的这个假设性回答"
             "在向量数据库里检索文档：\n\n问题：{query}\n\n假设性回答："
@@ -54,6 +54,10 @@ class RagService:
         :param query: 用户查询
         :return: 假设性文档内容
         """
+        if self.chat_model is None:
+            logger.warning("【HyDE】chat_model未初始化，使用原始查询进行检索")
+            return query
+
         try:
             hyde_chain = (
                 self.hyde_prompt_template
@@ -67,7 +71,7 @@ class RagService:
             logger.error(f"【HyDE】生成假设性文档失败: {e}")
             return query
 
-    async def retrieve_document(self, query: str) -> list:
+    async def retrieve_document(self, query: str, use_hyde: bool = True) -> list:
         """使用HyDE技术 从向量数据库里检索文档"""
         if not self.user_id:
             logger.warning("【HyDE】user_id为空，不进行任何检索")
@@ -76,29 +80,33 @@ class RagService:
         try:
             await self.initialize_retriever(query)
 
-            # 使用HyDE技术生成假设性文档
-            logger.info(f"【HyDE】开始处理查询: {query}")
+            retrieval_query = query
+            if use_hyde:
+                # 使用HyDE技术生成假设性文档
+                logger.info(f"【HyDE】开始处理查询: {query}")
 
-            if self.thinking_callback:
-                await self.thinking_callback({
-                    "type": "thinking",
-                    "stage": "hyde",
-                    "content": f"正在基于查询「{query}」生成假设性文档..."
-                })
+                if self.thinking_callback:
+                    await self.thinking_callback({
+                        "type": "thinking",
+                        "stage": "hyde",
+                        "content": f"正在基于查询「{query}」生成假设性文档..."
+                    })
 
-            hypothetical_doc = await self.generate_hypothetical_document(query)
+                retrieval_query = await self.generate_hypothetical_document(query)
 
-            if self.thinking_callback:
-                await self.thinking_callback({
-                    "type": "thinking",
-                    "stage": "hyde",
-                    "content": "假设性文档生成完成",
-                    "details": {
-                        "hypothetical_doc_preview": hypothetical_doc[:200] + "..." if len(hypothetical_doc) > 200 else hypothetical_doc
-                    }
-                })
+                if self.thinking_callback:
+                    await self.thinking_callback({
+                        "type": "thinking",
+                        "stage": "hyde",
+                        "content": "假设性文档生成完成",
+                        "details": {
+                            "hypothetical_doc_preview": retrieval_query[:200] + "..." if len(retrieval_query) > 200 else retrieval_query
+                        }
+                    })
 
-            logger.info("【HyDE】使用假设性文档进行统一来源检索")
+                logger.info("【HyDE】使用假设性文档进行统一来源检索")
+            else:
+                logger.info(f"【RAG】使用原始查询进行快速检索: {query}")
 
             if self.thinking_callback:
                 await self.thinking_callback({
@@ -111,7 +119,7 @@ class RagService:
                 logger.warning("【HyDE】source_search未注入，不进行任何检索")
                 return []
 
-            chunks = await self.source_search(self.user_id, hypothetical_doc, "mixed", 6)
+            chunks = await self.source_search(self.user_id, retrieval_query, "mixed", 6)
 
             logger.info(f"【HyDE】检索到 {len(chunks)} 个来源片段")
 
@@ -153,7 +161,12 @@ class RagService:
                 "content": f"正在对 {len(documents)} 个文档进行重排序..."
             })
 
-        result = await init_manager.reorder_service.reorder_documents(query, documents, thinking_callback=self.thinking_callback)
+        reorder_backend = init_manager.reorder_service
+        if reorder_backend is None:
+            from agent.rag.reorder_service import reorder_service as fallback_reorder_service
+            reorder_backend = fallback_reorder_service
+
+        result = await reorder_backend.reorder_documents(query, documents, thinking_callback=self.thinking_callback)
         if result["success"]:
             # 提取重排序后的文档内容
             reordered_documents = [doc.get("document", "") for doc in result["documents"]]
@@ -216,6 +229,13 @@ class RagService:
 
             # 使用分批总结策略
             try:
+                if self.chain is None:
+                    logger.error("【RAG】chat_model未初始化，无法生成摘要")
+                    return {
+                        "documents": reordered_documents,
+                        "summary": "抱歉，AI 模型仍在初始化，请稍后再试。"
+                    }
+
                 # 对每个文档单独总结（使用线程池并发处理）
                 individual_summaries = []
                 max_documents = 3  # 使用前3个最相关的文档
@@ -306,6 +326,18 @@ class RagService:
                 "documents": [],
                 "summary": "抱歉，处理您的请求时出现了错误。"
             }
+
+    async def get_reordered_documents(self, query: str, max_documents: int = 3, use_hyde: bool = False) -> list[str]:
+        """Return formatted, reranked documents for the fast streaming chat path."""
+        documents = await self.retrieve_document(query, use_hyde=use_hyde)
+
+        def _format_doc(chunk):
+            source_label = "笔记" if chunk.source_type == "note" else "知识库"
+            return f"[来源：{source_label}《{chunk.title}》]\n{chunk.content}"
+
+        document_contents = [_format_doc(doc) for doc in documents]
+        reordered_documents = await self.reorder_documents(query, document_contents)
+        return reordered_documents[:max_documents]
 
     async def rag_summary(self, query: str) -> str:
         """RAG 摘要"""

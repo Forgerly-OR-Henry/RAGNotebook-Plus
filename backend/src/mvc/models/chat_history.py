@@ -11,6 +11,7 @@ class ChatSession(Base):
     id = Column(String(64), primary_key=True, index=True)
     # 通过 user_id 关联用户微服务，不做物理外键约束
     user_id = Column(String(64), index=True, nullable=False)
+    project_id = Column(String(36), ForeignKey("chat_projects.id", ondelete="CASCADE"), index=True, nullable=True)
 
     title = Column(String(255), default="新的对话")
     metadata_ = Column(JSONB, name="metadata")  # metadata 是 SQL 保留字，加下划线
@@ -18,6 +19,7 @@ class ChatSession(Base):
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
 
     # 关系
+    project = relationship("ChatProject", back_populates="sessions")
     messages = relationship("ChatMessage", back_populates="session", cascade="all, delete-orphan")
 
 class ChatMessage(Base):

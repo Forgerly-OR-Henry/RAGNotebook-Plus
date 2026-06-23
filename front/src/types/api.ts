@@ -11,7 +11,8 @@ export interface UserInfo {
   username: string
   email: string
   phone?: string
-  gender?: string
+  telephone?: string
+  gender?: number | null
   bio?: string
   avatar?: string
   date_joined?: string
@@ -30,11 +31,29 @@ export interface Note {
   title: string
   content: string
   storage_uri?: string | null
-  tags: string[]
-  category: string
+  tags: string[] | null
+  category: string | null
+  folder_id: string | null
   is_pinned: boolean
-  created_at: string
-  updated_at: string
+  created_at: string | null
+  updated_at: string | null
+}
+
+export interface NoteFolder {
+  id: string
+  user_id: string
+  name: string
+  parent_id: string | null
+  note_count: number
+  children: NoteFolder[]
+  created_at: string | null
+  updated_at: string | null
+}
+
+export interface NoteFolderTreeResponse {
+  folders: NoteFolder[]
+  total_count: number
+  unfiled_count: number
 }
 
 export interface NoteListResponse {
@@ -50,10 +69,11 @@ export interface NoteTemplate {
   category: string
   title: string
   content: string
-  tags: string[]
+  tags: string[] | null
   is_default: boolean
-  created_at: string
-  updated_at: string
+  sort_order: number
+  created_at: string | null
+  updated_at: string | null
 }
 
 export interface NoteStats {
@@ -69,6 +89,7 @@ export interface DeleteCategoryResponse {
 export interface ChatSession {
   id: string
   user_id?: string
+  project_id?: string | null
   title: string
   metadata?: Record<string, unknown>
   created_at: string
@@ -98,11 +119,14 @@ export interface KnowledgeDocument {
   file_size?: number
   file_type?: string
   mime_type?: string
+  category?: string | null
+  tags?: string[] | null
   status?: string
   status_message?: string | null
   chunk_count: number
+  folder_id?: string | null
   preview?: string
-  created_at: string
+  created_at?: string | null
   updated_at?: string | null
 }
 
@@ -127,14 +151,34 @@ export interface KnowledgeDocumentDetail {
   original_filename?: string | null
   file_size?: number
   mime_type?: string
+  category?: string | null
+  tags?: string[] | null
   status?: string
   status_message?: string | null
   chunk_count: number
   content: string
   images: string[]
+  folder_id?: string | null
   created_at: string | null
   updated_at?: string | null
   chunks: KnowledgeChunk[]
+}
+
+export interface KnowledgeFolder {
+  id: string
+  user_id: string
+  name: string
+  parent_id: string | null
+  knowledge_count: number
+  children: KnowledgeFolder[]
+  created_at: string | null
+  updated_at: string | null
+}
+
+export interface KnowledgeFolderTreeResponse {
+  folders: KnowledgeFolder[]
+  total_count: number
+  unfiled_count: number
 }
 
 export interface RelatedFragment {
@@ -155,27 +199,9 @@ export interface BatchCategoryRequest {
   category: string
 }
 
-export interface ReviewItem {
-  review_id: string
-  note_id: string
-  title: string
-  content_preview: string
-  tags: string[]
-  category: string
-  review_count: number
-  last_reviewed_at: string | null
-  interval_days: number
-}
-
-export interface ReviewQuestion {
-  question: string
-  choices: string[]
-  answer: string
-}
-
-export interface ReviewListData {
-  reviews: ReviewItem[]
-  total_count: number
+export interface BatchFolderRequest {
+  ids: string[]
+  folder_id: string | null
 }
 
 export interface SSEMessage {
@@ -199,10 +225,58 @@ export interface KnowledgeUploadProgress {
   slice_success_count?: number
   error_message?: string
   chunk_count?: number
+  document_id?: string
 }
 
 export type SourceType = 'note' | 'knowledge' | 'mixed'
+export type SourceRefType = 'note' | 'knowledge'
+export type MindMapSourceType = SourceRefType
 export type Difficulty = 'easy' | 'normal' | 'hard'
+
+export interface ChatSourceRef {
+  source_type: SourceRefType
+  source_id: string
+}
+
+export interface ChatQueryRequest {
+  query: string
+  session_id?: string
+  project_id?: string
+  references?: ChatSourceRef[]
+  rag_enabled?: boolean
+}
+
+export interface ChatProject {
+  id: string
+  user_id: string
+  name: string
+  description?: string | null
+  source_count: number
+  session_count: number
+  created_at?: string | null
+  updated_at?: string | null
+}
+
+export interface ProjectSource {
+  id: string
+  project_id: string
+  source_type: SourceRefType
+  source_id: string
+  title: string
+  preview?: string | null
+  status?: string | null
+  created_at?: string | null
+}
+
+export interface ProjectListResponse {
+  projects: ChatProject[]
+  total_count: number
+}
+
+export interface ProjectSourcesResponse {
+  sources: ProjectSource[]
+  total_count: number
+}
 
 export interface SourceCitation {
   source_type: string
@@ -267,6 +341,21 @@ export interface QuickTestFinishResponse {
   recommended_documents: SourceCitation[]
 }
 
+export interface QuizQuestion {
+  id: string
+  type: 'single_choice' | 'true_false' | string
+  question: string
+  options: string[]
+  answer: string
+  explanation?: string | null
+}
+
+export interface QuizResponse {
+  title: string
+  description?: string | null
+  questions: QuizQuestion[]
+}
+
 export interface MindMapNode {
   id: string
   label: string
@@ -284,7 +373,7 @@ export interface MindMapEdge {
 }
 
 export interface MindMapGenerateRequest {
-  source_type: SourceType
+  source_type: MindMapSourceType
   source_ids: string[]
   max_nodes: number
   max_depth: number

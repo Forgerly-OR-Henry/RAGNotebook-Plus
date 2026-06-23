@@ -1,5 +1,6 @@
-from fastapi import HTTPException
 from fastapi.routing import APIRouter
+from fastapi.responses import JSONResponse
+from starlette import status as http_status
 
 from core.background_init import init_manager
 from core.success_response import success_response
@@ -29,9 +30,9 @@ async def get_health_readiness():
         and runtime_store_status
         and model_runtime_status["status"] == "ready"
     )
-    status = "ok" if ready else "failed" if model_runtime_status["status"] == "failed" else "starting"
+    readiness_status = "ok" if ready else "failed" if model_runtime_status["status"] == "failed" else "starting"
     data = {
-        "status": status,
+        "status": readiness_status,
         "checks": {
             "database": database_status,
             "runtime_store": runtime_store_status,
@@ -43,5 +44,12 @@ async def get_health_readiness():
             message="health readiness status",
             data=data
         )
-    raise HTTPException(status_code=503, detail=data)
+    return JSONResponse(
+        status_code=http_status.HTTP_503_SERVICE_UNAVAILABLE,
+        content={
+            "code": http_status.HTTP_503_SERVICE_UNAVAILABLE,
+            "message": "health readiness status",
+            "data": data,
+        },
+    )
 

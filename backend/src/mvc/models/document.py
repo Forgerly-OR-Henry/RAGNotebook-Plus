@@ -25,3 +25,4 @@ class Document(Base):
 
     storage_object = relationship("StorageObject")
     note = relationship("Note", back_populates="document", uselist=False)
+    knowledge_document = relationship("KnowledgeDocument", back_populates="document", uselist=False)

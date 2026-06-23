@@ -16,7 +16,8 @@ class MindMapService:
         self.collector = get_source_registry()
 
     async def generate(self, db: AsyncSession, user_id: str, payload: MindMapGenerateRequest) -> dict:
-        chunks = await self.collector.collect(db, user_id, payload.source_type, payload.source_ids, max_chunks=18)
+        source_ids = self._unique_ids(payload.source_ids)
+        chunks = await self.collector.collect(db, user_id, payload.source_type, source_ids, max_chunks=30)
         if not chunks:
             raise ValueError("没有找到可用于生成思维导图的来源内容")
 
@@ -29,7 +30,7 @@ class MindMapService:
             user_id=user_id,
             title=graph["title"],
             source_type=payload.source_type,
-            source_ids=payload.source_ids,
+            source_ids=source_ids,
             focus=payload.focus,
             graph={"nodes": graph["nodes"], "edges": graph["edges"]},
             citations=citations,
@@ -40,6 +41,16 @@ class MindMapService:
         db.add(mindmap)
         await db.commit()
         return self._to_response(mindmap)
+
+    def _unique_ids(self, source_ids: list[str]) -> list[str]:
+        seen: set[str] = set()
+        unique: list[str] = []
+        for source_id in source_ids:
+            if not source_id or source_id in seen:
+                continue
+            seen.add(source_id)
+            unique.append(source_id)
+        return unique
 
     async def get(self, db: AsyncSession, user_id: str, mindmap_id: str) -> dict | None:
         mindmap = await self._get_orm(db, user_id, mindmap_id)
@@ -83,7 +94,7 @@ class MindMapService:
     async def _generate_graph(self, chunks: list[SourceChunk], max_nodes: int, max_depth: int, focus: str | None) -> dict:
         max_nodes = max(5, min(max_nodes, 80))
         max_depth = max(2, min(max_depth, 6))
-        context = format_source_context(chunks, max_chars=10000)
+        context = format_source_context(chunks, max_chars=16000)
         prompt = f"""请从资料中抽取一张交互式思维导图。
 关注点: {focus or "核心概念和关系"}
 节点上限: {max_nodes}
@@ -107,11 +118,27 @@ class MindMapService:
         return self._fallback_graph(chunks, max_nodes)
 
     def _fallback_graph(self, chunks: list[SourceChunk], max_nodes: int) -> dict:
-        title = chunks[0].title if chunks else "思维导图"
+        title = chunks[0].title if len(chunks) == 1 else "多来源知识导图"
         nodes = [{"id": "n0", "label": title[:40], "level": 0, "type": "root", "summary": "自动生成的中心主题", "source_refs": []}]
         edges = []
         node_index = 1
         for chunk in chunks:
+            if node_index >= max_nodes:
+                break
+            source_node_id = f"n{node_index}"
+            nodes.append(
+                {
+                    "id": source_node_id,
+                    "label": chunk.title[:50],
+                    "level": 1,
+                    "type": chunk.source_type,
+                    "summary": "来源内容",
+                    "source_refs": [chunk.source_id],
+                }
+            )
+            edges.append({"id": f"e{node_index}", "source": "n0", "target": source_node_id, "label": "包含"})
+            node_index += 1
+
             lines = [line.strip("# -\t ") for line in chunk.content.splitlines() if line.strip()]
             candidates = [line for line in lines if 4 <= len(line) <= 60][:4]
             if not candidates:
@@ -124,16 +151,14 @@ class MindMapService:
                     {
                         "id": node_id,
                         "label": candidate,
-                        "level": 1,
+                        "level": 2,
                         "type": "concept",
                         "summary": f"来源：{chunk.title}",
                         "source_refs": [chunk.source_id],
                     }
                 )
-                edges.append({"id": f"e{node_index}", "source": "n0", "target": node_id, "label": "关联"})
+                edges.append({"id": f"e{node_index}", "source": source_node_id, "target": node_id, "label": "要点"})
                 node_index += 1
-            if node_index >= max_nodes:
-                break
         return {"title": title, "nodes": nodes, "edges": edges}
 
     def _to_response(self, mindmap: MindMap) -> dict:

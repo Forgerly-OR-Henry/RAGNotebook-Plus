@@ -1,4 +1,5 @@
 import asyncio
+from datetime import datetime, timezone
 
 from core.logger_handler import logger
 from db.db_config import AsyncSessionLocal
@@ -22,7 +23,7 @@ class DatabaseSessionManager:
         logger.info("【数据库会话管理】初始化完成")
         return instance
 
-    async def get_session(self, session_id: str, user_id: str) -> dict:
+    async def get_session(self, session_id: str, user_id: str, project_id: str | None = None) -> dict:
         """获取会话"""
         async with AsyncSessionLocal() as db:
             # 尝试查找会话，验证属于该用户
@@ -31,6 +32,13 @@ class DatabaseSessionManager:
             )
 
             if result:
+                if project_id is not None and result.project_id != project_id:
+                    logger.warning(f"【数据库会话管理】会话 {session_id} 不属于项目 {project_id}")
+                    from fastapi import HTTPException, status
+                    raise HTTPException(
+                        status_code=status.HTTP_403_FORBIDDEN,
+                        detail="当前会话不属于该项目"
+                    )
                 # 获取会话历史
                 messages = await db.run_sync(
                     lambda session: session.query(ChatMessage).filter(ChatMessage.session_id == result.id).order_by(ChatMessage.created_at).all()
@@ -64,6 +72,7 @@ class DatabaseSessionManager:
                     new_session = ChatSession(
                         id=session_id,
                         user_id=user_id,
+                        project_id=project_id,
                         title="新的对话"
                     )
                     db.add(new_session)
@@ -72,7 +81,15 @@ class DatabaseSessionManager:
                     logger.info(f"【数据库会话管理】创建新会话: {session_id} 属于用户: {user_id}")
                     return {"history": []}
 
-    async def add_message(self, session_id: str, user_id: str, user_message: str, assistant_message: str):
+    async def add_message(
+        self,
+        session_id: str,
+        user_id: str,
+        user_message: str,
+        assistant_message: str,
+        project_id: str | None = None,
+        references: list[dict] | None = None,
+    ):
         """添加消息并保存到数据库"""
         async with AsyncSessionLocal() as db:
             # 检查会话id是否存在
@@ -90,12 +107,20 @@ class DatabaseSessionManager:
                         status_code=status.HTTP_403_FORBIDDEN,
                         detail="当前会话不属于你，无法添加消息"
                     )
+                if project_id is not None and existing_session.project_id != project_id:
+                    logger.warning(f"【数据库会话管理】会话 {session_id} 不属于项目 {project_id}，无法添加消息")
+                    from fastapi import HTTPException, status
+                    raise HTTPException(
+                        status_code=status.HTTP_403_FORBIDDEN,
+                        detail="当前会话不属于该项目，无法添加消息"
+                    )
                 session = existing_session
             else:
                 # 会话不存在，创建一个新的
                 session = ChatSession(
                     id=session_id,
                     user_id=user_id,
+                    project_id=project_id,
                     title="新的对话"
                 )
                 db.add(session)
@@ -109,12 +134,21 @@ class DatabaseSessionManager:
                 if len(user_message) > 30:
                     title_summary += "..."
                 session.title = title_summary
+            session.updated_at = datetime.now(timezone.utc)
+
+            message_metadata = {}
+            if project_id:
+                message_metadata["project_id"] = project_id
+            if references:
+                message_metadata["references"] = references
+            metadata_value = message_metadata or None
 
             # 添加用户消息
             user_msg = ChatMessage(
                 session_id=session.id,
                 role="user",
-                content=user_message
+                content=user_message,
+                metadata_=metadata_value,
             )
             db.add(user_msg)
 
@@ -122,16 +156,17 @@ class DatabaseSessionManager:
             assistant_msg = ChatMessage(
                 session_id=session.id,
                 role="assistant",
-                content=assistant_message
+                content=assistant_message,
+                metadata_=metadata_value,
             )
             db.add(assistant_msg)
 
             await db.commit()
             logger.info(f"【数据库会话管理】添加消息到会话: {session_id} 属于用户: {user_id}")
 
-    async def get_history(self, session_id: str, user_id: str) -> list[tuple[str, str]]:
+    async def get_history(self, session_id: str, user_id: str, project_id: str | None = None) -> list[tuple[str, str]]:
         """获取会话历史"""
-        session_data = await self.get_session(session_id, user_id)
+        session_data = await self.get_session(session_id, user_id, project_id=project_id)
         return session_data.get("history", [])
 
     async def clear_session(self, session_id: str, user_id: str):
@@ -161,19 +196,22 @@ class DatabaseSessionManager:
                 )
             return [session.id for session in sessions]
 
-    async def get_user_sessions(self, user_id: str) -> list[dict]:
+    async def get_user_sessions(self, user_id: str, project_id: str | None = None) -> list[dict]:
         """获取用户所有会话详细信息，按更新时间降序排列"""
         async with AsyncSessionLocal() as db:
             sessions = await db.run_sync(
                 lambda session: session.query(ChatSession)
                 .filter(ChatSession.user_id == user_id)
+                .filter(ChatSession.project_id == project_id if project_id is not None else ChatSession.project_id.is_(None))
                 .order_by(ChatSession.updated_at.desc())
                 .all()
             )
             return [
                 {
                     "id": session.id,
+                    "project_id": session.project_id,
                     "title": session.title,
+                    "metadata": session.metadata_ or {},
                     "created_at": session.created_at.isoformat() if session.created_at else None,
                     "updated_at": session.updated_at.isoformat() if session.updated_at else None
                 }

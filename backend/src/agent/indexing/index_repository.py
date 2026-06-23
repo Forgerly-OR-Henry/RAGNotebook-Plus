@@ -3,6 +3,7 @@ from __future__ import annotations
 import hashlib
 import json
 import os
+from collections import OrderedDict
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from typing import Any
@@ -13,6 +14,12 @@ from sqlalchemy import text
 from core.background_init import init_manager
 from core.logger_handler import logger
 from db.db_config import AsyncSessionLocal
+
+_QUERY_EMBEDDING_CACHE: OrderedDict[tuple[int, str], list[float]] = OrderedDict()
+
+
+def clear_query_embedding_cache() -> None:
+    _QUERY_EMBEDDING_CACHE.clear()
 
 
 @dataclass
@@ -123,7 +130,23 @@ class IndexRepository:
             return [await self._to_thread(model.embed_query, content) for content in contents]
 
     async def _embed_query(self, query: str) -> list[float]:
-        return await self._to_thread(self._embedding_model().embed_query, query)
+        model = self._embedding_model()
+        cache_key = (id(model), query)
+        cached = _QUERY_EMBEDDING_CACHE.get(cache_key)
+        if cached is not None:
+            _QUERY_EMBEDDING_CACHE.move_to_end(cache_key)
+            return list(cached)
+
+        embedding = await self._to_thread(model.embed_query, query)
+        _QUERY_EMBEDDING_CACHE[cache_key] = list(embedding)
+        try:
+            max_size = max(1, int(os.getenv("QUERY_EMBEDDING_CACHE_MAX", "128")))
+        except ValueError:
+            logger.warning("QUERY_EMBEDDING_CACHE_MAX 配置无效，已回退到 128")
+            max_size = 128
+        while len(_QUERY_EMBEDDING_CACHE) > max_size:
+            _QUERY_EMBEDDING_CACHE.popitem(last=False)
+        return embedding
 
     @staticmethod
     async def _to_thread(func, *args):

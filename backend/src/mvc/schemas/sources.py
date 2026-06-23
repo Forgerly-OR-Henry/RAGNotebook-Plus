@@ -4,7 +4,13 @@ from pydantic import BaseModel
 
 
 SourceType = Literal["note", "knowledge", "mixed"]
+SourceRefType = Literal["note", "knowledge"]
 Difficulty = Literal["easy", "normal", "hard"]
+
+
+class SourceReference(BaseModel):
+    source_type: SourceRefType
+    source_id: str
 
 
 class SourceCitation(BaseModel):

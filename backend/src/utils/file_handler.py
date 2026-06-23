@@ -5,10 +5,6 @@ import sys
 from langchain_community.document_loaders import (
     PyPDFLoader,
     TextLoader,
-    UnstructuredMarkdownLoader,
-    UnstructuredPDFLoader,
-    UnstructuredPowerPointLoader,
-    UnstructuredWordDocumentLoader,
 )
 from langchain_core.documents import Document
 
@@ -66,19 +62,7 @@ async def pdf_loader(file_path: str, password: str = None) -> list[Document]:
     """
     abs_file_path = get_abstract_path(file_path) if not os.path.isabs(file_path) else file_path
 
-    if password:
-        loader = PyPDFLoader(abs_file_path, password=password)
-        return await asyncio.to_thread(loader.load)
-
-    try:
-        loader = UnstructuredPDFLoader(abs_file_path)
-        docs = await asyncio.to_thread(loader.load)
-        if docs and any(len(doc.page_content.strip()) > 0 for doc in docs):
-            return docs
-    except Exception as e:
-        logger.warning(f"【PDF加载】UnstructuredPDFLoader失败，尝试PyPDFLoader: {e}")
-
-    loader = PyPDFLoader(abs_file_path)
+    loader = PyPDFLoader(abs_file_path, password=password) if password else PyPDFLoader(abs_file_path)
     return await asyncio.to_thread(loader.load)
 
 
@@ -109,13 +93,7 @@ async def word_loader(file_path: str) -> list[Document]:
     :param file_path: WORD文件路径
     :return: WORD文件内容
     """
-    abs_file_path = get_abstract_path(file_path) if not os.path.isabs(file_path) else file_path
-    try:
-        loader = UnstructuredWordDocumentLoader(abs_file_path, mode="single")
-        return await asyncio.to_thread(loader.load)
-    except Exception as e:
-        logger.error(f"【WORD文件加载】加载文件 {abs_file_path} 时出错: {e}")
-        return []
+    return await asyncio.to_thread(word_loader_sync, file_path)
 
 async def markdown_loader(file_path: str) -> list[Document]:
     """
@@ -123,13 +101,7 @@ async def markdown_loader(file_path: str) -> list[Document]:
     :param file_path: Markdown文件路径
     :return: Markdown文件内容
     """
-    abs_file_path = get_abstract_path(file_path) if not os.path.isabs(file_path) else file_path
-    try:
-        loader = UnstructuredMarkdownLoader(abs_file_path, mode="single")
-        return await asyncio.to_thread(loader.load)
-    except Exception as e:
-        logger.error(f"【Markdown文件加载】加载文件 {abs_file_path} 时出错: {e}")
-        return []
+    return await asyncio.to_thread(markdown_loader_sync, file_path)
 
 
 async def ppt_loader(file_path: str) -> list[Document]:
@@ -138,13 +110,7 @@ async def ppt_loader(file_path: str) -> list[Document]:
     :param file_path: PPT文件路径
     :return: PPT文件内容
     """
-    abs_file_path = get_abstract_path(file_path) if not os.path.isabs(file_path) else file_path
-    try:
-        loader = UnstructuredPowerPointLoader(abs_file_path, mode="single")
-        return await asyncio.to_thread(loader.load)
-    except Exception as e:
-        logger.error(f"【PPT文件加载】加载文件 {abs_file_path} 时出错: {e}")
-        return []
+    return await asyncio.to_thread(ppt_loader_sync, file_path)
 
 
 def pdf_loader_sync(file_path: str, password: str = None) -> list[Document]:
@@ -156,19 +122,7 @@ def pdf_loader_sync(file_path: str, password: str = None) -> list[Document]:
     """
     abs_file_path = get_abstract_path(file_path) if not os.path.isabs(file_path) else file_path
 
-    if password:
-        loader = PyPDFLoader(abs_file_path, password=password)
-        return loader.load()
-
-    try:
-        loader = UnstructuredPDFLoader(abs_file_path)
-        docs = loader.load()
-        if docs and any(len(doc.page_content.strip()) > 0 for doc in docs):
-            return docs
-    except Exception as e:
-        logger.warning(f"【PDF加载】UnstructuredPDFLoader失败，尝试PyPDFLoader: {e}")
-
-    loader = PyPDFLoader(abs_file_path)
+    loader = PyPDFLoader(abs_file_path, password=password) if password else PyPDFLoader(abs_file_path)
     return loader.load()
 
 
@@ -198,9 +152,14 @@ def word_loader_sync(file_path: str) -> list[Document]:
     :return: WORD文件内容
     """
     abs_file_path = get_abstract_path(file_path) if not os.path.isabs(file_path) else file_path
+    lower_path = abs_file_path.lower()
+    if lower_path.endswith(".doc") and not lower_path.endswith(".docx"):
+        logger.error("【WORD文件加载】旧版 .doc 文件需要先另存为 .docx 后上传")
+        return []
+
     try:
-        loader = UnstructuredWordDocumentLoader(abs_file_path, mode="single")
-        return loader.load()
+        content = _extract_docx_text(abs_file_path)
+        return _single_document(content, abs_file_path, {"file_type": "docx"})
     except Exception as e:
         logger.error(f"【WORD文件加载】加载文件 {abs_file_path} 时出错: {e}")
         return []
@@ -214,8 +173,7 @@ def markdown_loader_sync(file_path: str) -> list[Document]:
     """
     abs_file_path = get_abstract_path(file_path) if not os.path.isabs(file_path) else file_path
     try:
-        loader = UnstructuredMarkdownLoader(abs_file_path, mode="single")
-        return loader.load()
+        return _single_document(_read_text_file(abs_file_path), abs_file_path, {"file_type": "markdown"})
     except Exception as e:
         logger.error(f"【Markdown文件加载】加载文件 {abs_file_path} 时出错: {e}")
         return []
@@ -228,9 +186,110 @@ def ppt_loader_sync(file_path: str) -> list[Document]:
     :return: PPT文件内容
     """
     abs_file_path = get_abstract_path(file_path) if not os.path.isabs(file_path) else file_path
+    lower_path = abs_file_path.lower()
+    if lower_path.endswith(".ppt") and not lower_path.endswith(".pptx"):
+        logger.error("【PPT文件加载】旧版 .ppt 文件需要先另存为 .pptx 后上传")
+        return []
+
     try:
-        loader = UnstructuredPowerPointLoader(abs_file_path, mode="single")
-        return loader.load()
+        return _extract_pptx_documents(abs_file_path)
     except Exception as e:
         logger.error(f"【PPT文件加载】加载文件 {abs_file_path} 时出错: {e}")
         return []
+
+
+def _read_text_file(file_path: str) -> str:
+    for encoding in ("utf-8-sig", "utf-8", "gb18030", "gbk"):
+        try:
+            with open(file_path, encoding=encoding) as handle:
+                return handle.read()
+        except UnicodeDecodeError:
+            continue
+    with open(file_path, encoding="utf-8", errors="replace") as handle:
+        return handle.read()
+
+
+def _single_document(content: str, source: str, metadata: dict | None = None) -> list[Document]:
+    normalized = content.replace("\r\n", "\n").replace("\r", "\n").strip()
+    if not normalized:
+        return []
+    return [Document(page_content=normalized, metadata={"source": source, **(metadata or {})})]
+
+
+def _iter_docx_blocks(document):
+    from docx.oxml.table import CT_Tbl
+    from docx.oxml.text.paragraph import CT_P
+    from docx.table import Table
+    from docx.text.paragraph import Paragraph
+
+    for child in document.element.body.iterchildren():
+        if isinstance(child, CT_P):
+            yield Paragraph(child, document)
+        elif isinstance(child, CT_Tbl):
+            yield Table(child, document)
+
+
+def _docx_table_text(table) -> str:
+    rows = []
+    for row in table.rows:
+        cells = [" ".join(cell.text.split()) for cell in row.cells]
+        if any(cells):
+            rows.append(" | ".join(cells))
+    return "\n".join(rows)
+
+
+def _extract_docx_text(file_path: str) -> str:
+    from docx import Document as DocxDocument
+
+    document = DocxDocument(file_path)
+    parts: list[str] = []
+    for block in _iter_docx_blocks(document):
+        if hasattr(block, "rows"):
+            text = _docx_table_text(block)
+        else:
+            text = block.text.strip()
+        if text:
+            parts.append(text)
+    return "\n\n".join(parts)
+
+
+def _pptx_shape_lines(shape) -> list[str]:
+    lines: list[str] = []
+
+    if getattr(shape, "has_text_frame", False):
+        for paragraph in shape.text_frame.paragraphs:
+            text = "".join(run.text for run in paragraph.runs).strip() or paragraph.text.strip()
+            if text:
+                lines.append(text)
+
+    if getattr(shape, "has_table", False):
+        for row in shape.table.rows:
+            cells = [" ".join(cell.text.split()) for cell in row.cells]
+            if any(cells):
+                lines.append(" | ".join(cells))
+
+    if hasattr(shape, "shapes"):
+        for child in shape.shapes:
+            lines.extend(_pptx_shape_lines(child))
+
+    return lines
+
+
+def _extract_pptx_documents(file_path: str) -> list[Document]:
+    from pptx import Presentation
+
+    presentation = Presentation(file_path)
+    documents: list[Document] = []
+    for index, slide in enumerate(presentation.slides, 1):
+        lines: list[str] = []
+        for shape in slide.shapes:
+            lines.extend(_pptx_shape_lines(shape))
+        content = "\n".join(dict.fromkeys(line for line in lines if line))
+        if content.strip():
+            documents.append(
+                Document(
+                    page_content=f"幻灯片 {index}\n\n{content}",
+                    metadata={"source": file_path, "page": index, "slide_number": index, "file_type": "pptx"},
+                )
+            )
+    return documents

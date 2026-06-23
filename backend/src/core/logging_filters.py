@@ -10,3 +10,20 @@ class MaxLevelFilter(logging.Filter):
 
     def filter(self, record: logging.LogRecord) -> bool:
         return record.levelno <= self.max_level
+
+
+class ExcludeAccessPathFilter(logging.Filter):
+    def __init__(self, paths: str | list[str]):
+        super().__init__()
+        if isinstance(paths, str):
+            paths = [paths]
+        self.paths = set(paths)
+
+    def filter(self, record: logging.LogRecord) -> bool:
+        args = record.args
+        if not isinstance(args, tuple) or len(args) < 3:
+            return True
+
+        full_path = str(args[2])
+        path = full_path.split("?", 1)[0]
+        return path not in self.paths

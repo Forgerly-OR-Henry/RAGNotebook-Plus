@@ -6,8 +6,7 @@ import NoteListView from '../views/NoteListView.vue'
 import NoteEditorView from '../views/NoteEditorView.vue'
 import ChatView from '../views/ChatView.vue'
 import KnowledgeView from '../views/KnowledgeView.vue'
-import ReviewView from '../views/ReviewView.vue'
-import SessionsView from '../views/SessionsView.vue'
+import KnowledgeDetailView from '../views/KnowledgeDetailView.vue'
 import QuickTestView from '../views/QuickTestView.vue'
 import MindMapView from '../views/MindMapView.vue'
 import ProfileView from '../views/ProfileView.vue'
@@ -29,10 +28,13 @@ const router = createRouter({
         { path: 'notes/new', component: NoteEditorView },
         { path: 'notes/:id', component: NoteEditorView },
         { path: 'chat', component: ChatView },
+        { path: 'chat/session/:sessionId', component: ChatView },
+        { path: 'chat/project/:projectId', component: ChatView },
+        { path: 'chat/project/:projectId/session/:sessionId', component: ChatView },
         { path: 'chat/:sessionId', component: ChatView },
-        { path: 'sessions', component: SessionsView },
-        { path: 'review', component: ReviewView },
+        { path: 'sessions', redirect: '/chat' },
         { path: 'knowledge', component: KnowledgeView },
+        { path: 'knowledge/:id', component: KnowledgeDetailView },
         { path: 'quick-test', component: QuickTestView },
         { path: 'mindmap', component: MindMapView },
         { path: 'profile', component: ProfileView },

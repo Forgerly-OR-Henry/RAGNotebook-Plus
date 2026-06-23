@@ -16,13 +16,16 @@ from core.success_response import success_response
 from db.db_config import get_db
 from mvc.schemas import (
     BatchCategoryRequest,
+    BatchFolderRequest,
     BatchIdsRequest,
     BatchPinRequest,
     NoteCreate,
+    NoteFolderCreate,
+    NoteFolderUpdate,
     NoteListResponse,
     NoteUpdate,
 )
-from mvc.services.note_service import NOTE_IMPORT_MAX_FILE_SIZE, NoteImportError
+from mvc.services.note_service import NOTE_IMPORT_MAX_FILE_SIZE, NoteFolderError, NoteImportError
 from utils.auth_utils import get_current_user_id
 
 note_router = APIRouter(prefix="/note", tags=["note"])
@@ -59,9 +62,12 @@ async def create_note(
     创建笔记：
     1. PostgreSQL 写入 + pgvector 向量化
     2. 立即返回笔记（tags/category 初始为空）
-    3. 后台异步生成标签和回顾记录
+    3. 后台异步生成标签
     """
-    note = await init_manager.note_service.create_note(db, user_id, payload)
+    try:
+        note = await init_manager.note_service.create_note(db, user_id, payload)
+    except NoteFolderError as e:
+        raise HTTPException(status_code=400, detail=str(e)) from e
     return success_response(message="笔记创建成功", data=note)
 
 
@@ -69,6 +75,7 @@ async def create_note(
 async def import_note(
     file: UploadFile = File(..., description="支持 Markdown、TXT、Word 文件"),
     category: str | None = Form(None),
+    folder_id: str | None = Form(None),
     user_id: str = Depends(get_current_user_id),
     db: AsyncSession = Depends(get_db),
 ):
@@ -80,8 +87,10 @@ async def import_note(
         raise HTTPException(status_code=400, detail="导入文件大小不能超过 20MB")
 
     try:
-        note = await init_manager.note_service.import_note(db, user_id, file.filename, content, category)
+        note = await init_manager.note_service.import_note(db, user_id, file.filename, content, category, folder_id)
     except NoteImportError as e:
+        raise HTTPException(status_code=400, detail=str(e)) from e
+    except NoteFolderError as e:
         raise HTTPException(status_code=400, detail=str(e)) from e
 
     return success_response(message="笔记导入成功", data=note)
@@ -95,12 +104,17 @@ async def list_notes(
     page_size: int = Query(20, ge=1, le=100),
     category: str = Query(None),
     tag: str = Query(None),
+    folder_id: str = Query(None),
+    unfiled: bool = Query(False),
     sort_by: str = Query("updated_at", pattern="^(updated_at|created_at|title)$"),
 ):
     """
     笔记列表：分页查询，支持按分类筛选和排序。tag 筛选在内存层完成。
     """
-    notes, total = await init_manager.note_service.list_notes(db, user_id, page, page_size, category, tag, sort_by)
+    try:
+        notes, total = await init_manager.note_service.list_notes(db, user_id, page, page_size, category, tag, folder_id, unfiled, sort_by)
+    except NoteFolderError as e:
+        raise HTTPException(status_code=400, detail=str(e)) from e
     return success_response(data=NoteListResponse(notes=notes, total_count=total))
 
 
@@ -108,13 +122,18 @@ async def list_notes(
 async def search_notes(
     q: str = Query(..., description="搜索关键词"),
     limit: int = Query(30, ge=1, le=100),
+    folder_id: str = Query(None),
+    unfiled: bool = Query(False),
     user_id: str = Depends(get_current_user_id),
     db: AsyncSession = Depends(get_db),
 ):
     """
     笔记文本搜索：准确匹配结果在前，模糊匹配结果在后。
     """
-    notes = await init_manager.note_service.search_notes(db, user_id, q, top_k=limit)
+    try:
+        notes = await init_manager.note_service.search_notes(db, user_id, q, top_k=limit, folder_id=folder_id, unfiled=unfiled)
+    except NoteFolderError as e:
+        raise HTTPException(status_code=400, detail=str(e)) from e
     return success_response(data=NoteListResponse(notes=notes, total_count=len(notes)))
 
 
@@ -171,6 +190,23 @@ async def batch_update_category(
     return success_response(message=f"成功更新 {updated} 篇笔记的分类")
 
 
+@note_router.put("/batch/folder")
+async def batch_update_folder(
+    payload: BatchFolderRequest,
+    user_id: str = Depends(get_current_user_id),
+    db: AsyncSession = Depends(get_db),
+    _: None = Depends(rate_limit(limit=10, window=60)),
+):
+    """
+    批量移动笔记到文件夹。folder_id 为 null 时移回未归档。
+    """
+    try:
+        updated = await init_manager.note_service.batch_update_folder(db, user_id, payload.ids, payload.folder_id)
+    except NoteFolderError as e:
+        raise HTTPException(status_code=400, detail=str(e)) from e
+    return success_response(message=f"成功移动 {updated} 篇笔记")
+
+
 @note_router.put("/batch/pin")
 async def batch_pin_notes(
     payload: BatchPinRequest,
@@ -196,6 +232,75 @@ async def get_stats(
     """
     stats = await init_manager.note_service.get_category_stats(db, user_id)
     return success_response(data=stats)
+
+
+@note_router.get("/folders")
+async def list_note_folders(
+    user_id: str = Depends(get_current_user_id),
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    获取当前用户的多级笔记文件夹树及未归档数量。
+    """
+    data = await init_manager.note_service.list_note_folders(db, user_id)
+    return success_response(data=data)
+
+
+@note_router.post("/folders")
+async def create_note_folder(
+    payload: NoteFolderCreate,
+    user_id: str = Depends(get_current_user_id),
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    新建笔记文件夹，可指定 parent_id 创建子文件夹。
+    """
+    try:
+        folder = await init_manager.note_service.create_folder(db, user_id, payload)
+    except NoteFolderError as e:
+        raise HTTPException(status_code=400, detail=str(e)) from e
+    return success_response(message="文件夹创建成功", data=folder)
+
+
+@note_router.put("/folders/{folder_id}")
+async def update_note_folder(
+    folder_id: str,
+    payload: NoteFolderUpdate,
+    user_id: str = Depends(get_current_user_id),
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    重命名文件夹或移动父级。
+    """
+    try:
+        folder = await init_manager.note_service.update_folder(db, user_id, folder_id, payload)
+    except NoteFolderError as e:
+        raise HTTPException(status_code=400, detail=str(e)) from e
+    if not folder:
+        return success_response(message="文件夹不存在")
+    return success_response(message="文件夹更新成功", data=folder)
+
+
+@note_router.delete("/folders/{folder_id}")
+async def delete_note_folder(
+    folder_id: str,
+    mode: str = Query("unfile", pattern="^(unfile|delete_notes)$"),
+    user_id: str = Depends(get_current_user_id),
+    db: AsyncSession = Depends(get_db),
+    _: None = Depends(rate_limit(limit=5, window=60)),
+):
+    """
+    删除文件夹。mode=unfile 时笔记移回未归档，mode=delete_notes 时同步删除文件夹内笔记。
+    """
+    try:
+        deleted_notes = await init_manager.note_service.delete_folder(db, user_id, folder_id, mode)
+    except NoteFolderError as e:
+        raise HTTPException(status_code=400, detail=str(e)) from e
+    if deleted_notes is None:
+        return success_response(message="文件夹不存在")
+    if mode == "delete_notes":
+        return success_response(message=f"文件夹已删除，并删除 {deleted_notes} 篇笔记")
+    return success_response(message="文件夹已删除，笔记已移回未归档")
 
 
 @note_router.delete("/category/{category}")
@@ -300,7 +405,7 @@ async def delete_note(
     _: None = Depends(rate_limit(limit=10, window=60)),
 ):
     """
-    删除笔记：联删 PostgreSQL 记录、远端 Markdown 文件、向量索引以及级联的复习计划。
+    删除笔记：联删 PostgreSQL 记录、远端 Markdown 文件以及向量索引。
     """
     deleted = await init_manager.note_service.delete_note(db, note_id, user_id)
     if not deleted:
@@ -330,15 +435,12 @@ async def regenerate_tags(
     db: AsyncSession = Depends(get_db),
 ):
     """
-    手动触发重新生成标签。
+    手动触发 AI 重新生成分类与关键词，并返回更新后的笔记。
     """
-    note = await init_manager.note_service.get_note(db, note_id, user_id)
+    note = await init_manager.note_service.auto_tag_note(db, note_id, user_id)
     if not note:
         return success_response(message="笔记不存在")
-
-    import asyncio
-    asyncio.create_task(init_manager.note_service._auto_tag_and_review(note_id, user_id, note.content))
-    return success_response(message="标签生成任务已提交")
+    return success_response(message="AI 识别完成", data=note)
 
 
 @note_router.get("/{note_id}/related")

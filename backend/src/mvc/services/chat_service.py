@@ -43,12 +43,12 @@ class ChatService:
         session_ids = await sm.session_manager.get_all_session_ids()
         return session_ids
 
-    async def handle_get_user_sessions(self, user_id: str, current_user_id: str) -> list[dict]:
+    async def handle_get_user_sessions(self, user_id: str, current_user_id: str, project_id: str | None = None) -> list[dict]:
         """处理获取用户会话逻辑"""
         if user_id != current_user_id:
             raise HTTPException(status_code=403, detail="Forbidden")
 
-        sessions = await sm.session_manager.get_user_sessions(user_id)
+        sessions = await sm.session_manager.get_user_sessions(user_id, project_id=project_id)
         return sessions
 
     async def handle_reorder(self, query: str, documents: list[str]) -> list[dict[str, Any]]:

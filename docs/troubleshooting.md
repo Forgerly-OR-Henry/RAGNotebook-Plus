@@ -34,7 +34,7 @@
 - 如果修改过数据库用户名或密码，但 Docker 卷已经初始化，需要同步修改数据库内用户，或清理本地数据库卷后重新初始化。
 - 确认端口 `5432` 未被其他服务占用。
 
-## 3. pgvector 迁移失败
+## 3. pgvector 初始化失败
 
 现象：
 
@@ -52,13 +52,8 @@
 CREATE EXTENSION IF NOT EXISTS vector;
 ```
 
-- 重新运行迁移：
-
-```powershell
-cd backend
-$env:PYTHONPATH = "src"
-.venv\Scripts\python.exe -m db.pg_auto_init --force
-```
+- 如果当前库来自旧版本或已经创建过不兼容表，清空 `public` schema 或重建 `POSTGRES_DB` 后重新启动后端。
+- 后端启动会自动执行 `CREATE EXTENSION IF NOT EXISTS vector` 并创建 `index_chunks`。
 
 ## 4. 向量维度不匹配
 
@@ -71,10 +66,10 @@ $env:PYTHONPATH = "src"
 
 - 确认当前运行 env 的 `EMBEDDING_DIM` 等于当前嵌入模型实际输出维度。
 - 阿里云百炼文本向量请使用有效模型名，例如 `text-embedding-v4`；`qwen3-embedding` 不是 DashScope 同步文本向量接口的模型名，会返回 `Model not exist`。
-- 切换嵌入模型后，已有 `index_chunks.embedding` 列维度不会自动改变，需要重新规划迁移或重建本地测试库。
+- 切换嵌入模型后，已有 `index_chunks.embedding` 列维度不会自动改变，需要重建本地测试库。
 - 云端和本地嵌入模型不要混用同一批历史向量，除非输出维度和语义空间兼容。
 
-## 5. Alembic 或 OpenAPI 导入失败
+## 5. OpenAPI 导入失败
 
 现象：
 
@@ -209,14 +204,14 @@ ollama serve
 netstat -ano | findstr :10000
 ```
 
-## 12. 会话、回顾、测评或导图数据异常
+## 12. 会话、测评或导图数据异常
 
 处理：
 
 - 确认当前请求携带 `Authorization: Bearer <token>`。
 - 确认数据库连接正常。
 - 确认业务查询按当前用户隔离，不要手动复用其他用户的 ID。
-- 对于本地开发库，可重新执行迁移并使用默认测试用户验证。
+- 对于本地开发库，可重建数据库或清空 `public` schema，再启动后端自动创建当前表结构并使用默认测试用户验证。
 
 ## 13. 日志和调试
 

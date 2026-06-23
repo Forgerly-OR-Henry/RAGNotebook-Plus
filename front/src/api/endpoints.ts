@@ -16,6 +16,15 @@ export const endpoints = {
   // AI Chat
   agentQueryStream: '/chat/agent/query/stream',
   ragQuery: '/chat/rag/query',
+  quizGenerate: '/chat/quiz/generate',
+
+  // Chat Projects
+  projects: '/projects',
+  project: (id: string) => `/projects/${id}`,
+  projectSources: (id: string) => `/projects/${id}/sources`,
+  projectSource: (projectId: string, sourceType: string, sourceId: string) => `/projects/${projectId}/sources/${sourceType}/${sourceId}`,
+  projectKnowledgeDocuments: (id: string) => `/projects/${id}/knowledge/documents`,
+  projectNoteImport: (id: string) => `/projects/${id}/notes/import`,
 
   // Sessions
   getSession: (id: string) => `/chat/session/${id}`,
@@ -26,6 +35,9 @@ export const endpoints = {
   // Knowledge Base
   knowledgeDocuments: '/knowledge/documents',
   knowledgeDocument: (id: string) => `/knowledge/documents/${id}`,
+  knowledgeDocumentMetadata: (id: string) => `/knowledge/documents/${id}/metadata`,
+  knowledgeDocumentAutoTag: (id: string) => `/knowledge/documents/${id}/auto-tag`,
+  knowledgeDocumentFile: (id: string) => `/knowledge/documents/${id}/file`,
   knowledgeDocumentChunks: (id: string) => `/knowledge/documents/${id}/chunks`,
   documentDownload: (id: string) => `/documents/${id}/download`,
   uploadSingleFile: '/knowledge/documents',
@@ -35,6 +47,12 @@ export const endpoints = {
   knowledgeList: '/knowledge/documents',
   knowledgeDetail: (id: string) => `/knowledge/documents/${id}`,
   knowledgeChunks: (id: string) => `/knowledge/documents/${id}/chunks`,
+  knowledgeFolders: '/knowledge/folders',
+  knowledgeFolder: (id: string) => `/knowledge/folders/${id}`,
+  knowledgeBatchFolder: '/knowledge/batch/folder',
+  knowledgeBatchCategory: '/knowledge/batch/category',
+  knowledgeStats: '/knowledge/stats',
+  knowledgeCategoryDelete: (category: string) => `/knowledge/category/${encodeURIComponent(category)}`,
 
   // Documents reorder
   reorderDocuments: '/chat/reorder',
@@ -53,19 +71,17 @@ export const endpoints = {
   notePin: (id: string) => `/note/${id}/pin`,
   noteAutocomplete: '/note/autocomplete',
   noteStats: '/note/stats',
+  noteFolders: '/note/folders',
+  noteFolder: (id: string) => `/note/folders/${id}`,
   noteAssistStream: '/note/assist/stream',
 
   // Batch operations
   noteBatchDelete: '/note/batch/delete',
   noteBatchDownload: '/note/batch/download',
   noteBatchCategory: '/note/batch/category',
+  noteBatchFolder: '/note/batch/folder',
   noteBatchPin: '/note/batch/pin',
   noteCategoryDelete: (category: string) => `/note/category/${encodeURIComponent(category)}`,
-
-  // Review
-  reviewToday: '/review/today',
-  reviewDone: (id: string) => `/review/done/${id}`,
-  reviewQuestion: (id: string) => `/review/question/${id}`,
 
   // Quick Test
   quickTestCreate: '/quick-test/sessions',

@@ -23,7 +23,6 @@ dependencies = [
     "requests~=2.32.5",
     "uvicorn==0.21.1",
     "asyncpg>=0.30.0",
-    "alembic>=1.17.0",
     "langchain-ollama>=1.0.1",
     "langchain>=1.2.13",
     "python-multipart>=0.0.22",

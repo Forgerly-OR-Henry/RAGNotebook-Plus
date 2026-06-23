@@ -1,8 +1,10 @@
-from pydantic import BaseModel
+from __future__ import annotations
+
+from pydantic import BaseModel, Field
 
 
 class DocumentResponse(BaseModel):
-    """知识库文档信息模型"""
+    """?????????"""
 
     id: str
     document_id: str | None = None
@@ -14,18 +16,20 @@ class DocumentResponse(BaseModel):
     content_hash: str | None = None
     storage_uri: str | None = None
     file_ext: str | None = None
-    file_size: int | None = None
     mime_type: str | None = None
+    category: str | None = None
+    tags: list[str] | None = None
     status: str | None = None
     status_message: str | None = None
     chunk_count: int
     preview: str
+    folder_id: str | None = None
     created_at: str | None = None
     updated_at: str | None = None
 
 
 class KnowledgeListResponse(BaseModel):
-    """知识库文档列表响应模型"""
+    """???????????"""
 
     documents: list[DocumentResponse]
     total_count: int
@@ -33,22 +37,22 @@ class KnowledgeListResponse(BaseModel):
 
 class ChunkDetail(BaseModel):
     """
-    文档切片详情（含对应图片）。
-    images 字段保存该切片所涉及的所有图片URL，前端可据此在切片旁边展示图片。
+    ??????????????
+    images ???????????????URL????????????????
     """
 
     chunk_id: str
     index: int
     content: str
     page: int | None = None
-    images: list[str] = []
+    images: list[str] = Field(default_factory=list)
 
 
 class DocumentDetailResponse(BaseModel):
     """
-    知识库文档详情响应模型。
-    相比旧版本新增了 chunks（切片级详情，包含每段文本对应的图片）和 images（文档全量图片列表）字段，
-    前端可以在文档详情页同时展示文本和图片。
+    ????????????
+    ???????? chunks??????????????????? images?????????????
+    ????????????????????
     """
 
     id: str
@@ -63,33 +67,78 @@ class DocumentDetailResponse(BaseModel):
     file_ext: str | None = None
     file_size: int | None = None
     mime_type: str | None = None
+    category: str | None = None
+    tags: list[str] | None = None
     status: str | None = None
     status_message: str | None = None
     chunk_count: int
     content: str
-    chunks: list[ChunkDetail] = []
-    images: list[str] = []
+    folder_id: str | None = None
+    chunks: list[ChunkDetail] = Field(default_factory=list)
+    images: list[str] = Field(default_factory=list)
     created_at: str | None = None
     updated_at: str | None = None
 
 
 class ChunkInfo(BaseModel):
     """
-    文档切片信息模型。
-    images 字段保存该切片关联的图片URL，前端在"查看切片"页面中可以按切片展示对应的图片。
+    ?????????
+    images ????????????URL????"????"????????????????
     """
 
     chunk_id: str
     index: int
     content: str
     metadata: dict
-    images: list[str] = []
+    images: list[str] = Field(default_factory=list)
 
 
 class DocumentChunksResponse(BaseModel):
-    """文档切片列表响应模型"""
+    """??????????"""
 
     document_id: str | None = None
     filename: str
     total_chunks: int
     chunks: list[ChunkInfo]
+
+
+class KnowledgeFolderCreate(BaseModel):
+    name: str = Field(..., min_length=1, max_length=120)
+    parent_id: str | None = None
+
+
+class KnowledgeFolderUpdate(BaseModel):
+    name: str | None = Field(None, min_length=1, max_length=120)
+    parent_id: str | None = None
+
+
+class KnowledgeFolderResponse(BaseModel):
+    id: str
+    user_id: str
+    name: str
+    parent_id: str | None = None
+    knowledge_count: int = 0
+    children: list["KnowledgeFolderResponse"] = Field(default_factory=list)
+    created_at: str | None = None
+    updated_at: str | None = None
+
+
+class KnowledgeFolderTreeResponse(BaseModel):
+    folders: list[KnowledgeFolderResponse]
+    total_count: int
+    unfiled_count: int
+
+
+class KnowledgeBatchFolderRequest(BaseModel):
+    ids: list[str]
+    folder_id: str | None = None
+
+
+class KnowledgeBatchCategoryRequest(BaseModel):
+    ids: list[str]
+    category: str | None = None
+
+
+class KnowledgeDocumentMetadataUpdate(BaseModel):
+    category: str | None = None
+    tags: list[str] | None = None

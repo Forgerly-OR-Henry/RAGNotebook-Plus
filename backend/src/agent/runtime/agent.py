@@ -5,7 +5,7 @@ from collections.abc import AsyncGenerator, Awaitable, Callable
 
 from langchain_classic.agents import AgentExecutor, create_tool_calling_agent
 from langchain_community.chat_models import ChatTongyi
-from langchain_core.messages import BaseMessage
+from langchain_core.messages import AIMessage, BaseMessage, HumanMessage, SystemMessage
 from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
 from langchain_core.tools import BaseTool
 from langchain_ollama import ChatOllama
@@ -16,9 +16,7 @@ from agent.runtime.agent_tools import (
     create_note_tool,
     get_note_stats_tool,
     get_related_notes_tool,
-    get_today_reviews_tool,
     get_user_info_tools,
-    mark_reviewed_tool,
     rag_summary_tools,
     search_notes_tool,
     set_agent_tool_callbacks,
@@ -69,8 +67,6 @@ class AgentFactory:
             get_user_info_tools,
             search_notes_tool,
             get_note_stats_tool,
-            get_today_reviews_tool,
-            mark_reviewed_tool,
             create_note_tool,
             get_related_notes_tool,
         ]
@@ -181,6 +177,92 @@ def get_agent_executor():
     return agent_factory.create_agent_executor()
 
 
+DIRECT_CHAT_SYSTEM_PROMPT = (
+    "你是一个智能笔记助手。当前轮次未使用检索资料时，直接回答用户问题；"
+    "回答要简单直接，必要时说明不确定性。"
+)
+
+RAG_CHAT_SYSTEM_PROMPT = (
+    "你是一个智能笔记助手。当前轮次已经提供了用户笔记或知识库片段。"
+    "必须优先基于这些参考资料回答；如果参考资料不足以回答，就明确说明没有找到足够相关的信息，"
+    "不要编造来源或事实。回答保持简洁准确。"
+)
+
+
+def _history_turn_limit() -> int:
+    value = os.getenv("CHAT_HISTORY_TURNS", "6")
+    try:
+        return max(0, int(value))
+    except ValueError:
+        logger.warning(f"CHAT_HISTORY_TURNS 配置无效，已回退到 6: {value}")
+        return 6
+
+
+def _content_to_text(content) -> str:
+    if isinstance(content, str):
+        return content
+    if isinstance(content, list):
+        parts = []
+        for item in content:
+            if isinstance(item, str):
+                parts.append(item)
+            elif isinstance(item, dict):
+                text = item.get("text") or item.get("content") or ""
+                if text:
+                    parts.append(str(text))
+        return "".join(parts)
+    return "" if content is None else str(content)
+
+
+def _build_direct_chat_messages(
+        query: str,
+        history: list[tuple] | None = None,
+        context_documents: list[str] | None = None,
+        rag_enabled: bool = False,
+) -> list[BaseMessage]:
+    system_prompt = RAG_CHAT_SYSTEM_PROMPT if rag_enabled and context_documents else DIRECT_CHAT_SYSTEM_PROMPT
+    messages: list[BaseMessage] = [SystemMessage(content=system_prompt)]
+
+    history_turns = _history_turn_limit()
+    if history and history_turns:
+        for user_msg, assistant_msg in history[-history_turns:]:
+            messages.append(HumanMessage(content=user_msg))
+            messages.append(AIMessage(content=assistant_msg))
+
+    if rag_enabled and context_documents:
+        context = "\n\n".join(
+            f"【参考资料{i}】\n{document}"
+            for i, document in enumerate(context_documents, 1)
+        )
+        messages.append(HumanMessage(content=f"用户问题：{query}\n\n参考资料：\n{context}"))
+    else:
+        messages.append(HumanMessage(content=query))
+
+    return messages
+
+
+async def stream_chat_model_response(
+        query: str,
+        history: list[tuple] | None = None,
+        context_documents: list[str] | None = None,
+        rag_enabled: bool = False,
+        custom_model: str | None = None,
+) -> AsyncGenerator[str, None]:
+    """Stream direct chat-model tokens without routing through the tool-calling Agent."""
+    chat_model = agent_factory._create_chat_model(custom_model)
+    messages = _build_direct_chat_messages(
+        query,
+        history=history,
+        context_documents=context_documents,
+        rag_enabled=rag_enabled,
+    )
+
+    async for chunk in chat_model.astream(messages):
+        content = _content_to_text(getattr(chunk, "content", ""))
+        if content:
+            yield content
+
+
 async def get_agent_response(
         query: str,
         history: list[tuple] | None = None,
@@ -210,7 +292,6 @@ async def get_agent_response(
         # 2. 构建聊天历史
         chat_history: list[BaseMessage] = []
         if history:
-            from langchain_core.messages import AIMessage, HumanMessage
             for user_msg, assistant_msg in history:
                 chat_history.append(HumanMessage(content=user_msg))
                 chat_history.append(AIMessage(content=assistant_msg))
@@ -292,7 +373,6 @@ async def get_agent_stream_response(
 
             chat_history: list[BaseMessage] = []
             if history:
-                from langchain_core.messages import AIMessage, HumanMessage
                 for user_msg, assistant_msg in history:
                     chat_history.append(HumanMessage(content=user_msg))
                     chat_history.append(AIMessage(content=assistant_msg))

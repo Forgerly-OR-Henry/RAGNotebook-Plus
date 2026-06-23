@@ -1,4 +1,4 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 class NoteCreate(BaseModel):
@@ -8,6 +8,7 @@ class NoteCreate(BaseModel):
     content: str
     category: str | None = None
     tags: list[str] | None = None
+    folder_id: str | None = None
 
 
 class NoteUpdate(BaseModel):
@@ -17,6 +18,7 @@ class NoteUpdate(BaseModel):
     content: str | None = None
     category: str | None = None
     tags: list[str] | None = None
+    folder_id: str | None = None
     is_pinned: bool | None = None
 
 
@@ -31,6 +33,7 @@ class NoteResponse(BaseModel):
     storage_uri: str | None = None
     tags: list[str] | None = None
     category: str | None = None
+    folder_id: str | None = None
     is_pinned: bool = False
     created_at: str | None = None
     updated_at: str | None = None
@@ -87,8 +90,50 @@ class BatchCategoryRequest(BaseModel):
     category: str
 
 
+class BatchFolderRequest(BaseModel):
+    """批量移动到文件夹请求模型"""
+
+    ids: list[str]
+    folder_id: str | None = None
+
+
 class BatchPinRequest(BaseModel):
     """批量置顶请求模型"""
 
     ids: list[str]
     is_pinned: bool
+
+
+class NoteFolderCreate(BaseModel):
+    """创建笔记文件夹请求模型"""
+
+    name: str = Field(..., min_length=1, max_length=120)
+    parent_id: str | None = None
+
+
+class NoteFolderUpdate(BaseModel):
+    """更新笔记文件夹请求模型"""
+
+    name: str | None = Field(None, min_length=1, max_length=120)
+    parent_id: str | None = None
+
+
+class NoteFolderResponse(BaseModel):
+    """笔记文件夹树节点"""
+
+    id: str
+    user_id: str
+    name: str
+    parent_id: str | None = None
+    note_count: int = 0
+    children: list["NoteFolderResponse"] = Field(default_factory=list)
+    created_at: str | None = None
+    updated_at: str | None = None
+
+
+class NoteFolderTreeResponse(BaseModel):
+    """笔记文件夹树响应"""
+
+    folders: list[NoteFolderResponse]
+    total_count: int
+    unfiled_count: int

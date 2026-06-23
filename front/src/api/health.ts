@@ -46,6 +46,21 @@ function asReadinessStatus(value: unknown): ReadinessStatus | null {
   return value as unknown as ReadinessStatus
 }
 
+function extractReadinessStatus(value: unknown): ReadinessStatus | null {
+  const direct = asReadinessStatus(value)
+  if (direct) {
+    return direct
+  }
+  if (!isRecord(value)) {
+    return null
+  }
+  return (
+    asReadinessStatus(value.data) ||
+    asReadinessStatus(value.detail) ||
+    asReadinessStatus(value.message)
+  )
+}
+
 export const healthApi = {
   getReadiness: async () => {
     try {
@@ -53,9 +68,9 @@ export const healthApi = {
       return res.data.data
     } catch (error) {
       if (axios.isAxiosError(error)) {
-        const detail = asReadinessStatus(error.response?.data?.detail)
-        if (detail) {
-          return detail
+        const readiness = extractReadinessStatus(error.response?.data)
+        if (readiness) {
+          return readiness
         }
       }
       throw error

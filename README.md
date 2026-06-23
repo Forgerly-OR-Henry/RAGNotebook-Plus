@@ -1,6 +1,6 @@
 # RAGNotebook 改进版 / 云笺集
 
-云笺集是基于 [RMA-MUN/RAGNotebook](https://github.com/RMA-MUN/RAGNotebook) 改进的智能笔记与知识库系统。项目保留原有 RAG Notebook 的核心思路，并把工程底座升级为 **FastAPI + PostgreSQL + pgvector + Alembic + Vue3 + TypeScript**，用于管理笔记、知识库、回顾、测评和思维导图。
+云笺集是基于 [RMA-MUN/RAGNotebook](https://github.com/RMA-MUN/RAGNotebook) 改进的智能笔记与知识库系统。项目保留原有 RAG Notebook 的核心思路，并把工程底座升级为 **FastAPI + PostgreSQL + pgvector + Vue3 + TypeScript**，用于管理笔记、知识库、测评和思维导图。
 
 > 本仓库为二次开发改进版。感谢原作者 RMA-MUN 的开源工作；项目继续遵循 MIT License。
 
@@ -24,10 +24,10 @@
 
 | 方向 | 当前改进版 |
 | --- | --- |
-| 数据底座 | PostgreSQL 统一承载用户、文档元数据、笔记、会话、回顾、测评、导图、运行态数据 |
+| 数据底座 | PostgreSQL 统一承载用户、文档元数据、笔记、会话、测评、导图、运行态数据 |
 | 向量检索 | PostgreSQL pgvector 存储知识库与笔记向量，统一用户隔离 |
 | 文件存储 | 统一 StorageService 管理 Markdown 笔记、知识库原文件、附件和头像，支持本机目录与 SFTP |
-| 数据迁移 | Alembic 管理表结构和 pgvector 初始化 |
+| 数据库初始化 | 后端启动仅支持新库/空库，自动创建当前表结构、pgvector 扩展和索引表 |
 | 前端 | Vue3 + TypeScript + Vite + Pinia |
 | 启动方式 | 根目录 `start.py` 统一读取 `config/.env`，启动数据库、后端和前端；数据库初始化由后端 startup 负责 |
 | 新增能力 | NotebookLM 风格快速测试、交互式思维导图、统一运行态表、OpenAPI 快照 |
@@ -42,9 +42,8 @@
 - **RAG 知识库**：支持 TXT / PDF / MD / PPTX / DOCX 上传，原文件保持上传格式，解析后切片、向量化、详情和切片查看。
 - **AI 问答**：Agent 流式对话，结合知识库与笔记检索结果生成回答。
 - **AI 写作辅助**：内联补全、续写、扩写、摘要和跨源关联推荐。
-- **间隔重复回顾**：按艾宾浩斯间隔推进待回顾笔记。
 - **快速测试**：从笔记、知识库或混合来源生成连续问答、反馈和总结。
-- **思维导图**：从笔记或知识库生成可编辑图谱，支持 JSON 和 Mermaid 导出。
+- **思维导图**：从笔记或知识库生成交互式树状导图，支持拖拽缩放、大纲复制、JSON 和 Mermaid 导出。
 - **用户隔离**：关系数据和向量数据都以 `user_id` 作为访问边界。
 - **运行态治理**：Token 撤销、限流桶、短期缓存等写入 PostgreSQL。
 
@@ -97,7 +96,7 @@ python start.py
 2. 如果配置了 `ALIYUN_ACCESS_KEY_SECRET=apikey.txt` 且文件不存在，创建被 Git 忽略的 `config/apikey.txt`。
 3. 读取 `config/.env`，并注入给 PostgreSQL、FastAPI 和 Vite。
 4. 通过 Docker Compose 启动 PostgreSQL。
-5. 启动后端；后端 startup 会在空库时执行 Alembic 初始化。
+5. 启动后端；后端 startup 会在新库/空库中创建当前表结构和 pgvector 索引表。
 6. 等后端后台初始化完成后启动前端开发服务。
 
 常用参数：
@@ -207,7 +206,6 @@ your_api_key_here
 | PostgreSQL | 关系数据、运行态数据、会话历史 |
 | pgvector | 知识库和笔记向量检索 |
 | SQLAlchemy + asyncpg | 异步数据库访问 |
-| Alembic | 数据库迁移 |
 | DashScope / Ollama | 云端或本地模型 |
 | sentence-transformers | 重排序模型加载 |
 
@@ -222,7 +220,7 @@ your_api_key_here
 | Vue Router | 路由与登录态守卫 |
 | Tailwind CSS | 页面样式 |
 | Tiptap | 笔记编辑器 |
-| Vue Flow | 思维导图渲染 |
+| 自定义树状画布 | 思维导图渲染、拖拽缩放和大纲复制 |
 | Axios | HTTP 请求 |
 
 ## 项目结构
@@ -230,7 +228,6 @@ your_api_key_here
 ```text
 ├── backend/
 │   ├── src/                        # FastAPI 应用、业务模块、RAG 和数据库代码
-│   ├── alembic/                    # Alembic 数据库迁移
 │   ├── test/                       # 后端契约测试和演示数据夹具
 │   └── openapi.json                # 当前 API 快照
 ├── front/
@@ -261,7 +258,6 @@ your_api_key_here
 | `/knowledge` | 知识库上传、列表、详情、切片、图片和去重记录 |
 | `/note` | 笔记 CRUD、搜索、批量操作、补全、写作辅助 |
 | `/note-template` | 笔记模板 |
-| `/review` | 每日回顾 |
 | `/quick-test` | 快速测试 |
 | `/mindmaps` | 思维导图 |
 | `/health` | 存活和就绪检查 |
@@ -280,7 +276,8 @@ your_api_key_here
 
 - API Key 错误：统一启动检查 `config/.env`，后端单独启动检查 `backend/.env`，确认 `ALIYUN_ACCESS_KEY_SECRET` 指向有效 key 文件。
 - 数据库连接失败：确认 `docker compose up -d postgres` 已启动，且 `DATABASE_URL` 与 `POSTGRES_*` 一致。
-- pgvector 迁移失败：确认数据库可执行 `CREATE EXTENSION vector`，本地建议使用默认 Compose 镜像。
+- pgvector 初始化失败：确认数据库可执行 `CREATE EXTENSION vector`，本地建议使用默认 Compose 镜像。
+- 旧数据库无法启动：当前版本只支持新库/空库，请清空 `public` schema 或重建 `POSTGRES_DB`。
 - 向量维度不匹配：确认当前运行 env 的 `EMBEDDING_DIM` 与当前嵌入模型输出一致。
 - 前端无法访问后端：检查 `VITE_BACKEND_TARGET`、后端端口和 `CORS_ALLOW_ORIGINS`。
 
