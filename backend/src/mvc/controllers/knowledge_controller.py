@@ -21,6 +21,7 @@ from mvc.schemas import (
     KnowledgeFolderUpdate,
     KnowledgeListResponse,
 )
+from mvc.services.document_preview_service import DocumentPreviewUnavailable
 from mvc.services.knowledge_service import KnowledgeService, get_knowledge_service
 from mvc.services.knowledge_service import KnowledgeFolderError
 from utils.auth_utils import get_current_user_id
@@ -107,6 +108,36 @@ async def get_document_file(
     )
 
 
+@knowledge_router.get("/documents/{document_id}/preview")
+async def get_document_preview(
+    document_id: str,
+    db=Depends(get_db),
+    user_id: str = Depends(get_current_user_id),
+    knowledge_service: KnowledgeService = Depends(get_knowledge_service),
+    _: None = Depends(rate_limit(limit=10, window=60)),
+):
+    try:
+        payload = await knowledge_service.get_document_preview(db, user_id, document_id)
+    except DocumentPreviewUnavailable as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    if not payload:
+        raise HTTPException(status_code=404, detail="文档不存在")
+
+    document, storage_object, preview = payload
+    fallback = f"{document.id}{'.pdf' if preview.media_type == 'application/pdf' else '.html'}"
+    safe_filename = re.sub(r'[\\/:*?"<>|]', "_", preview.filename or storage_object.original_filename or fallback).strip() or fallback
+    return Response(
+        content=preview.content,
+        media_type=preview.media_type,
+        headers={
+            "Content-Disposition": f"inline; filename=\"{fallback}\"; filename*=UTF-8''{quote(safe_filename, safe='')}",
+            "Cache-Control": "private, max-age=86400",
+            "X-Content-Type-Options": "nosniff",
+            "X-Preview-Renderer": preview.renderer,
+        },
+    )
+
+
 @knowledge_router.get("/documents/{document_id}/chunks", response_model=DocumentChunksResponse)
 async def get_document_chunks(
     document_id: str,
@@ -146,6 +177,19 @@ async def auto_tag_document(
     if not document:
         raise HTTPException(status_code=404, detail="文档不存在")
     return success_response(message="AI 识别完成", data=document)
+
+
+@knowledge_router.put("/documents/{document_id}/pin", response_model=DocumentResponse)
+async def toggle_document_pin(
+    document_id: str,
+    db=Depends(get_db),
+    user_id: str = Depends(get_current_user_id),
+    knowledge_service: KnowledgeService = Depends(get_knowledge_service),
+):
+    document = await knowledge_service.toggle_document_pin(db, user_id, document_id)
+    if not document:
+        raise HTTPException(status_code=404, detail="文档不存在")
+    return success_response(message="置顶已更新", data=document)
 
 
 @knowledge_router.delete("/documents/{document_id}")

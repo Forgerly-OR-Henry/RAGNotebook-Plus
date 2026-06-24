@@ -64,8 +64,17 @@ export const knowledgeApi = {
     return res.data
   },
 
+  pin: async (documentId: string) => {
+    const res = await client.put<ApiResponse<KnowledgeDocument>>(endpoints.knowledgeDocumentPin(documentId))
+    return res.data
+  },
+
   fileBlob: async (documentId: string) => {
     return client.get<Blob>(endpoints.knowledgeDocumentFile(documentId), { responseType: 'blob' })
+  },
+
+  previewBlob: async (documentId: string) => {
+    return client.get<Blob>(endpoints.knowledgeDocumentPreview(documentId), { responseType: 'blob' })
   },
 
   chunks: async (documentId: string) => {

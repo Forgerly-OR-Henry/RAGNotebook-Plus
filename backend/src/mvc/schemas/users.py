@@ -25,9 +25,10 @@ class ResetPasswordRequest(BaseModel):
 
 class UserUpdateRequest(BaseModel):
     username: str | None = None
+    email: EmailStr | None = None
     telephone: str | None = None
     avatar: str | None = None
-    gender: int | None = None
+    gender: str | None = Field(default=None, max_length=50)
     bio: str | None = None
 
 
@@ -42,7 +43,7 @@ class UserResponse(BaseModel):
     username: str
     email: str
     telephone: str | None = None
-    gender: int | None = None
+    gender: str | None = None
     bio: str | None = None
     avatar: str | None = None
     status: int | None = None

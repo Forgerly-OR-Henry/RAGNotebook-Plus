@@ -28,6 +28,15 @@ interface ActionResponseData {
   token?: string
 }
 
+interface AvatarUploadResponseData {
+  success: boolean
+  data: {
+    url: string
+    alt?: string
+    href?: string
+  }
+}
+
 export const authApi = {
   login: async (username: string, password: string) => {
     const res = await client.post<LoginResponseData>(endpoints.login, { username, password })
@@ -51,6 +60,15 @@ export const authApi = {
 
   updateProfile: async (data: Record<string, unknown>) => {
     const res = await client.put<ActionResponseData>(endpoints.userUpdate, data)
+    return res.data
+  },
+
+  uploadAvatar: async (file: File) => {
+    const formData = new FormData()
+    formData.append('file', file)
+    const res = await client.post<AvatarUploadResponseData>(endpoints.uploadFile, formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    })
     return res.data
   },
 

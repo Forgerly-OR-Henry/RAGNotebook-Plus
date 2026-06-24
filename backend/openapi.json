@@ -668,6 +668,51 @@
         }
       }
     },
+    "/knowledge/documents/{document_id}/preview": {
+      "get": {
+        "tags": [
+          "knowledge"
+        ],
+        "summary": "Get Document Preview",
+        "operationId": "get_document_preview_knowledge_documents__document_id__preview_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "document_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Document Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/knowledge/documents/{document_id}/chunks": {
       "get": {
         "tags": [
@@ -779,6 +824,53 @@
         ],
         "summary": "Auto Tag Document",
         "operationId": "auto_tag_document_knowledge_documents__document_id__auto_tag_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "document_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Document Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DocumentResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/knowledge/documents/{document_id}/pin": {
+      "put": {
+        "tags": [
+          "knowledge"
+        ],
+        "summary": "Toggle Document Pin",
+        "operationId": "toggle_document_pin_knowledge_documents__document_id__pin_put",
         "security": [
           {
             "HTTPBearer": []
@@ -1486,6 +1578,46 @@
             "HTTPBearer": []
           }
         ]
+      }
+    },
+    "/file/avatar/{object_id}": {
+      "get": {
+        "tags": [
+          "file"
+        ],
+        "summary": "Get Avatar File",
+        "operationId": "get_avatar_file_file_avatar__object_id__get",
+        "parameters": [
+          {
+            "name": "object_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Object Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
       }
     },
     "/note/create": {
@@ -4328,6 +4460,11 @@
             ],
             "title": "Tags"
           },
+          "is_pinned": {
+            "type": "boolean",
+            "title": "Is Pinned",
+            "default": false
+          },
           "status": {
             "anyOf": [
               {
@@ -4543,6 +4680,11 @@
               }
             ],
             "title": "Tags"
+          },
+          "is_pinned": {
+            "type": "boolean",
+            "title": "Is Pinned",
+            "default": false
           },
           "status": {
             "anyOf": [
@@ -6363,6 +6505,18 @@
             ],
             "title": "Username"
           },
+          "email": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "email"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Email"
+          },
           "telephone": {
             "anyOf": [
               {
@@ -6388,7 +6542,8 @@
           "gender": {
             "anyOf": [
               {
-                "type": "integer"
+                "type": "string",
+                "maxLength": 50
               },
               {
                 "type": "null"

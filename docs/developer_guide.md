@@ -6,7 +6,7 @@
 
 ```mermaid
 flowchart LR
-    Browser["Vue3 Frontend\nVite + Pinia + Vue Router"] --> Proxy["Vite Proxy\nfront/vite.config.ts"]
+    Browser["Vue 3 Frontend\nVite + Pinia + Vue Router"] --> Proxy["Vite Proxy\nfront/vite.config.ts"]
     Proxy --> API["FastAPI\nbackend/src/main.py"]
     API --> Controllers["Controllers\nbackend/src/mvc/controllers"]
     Controllers --> Services["Services\nbusiness use cases + sources"]
@@ -49,7 +49,8 @@ flowchart LR
 | `front/.env.example` | 前端单独启动配置模板 |
 | `README.md` | 面向使用者的说明 |
 | `docs/` | 面向开发和维护的文档 |
-| `images/` | README 截图 |
+| `scripts/` | 模型下载、PostgreSQL 和本地用户辅助脚本 |
+| `test_data/` | 手工上传和解析验证用的本地测试数据集 |
 
 ### 后端
 
@@ -102,6 +103,7 @@ flowchart LR
 7. 检查后端依赖、`python-magic` 原生库和前端 `node_modules`。
 8. 通过 Docker Compose 启动 PostgreSQL，并等待端口可用。
 9. 启动 `uvicorn main:app --reload`；数据库检查和新库/空库建表由 FastAPI startup 执行。
+10. 等后端后台初始化完成后启动前端开发服务。
 
 ### 后端单独启动
 
@@ -111,7 +113,6 @@ cd backend
 ```
 
 该入口只读取 `backend/.env`。统一启动时不要调用它，继续使用根目录 `python start.py`。
-10. 等后端后台初始化完成后启动 `npm run dev`。
 
 ### FastAPI
 
@@ -129,15 +130,17 @@ cd backend
 
 | 前缀 | 文件 | 职责 |
 | --- | --- | --- |
-| `/health` | `health.py` | 存活和就绪检查 |
-| `/user` | `user.py` | 登录、注册、刷新 Token、登出、资料更新、密码重置 |
-| `/file` | `user.py` | 用户头像等文件上传 |
-| `/chat` | `chat.py` | Agent SSE、RAG 查询、会话列表、会话详情、重排序 |
-| `/knowledge` | `api/knowledge.py` | 文档资源上传、SSE 进度、列表、详情、切片、图片和 deprecated 兼容入口 |
-| `/note` | `note_router.py` | 笔记 CRUD、搜索、批量操作、补全、写作辅助、关联推荐 |
-| `/note-template` | `note_template_router.py` | 笔记模板 |
-| `/quick-test` | `quick_test_router.py` | 快速测试创建、答题、查询、结束 |
-| `/mindmaps` | `mindmap_router.py` | 思维导图生成、查询、更新、导出 |
+| `/health` | `health_controller.py` | 存活和就绪检查 |
+| `/user` | `user_controller.py` | 登录、注册、刷新 Token、登出、资料更新、密码重置 |
+| `/file` | `user_controller.py` | 用户头像等文件上传 |
+| `/chat` | `chat_controller.py` | Agent SSE、RAG 查询、会话列表、会话详情、项目文件和重排序 |
+| `/knowledge` | `knowledge_controller.py` | 文档资源上传、SSE 进度、列表、详情、切片、预览和去重记录 |
+| `/documents` | `document_controller.py` | 统一文档下载 |
+| `/projects` | `project_controller.py` | 聊天项目、项目文件和项目会话 |
+| `/note` | `note_controller.py` | 笔记 CRUD、搜索、批量操作、补全、写作辅助、关联推荐 |
+| `/note-template` | `note_template_controller.py` | 笔记模板 |
+| `/quick-test` | `quick_test_controller.py` | 快速测试创建、答题、查询、结束 |
+| `/mindmaps` | `mindmap_controller.py` | 思维导图生成、查询、更新、导出 |
 
 路由约定：
 
@@ -282,7 +285,7 @@ cd backend
 
 ### 新增 Agent 工具
 
-1. 在 `ai/agent/agent_tools.py` 定义工具。
+1. 在 `backend/src/agent/runtime/agent_tools.py` 定义工具。
 2. 访问用户数据时从上下文获取当前用户。
 3. 数据库访问使用 async session，并捕获异常。
 4. 在默认工具集合中注册。
@@ -299,23 +302,19 @@ $env:PYTHONPATH = "src"
 .venv\Scripts\python.exe -m ruff check .
 ```
 
-本地演示测试数据：
+本地测试数据：
 
-```powershell
-backend\.venv\Scripts\python.exe scripts\seed_demo_data.py --dry-run
-backend\.venv\Scripts\python.exe scripts\seed_demo_data.py
-```
+- `test_data/upload_test_dataset/`：少量 TXT / PDF / MD / DOCX / PPTX 文件，适合快速验证上传、解析、切片和预览链路。
+- `test_data/realistic_user_dataset/`：围绕同一研究主题组织的多格式资料，适合验证跨来源检索、来源核对和 RAG 复用。
 
-演示账号为 `demo_user / demo1234`。默认 seed 为幂等追加，只更新固定 demo 用户、固定 demo ID 和 fixture 文件名对应的数据；如需重建演示数据，可加 `--reset-demo`。当本地嵌入模型或 API Key 暂不可用时，可先用 `--skip-knowledge` 只写入关系型演示数据并跳过向量同步。
-
-运行完整 seed 前需确认后端已在新库/空库完成 schema 初始化、pgvector 扩展可用，并且 `EMBED_MODEL_TYPE`、`EMBEDDING_DIM` 与实际嵌入模型输出一致。
+上传测试数据前需确认后端已在新库/空库完成 schema 初始化、pgvector 扩展可用，并且 `EMBED_MODEL_TYPE`、`EMBEDDING_DIM` 与实际嵌入模型输出一致。
 
 前端：
 
 ```bash
 cd front
-npm run build
-npm run lint
+npm.cmd run build
+npm.cmd run lint
 ```
 
 OpenAPI 快照：

@@ -13,7 +13,7 @@
 
 | 层级 | 当前实现 |
 | --- | --- |
-| 前端 | Vue3、TypeScript、Vite、Pinia、Vue Router、Tailwind CSS、Tiptap、自定义树状画布 |
+| 前端 | Vue 3、TypeScript、Vite、Pinia、Vue Router、Tailwind CSS、Tiptap、自定义树状画布 |
 | 后端 | FastAPI、SQLAlchemy Async、LangChain、DashScope / Ollama |
 | 数据库 | PostgreSQL、pgvector |
 | 运行态治理 | PostgreSQL 缓存、Token 黑名单、限流计数、后台初始化状态 |
@@ -90,7 +90,7 @@
 
 ```mermaid
 flowchart LR
-    U["用户浏览器"] --> F["Vue3 前端\nVite + Pinia + Router"]
+    U["用户浏览器"] --> F["Vue 3 前端\nVite + Pinia + Router"]
     F --> A["前端 API 封装\nAxios / fetch / SSE"]
     A --> B["FastAPI 后端\nRouters + Services"]
     B --> P["PostgreSQL\n关系表 + 运行态表"]
@@ -101,7 +101,7 @@ flowchart LR
 
 ### 3.1 前端架构
 
-前端位于 `front/src`，以 Vue3 单页应用为主体：
+前端位于 `front/src`，以 Vue 3 单页应用为主体：
 
 | 目录 | 职责 |
 | --- | --- |
@@ -156,7 +156,7 @@ flowchart LR
 
 ### 4.3 知识库与 RAG 模块
 
-知识库模块负责文件上传、解析、切片、向量化、去重、详情和图片访问。当前支持 TXT、PDF、MD、PPTX、DOCX。
+知识库模块负责文件上传、解析、切片、向量化、去重、详情和文档预览。当前支持 TXT、PDF、MD、PPTX、DOCX。
 
 RAG 问答流程：
 
@@ -228,7 +228,7 @@ RAG 问答流程：
 | `/file` | 头像等用户文件上传 |
 | `/note` | 笔记 CRUD、搜索、批量操作、写作辅助 |
 | `/note-template` | 笔记模板 |
-| `/knowledge` | 知识库上传、进度、列表、详情、切片和图片访问 |
+| `/knowledge` | 知识库上传、进度、列表、详情、切片和文档预览 |
 | `/chat` | Agent 流式问答、会话历史、RAG 查询 |
 | `/quick-test` | 快速测试创建、答题、查询、结束 |
 | `/mindmaps` | 思维导图生成、查询、更新、导出 |
@@ -252,7 +252,7 @@ RAG 问答流程：
 | --- | --- | --- | --- |
 | 项目经理 | 1 | 需求拆解、任务排期、进度跟踪、风险管理、评审组织、文档统筹 | 需求文档、排期计划、会议纪要、验收清单 |
 | 后端开发主力 | 1 | FastAPI 接口、PostgreSQL、权限、会话、运行态治理、接口联调 | 后端接口、数据库初始化、OpenAPI、后端测试 |
-| 前端开发主力 | 1 | Vue3 页面、TypeScript 类型、Pinia 状态、路由守卫、交互和样式 | 前端页面、接口封装、交互联调结果 |
+| 前端开发主力 | 1 | Vue 3 页面、TypeScript 类型、Pinia 状态、路由守卫、交互和样式 | 前端页面、接口封装、交互联调结果 |
 | AI / 全栈开发主力 | 1 | 知识库解析、RAG 检索、向量化、快速测试、思维导图、Prompt 优化 | RAG 链路、AI 功能模块、模型配置说明 |
 | 测试工程师 | 1 | 测试计划、用例设计、接口测试、功能测试、回归测试、缺陷跟踪、验收报告 | 测试用例、缺陷清单、测试报告、验收记录 |
 
@@ -280,10 +280,10 @@ RAG 问答流程：
 | 阶段 | 目标 | 主要任务 | 验收输出 |
 | --- | --- | --- | --- |
 | 第 1 阶段：需求分析与原型确认 | 明确项目边界和核心流程 | 需求梳理、角色分析、页面流程、接口初稿、任务拆分 | 需求清单、页面原型、迭代计划 |
-| 第 2 阶段：基础架构与数据库建设 | 建立可运行工程底座 | FastAPI、Vue3、PostgreSQL、pgvector、启动脚本、登录鉴权 | 可启动环境、数据库初始化、基础接口 |
+| 第 2 阶段：基础架构与数据库建设 | 建立可运行工程底座 | FastAPI、Vue 3、PostgreSQL、pgvector、启动脚本、登录鉴权 | 可启动环境、数据库初始化、基础接口 |
 | 第 3 阶段：核心业务模块开发 | 完成主要业务闭环 | 笔记、知识库、聊天问答、会话管理、前后端联调 | 核心功能可演示 |
 | 第 4 阶段：AI 能力与学习闭环增强 | 提升智能化和学习效果 | AI 写作、语义检索、快速测试、思维导图、Prompt 优化 | AI 模块可用且有引用来源 |
-| 第 5 阶段：测试、修复、部署和验收 | 达到交付质量 | 功能测试、接口测试、回归测试、文档完善、演示数据、部署验证 | 测试报告、交付文档、验收清单 |
+| 第 5 阶段：测试、修复、部署和验收 | 达到交付质量 | 功能测试、接口测试、回归测试、文档完善、测试数据、部署验证 | 测试报告、交付文档、验收清单 |
 
 ### 8.2 迭代管理规则
 
@@ -336,7 +336,9 @@ RAG 问答流程：
 | `backend/test/test_health_readiness.py` | 健康检查和模型运行态就绪状态 |
 | `backend/test/test_enterprise_contracts.py` | 快速测试、思维导图等企业版契约 |
 | `backend/test/test_note_import.py` | 笔记导入相关能力 |
-| `backend/test/test_demo_dataset.py` | 演示数据 manifest 和引用完整性 |
+| `backend/test/test_chat_projects_contracts.py` | 聊天项目、项目文件和会话契约 |
+| `backend/test/test_knowledge_ingestion_service.py` | 知识库上传摄入、中断清理和边界行为 |
+| `backend/test/test_user_profile_contracts.py` | 用户资料、密码和头像契约 |
 | `backend/test/test_background_init_status.py` | 后台初始化状态 |
 | `backend/test/test_dashscope_embeddings.py` | DashScope 嵌入模型相关行为 |
 
@@ -352,7 +354,7 @@ $env:PYTHONPATH = "src"
 
 ```powershell
 cd front
-npm run build
+npm.cmd run build
 ```
 
 ## 10. 部署与运行维护

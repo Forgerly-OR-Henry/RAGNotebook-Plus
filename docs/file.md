@@ -48,21 +48,31 @@ RAGNotebook/
 │   │   ├── db/                                     # 数据库连接、新库/空库建表和测试用户初始化。
 │   │   └── utils/                                  # 通用工具层，包括鉴权、配置加载、文件处理和路径工具。
 │   │
-│   └── test/                                       # 后端测试和演示数据夹具。
-│       ├── test_demo_dataset.py                    # 演示数据 manifest 的结构和引用完整性测试。
-│       ├── test_enterprise_contracts.py            # 企业版关键契约测试，覆盖配置和主要能力边界。
+│   └── test/                                       # 后端契约测试、服务测试和回归测试。
+│       ├── test_auth_utils.py                      # 密码哈希、JWT 创建和鉴权工具测试。
+│       ├── test_background_init_status.py          # 后台初始化状态和健康检查响应测试。
+│       ├── test_chat_projects_contracts.py         # 聊天项目、项目文件和项目会话契约测试。
+│       ├── test_dashscope_embeddings.py            # DashScope 嵌入模型封装测试。
+│       ├── test_domain_refactor_contracts.py       # 分层重构后的领域契约测试。
+│       ├── test_enterprise_contracts.py            # 企业版关键能力边界测试。
+│       ├── test_env_loader.py                      # 环境变量加载和配置注入测试。
+│       ├── test_file_handler.py                    # 文件类型识别和解析器测试。
+│       ├── test_health_readiness.py                # 存活、就绪和依赖状态测试。
+│       ├── test_knowledge_folders.py               # 知识库文件夹接口和树结构测试。
+│       ├── test_knowledge_ingestion_service.py     # 知识库上传中断、半成品清理和摄入流程测试。
 │       ├── test_knowledge_multimodal_defer.py      # 知识库上传阶段跳过视觉模型、按需保留多模态加载路径的回归测试。
+│       ├── test_logging_filters.py                 # 日志过滤规则测试。
+│       ├── test_note_folders.py                    # 笔记文件夹接口和树结构测试。
 │       ├── test_note_import.py                     # 笔记文件导入解析和保存非阻塞行为测试。
+│       ├── test_note_routes.py                     # 笔记路由、批量操作和边界行为测试。
+│       ├── test_note_template_routes.py            # 笔记模板路由测试。
 │       ├── test_quiz_generation.py                 # 快速测验生成请求、来源收集和空内容错误契约测试。
-│       └── fixtures/
-│           └── demo_dataset/
-│               ├── manifest.json                   # 演示数据声明文件，定义用户、笔记、模板、知识库、会话、测评和导图夹具。
-│               └── knowledge/
-│                   ├── learning-workflow-checklist.txt        # 演示知识库文本文件：学习工作流检查清单。
-│                   ├── pgvector-operations-runbook.md         # 演示知识库 Markdown 文件：pgvector 运维排查记录。
-│                   └── ragnotebook-product-playbook.md        # 演示知识库 Markdown 文件：产品使用手册。
+│       ├── test_start_readiness.py                 # 一键启动前置检查和就绪逻辑测试。
+│       ├── test_startup_config.py                  # FastAPI startup 配置和初始化顺序测试。
+│       ├── test_storage_service.py                 # 本地/SFTP 文件存储服务测试。
+│       └── test_user_profile_contracts.py          # 用户资料、密码和头像契约测试。
 │
-├── front/                                          # Vue3 + TypeScript 前端。
+├── front/                                          # Vue 3 + TypeScript 前端。
 │   ├── .env.example                                # 前端独立启动时的环境变量模板；统一启动时由 config/.env 注入覆盖。
 │   ├── .gitignore                                  # 前端目录局部忽略规则。
 │   ├── README.md                                   # Vite/Vue 前端模板说明。
@@ -85,23 +95,39 @@ RAGNotebook/
 │       ├── types/
 │       │   └── api.ts                              # 前端 API 类型定义，覆盖用户、笔记、知识库、聊天、测评和导图。
 │       ├── api/                                    # 后端请求封装。
-│       │   ├── auth.ts                             # 登录、注册、刷新 Token、用户资料、登出和头像上传请求封装。
-│       │   ├── chat.ts                             # 聊天、RAG 和快速测验生成请求封装。
+│       │   ├── auth.ts                             # 登录、注册、刷新 Token、用户资料、登出、密码和头像上传请求封装。
+│       │   ├── authToken.ts                        # 访问 Token 本地读写和清理工具。
+│       │   ├── chat.ts                             # 聊天、RAG、项目会话和快速测验生成请求封装。
 │       │   ├── client.ts                           # Axios 实例、基础 URL、超时、JWT 注入和 401 处理。
 │       │   ├── endpoints.ts                        # 后端 API 路径集中定义。
+│       │   ├── health.ts                           # 健康检查和后台初始化状态请求封装。
 │       │   ├── knowledge.ts                        # 知识库 feature API 的兼容 re-export。
+│       │   ├── localPrefs.ts                       # 本地偏好读写工具。
 │       │   ├── mindmaps.ts                         # 思维导图生成、获取、更新和导出请求封装。
-│       │   ├── noteTemplates.ts                    # 笔记模板请求封装。
 │       │   ├── notes.ts                            # 笔记 feature API 的兼容 re-export。
+│       │   ├── noteTemplates.ts                    # 笔记模板请求封装。
+│       │   ├── projects.ts                         # 聊天项目、项目文件和项目会话请求封装。
 │       │   ├── quickTest.ts                        # 连续问答式快速测试创建、答题、查询和结束请求封装。
-│       │   └── sessions.ts                         # 聊天会话列表、详情和删除请求封装。
+│       │   ├── sessions.ts                         # 聊天会话列表、详情和删除请求封装。
+│       │   └── stream.ts                           # SSE / fetch 流式响应读取工具。
 │       ├── components/                             # 通用组件。
+│       │   ├── AppDialogHost.vue                   # 全局确认/提示对话框挂载组件。
 │       │   ├── AppShell.vue                        # 登录后主布局，包含侧边导航、页面标题和退出登录入口。
 │       │   ├── BatchActionBar.vue                  # 笔记批量操作栏，支持置顶、分类、移动、导图、下载和删除。
+│       │   ├── CategoryManageDialog.vue            # 笔记分类管理弹窗。
+│       │   ├── ConfirmDialog.vue                   # 通用确认弹窗。
+│       │   ├── KnowledgeDocumentPreview.vue        # 知识库文档详情和解析内容预览组件。
+│       │   ├── MarkdownEditor.vue                  # Markdown 编辑器组件。
+│       │   ├── MarkdownRenderer.vue                # Markdown 安全渲染组件。
 │       │   ├── MindMapCanvas.vue                   # 思维导图树状画布组件，支持拖拽、缩放、重置和复制大纲。
 │       │   ├── MindMapModal.vue                    # 批量选中笔记后生成导图的弹窗入口。
 │       │   ├── MindMapTreeNode.vue                 # 思维导图递归树节点组件。
-│       │   └── RichEditor.vue                      # Tiptap 富文本编辑器组件，使用 v-model 同步笔记正文。
+│       │   ├── OutlinePanel.vue                    # 笔记大纲面板。
+│       │   ├── RelatedFragments.vue                # 笔记相关片段和知识库关联推荐组件。
+│       │   ├── RichEditor.vue                      # Tiptap 富文本编辑器组件，使用 v-model 同步笔记正文。
+│       │   └── TagInput.vue                        # 标签输入组件。
+│       ├── composables/
+│       │   └── useAppDialog.ts                     # 全局确认/提示对话框状态和调用方法。
 │       ├── router/
 │       │   └── index.ts                            # Vue Router 路由表和登录态守卫。
 │       ├── stores/                                 # Pinia 状态管理。
@@ -115,11 +141,15 @@ RAGNotebook/
 │       │   ├── notes/
 │       │   │   └── api.ts                          # 笔记 API 封装。
 │       │   └── sources/
+│       │       ├── folderTree.ts                   # 笔记/知识库来源文件夹树构建工具。
 │       │       └── index.ts                        # 来源类型导出。
+│       ├── utils/
+│       │   └── markdown.ts                         # Markdown 清理、转换和渲染辅助工具。
 │       └── views/                                  # 页面组件。
 │           ├── AboutView.vue                       # 关于页面。
 │           ├── ChatView.vue                        # AI 聊天页面，发起问答并展示消息。
-│           ├── KnowledgeView.vue                   # 知识库管理页面，支持拖拽/选择流式上传 PDF、TXT、Markdown、Word、PPT 文档，展示文档列表、点击预览内容并支持删除和清空。
+│           ├── KnowledgeDetailView.vue             # 知识库文档详情页，展示解析预览、切片和元数据。
+│           ├── KnowledgeView.vue                   # 知识库管理页面，支持拖拽/选择流式上传 PDF、TXT、Markdown、Word、PPT 文档，展示文档列表、预览入口、删除和清空。
 │           ├── LoginView.vue                       # 登录页面。
 │           ├── MindMapView.vue                     # 思维导图页面，支持多选笔记或知识库来源，生成可拖拽缩放的树状导图。
 │           ├── NoteEditorView.vue                  # 笔记编辑页面，创建、编辑或删除标题、正文和分类。
@@ -132,24 +162,23 @@ RAGNotebook/
 │
 ├── docs/                                           # 项目文档。
 │   ├── developer_guide.md                          # 开发者指南，记录架构、生命周期、数据模型、接口分组和维护约定。
+│   ├── enterprise_development_document.md          # 面向答辩、课程交付和团队协作的企业级开发总览文档。
 │   ├── file.md                                     # 当前文件，树状记录项目结构和每个文件的作用。
 │   ├── modelscope_model.md                         # 重排序模型下载、路径配置和启动加载说明。
 │   ├── project_develop.md                          # 相对上游项目的改进说明。
 │   └── troubleshooting.md                          # 常见启动、数据库、模型、上传和前端代理问题排查。
 │
-├── images/                                         # README 和文档使用的截图资源。
-│   ├── aichat.png                                  # README 的 AI 聊天界面截图。
-│   ├── editor_note.png                             # README 的笔记编辑界面截图。
-│   ├── knowledge_manager.png                       # README 的知识库界面截图。
-│   ├── note.png                                    # README 的笔记列表界面截图。
-│   └── text_spliter.png                            # README 或说明文档使用的文本切片示意截图。
+├── test_data/                                      # 手工上传和解析验证用的本地测试数据集。
+│   ├── realistic_user_dataset/                     # 真实风格多格式资料集，适合验证跨来源检索、来源核对和资料复用。
+│   │   └── README.md                               # 数据集背景、文件类型覆盖、文件清单和建议使用方式。
+│   └── upload_test_dataset/                        # 小型上传测试数据集，覆盖 TXT / PDF / MD / DOCX / PPTX 解析链路。
 │
 └── scripts/                                        # 辅助脚本目录。
-    ├── seed_demo_data.py                           # 演示数据导入脚本；校验 manifest，写入用户/笔记/模板/会话/测评/导图，并同步向量。
     ├── download_reranker_model/
     │   ├── download_reranker_model.bat             # Windows 下下载重排序模型的批处理入口。
     │   └── download_reranker_model.py              # 从 ModelScope 下载 BAAI/bge-reranker-v2-m3 并提示更新当前运行 env。
-    └── postgresql/
-        ├── install_pgvector_windows.bat            # Windows 下安装 pgvector 的辅助批处理脚本。
-        └── pg.sh                                   # Linux PostgreSQL 管理脚本，包含安装、服务、用户/库、扩展和备份等操作。
+    ├── postgresql/
+    │   ├── install_pgvector_windows.bat            # Windows 下安装 pgvector 的辅助批处理脚本。
+    │   └── pg.sh                                   # Linux PostgreSQL 管理脚本，包含安装、服务、用户/库、扩展和备份等操作。
+    └── user.sh                                     # 用户相关的本地辅助脚本。
 ```

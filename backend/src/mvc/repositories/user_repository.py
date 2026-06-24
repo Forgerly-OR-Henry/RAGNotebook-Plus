@@ -17,9 +17,12 @@ class UserRepository:
             result = await session.execute(select(User).where(User.uuid == user_id))
             return result.scalar_one_or_none()
 
-    async def email_exists(self, email: str) -> bool:
+    async def email_exists(self, email: str, exclude_user_id: str | None = None) -> bool:
         async with AsyncSessionLocal() as session:
-            result = await session.execute(select(User).where(User.email == email))
+            stmt = select(User).where(User.email == email)
+            if exclude_user_id:
+                stmt = stmt.where(User.uuid != exclude_user_id)
+            result = await session.execute(stmt)
             return result.scalar_one_or_none() is not None
 
     async def telephone_exists(self, telephone: str, exclude_user_id: str | None = None) -> bool:

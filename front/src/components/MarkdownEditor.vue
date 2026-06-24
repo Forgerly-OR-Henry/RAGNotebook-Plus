@@ -1,8 +1,7 @@
 <script setup lang="ts">
-import { computed, nextTick, ref, watch, type Component } from 'vue'
-import DOMPurify from 'dompurify'
-import { marked } from 'marked'
+import { nextTick, ref, watch, type Component } from 'vue'
 import { Columns2, Code2, Eye, Type } from '@lucide/vue'
+import MarkdownRenderer from './MarkdownRenderer.vue'
 
 type EditorMode = 'typora' | 'split' | 'source'
 
@@ -41,19 +40,6 @@ async function startTyporaEditing() {
 function stopTyporaEditing() {
   isTyporaEditing.value = false
 }
-
-const renderedHtml = computed(() => {
-  const rawHtml = marked.parse(props.modelValue || '', {
-    async: false,
-    breaks: true,
-    gfm: true,
-  }) as string
-
-  return DOMPurify.sanitize(rawHtml, {
-    USE_PROFILES: { html: true },
-    ADD_ATTR: ['target', 'rel'],
-  })
-})
 
 watch(
   () => props.modelValue,
@@ -101,13 +87,12 @@ watch(
         ref="sourceInput"
         class="markdown-editor__textarea markdown-editor__textarea--typora"
         :value="modelValue"
-        placeholder="# 写下标题&#10;&#10;支持标题、列表、引用、表格、任务列表和代码块。"
+        placeholder="# 写下标题&#10;&#10;支持标题、列表、引用、表格、任务列表、代码块和 LaTeX 公式。"
         spellcheck="false"
         @input="updateContent"
         @blur="stopTyporaEditing"
       />
-      <!-- eslint-disable-next-line vue/no-v-html -->
-      <article v-show="!isTyporaEditing" class="markdown-body markdown-editor__preview" v-html="renderedHtml" />
+      <MarkdownRenderer v-show="!isTyporaEditing" class="markdown-editor__preview" :content="modelValue" />
       <div v-if="!modelValue && !isTyporaEditing" class="markdown-editor__empty">开始写 Markdown</div>
     </div>
 
@@ -115,19 +100,18 @@ watch(
       <textarea
         class="markdown-editor__textarea"
         :value="modelValue"
-        placeholder="# 写下标题&#10;&#10;支持标题、列表、引用、表格、任务列表和代码块。"
+        placeholder="# 写下标题&#10;&#10;支持标题、列表、引用、表格、任务列表、代码块和 LaTeX 公式。"
         spellcheck="false"
         @input="updateContent"
       />
-      <!-- eslint-disable-next-line vue/no-v-html -->
-      <article class="markdown-body markdown-editor__preview" v-html="renderedHtml" />
+      <MarkdownRenderer class="markdown-editor__preview" :content="modelValue" />
     </div>
 
     <textarea
       v-else
       class="markdown-editor__textarea markdown-editor__textarea--source"
       :value="modelValue"
-      placeholder="# 写下标题&#10;&#10;支持标题、列表、引用、表格、任务列表和代码块。"
+      placeholder="# 写下标题&#10;&#10;支持标题、列表、引用、表格、任务列表、代码块和 LaTeX 公式。"
       spellcheck="false"
       @input="updateContent"
     />

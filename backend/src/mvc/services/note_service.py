@@ -5,6 +5,7 @@ import asyncio
 import html
 import io
 import json
+import os
 import re
 import uuid
 import zipfile
@@ -20,6 +21,7 @@ from mvc.services.note_index_service import NoteIndexService
 from mvc.services.sources.registry import get_source_registry
 from mvc.models.note import Note
 from mvc.models.note_folder import NoteFolder, NoteFolderAssignment
+from mvc.models.project import ProjectSource
 from mvc.models.storage_object import StorageObject
 from mvc.schemas import NoteCreate, NoteFolderCreate, NoteFolderResponse, NoteFolderTreeResponse, NoteFolderUpdate, NoteResponse, NoteUpdate
 from mvc.services.note_import_service import NOTE_IMPORT_MAX_FILE_SIZE, NoteImportError, build_imported_note_payload
@@ -28,6 +30,24 @@ from mvc.services.storage_service import StorageService, get_storage_service
 
 class NoteFolderError(ValueError):
     """Raised when a note folder operation is invalid."""
+
+
+DEFAULT_NOTE_INDEX_TIMEOUT_SECONDS = 120
+
+
+def _note_index_timeout_seconds() -> float:
+    raw_value = os.getenv("NOTE_INDEX_TIMEOUT_SECONDS", "").strip()
+    if not raw_value:
+        return DEFAULT_NOTE_INDEX_TIMEOUT_SECONDS
+    try:
+        value = float(raw_value)
+    except ValueError:
+        logger.warning(f"NOTE_INDEX_TIMEOUT_SECONDS 配置无效，使用默认值 {DEFAULT_NOTE_INDEX_TIMEOUT_SECONDS} 秒")
+        return DEFAULT_NOTE_INDEX_TIMEOUT_SECONDS
+    if value <= 0:
+        logger.warning(f"NOTE_INDEX_TIMEOUT_SECONDS 必须大于 0，使用默认值 {DEFAULT_NOTE_INDEX_TIMEOUT_SECONDS} 秒")
+        return DEFAULT_NOTE_INDEX_TIMEOUT_SECONDS
+    return value
 
 
 def _strip_note_html(value: str | None) -> str:
@@ -340,7 +360,12 @@ class NoteService:
             return
 
         try:
-            await self.index_service.upsert_note(note_id, user_id, title, content)
+            await asyncio.wait_for(
+                self.index_service.upsert_note(note_id, user_id, title, content),
+                timeout=_note_index_timeout_seconds(),
+            )
+        except TimeoutError:
+            logger.error(f"笔记索引超时 note_id={note_id}")
         except Exception as e:
             logger.error(f"笔记索引失败 note_id={note_id}: {e}")
 
@@ -349,7 +374,12 @@ class NoteService:
         后台刷新笔记向量。内容清空时只删除旧向量。
         """
         try:
-            await self.index_service.refresh_note(note_id, user_id, title, content)
+            await asyncio.wait_for(
+                self.index_service.refresh_note(note_id, user_id, title, content),
+                timeout=_note_index_timeout_seconds(),
+            )
+        except TimeoutError:
+            logger.error(f"更新笔记索引超时 note_id={note_id}")
         except Exception as e:
             logger.error(f"更新笔记索引失败 note_id={note_id}: {e}")
 
@@ -670,22 +700,63 @@ class NoteService:
         note, document, storage_object = row
 
         try:
-            await self.storage_service.delete_storage_object_data(storage_object)
-        except Exception as e:
-            logger.error(f"删除笔记文件失败 note_id={note_id}: {e}")
-
-        await db.delete(note)
-        await db.delete(document)
-        await db.delete(storage_object)
-        await db.commit()
-
-        # 清理索引
-        try:
             await self.index_service.delete_note(note_id, user_id)
         except Exception as e:
             logger.error(f"删除笔记索引失败 note_id={note_id}: {e}")
 
+        await self._delete_note_metadata(
+            db=db,
+            user_id=user_id,
+            note_id=note.id,
+            document_id=document.id,
+            storage_object_id=storage_object.id,
+        )
+        await db.commit()
+
+        try:
+            await self.storage_service.delete_storage_object_data(storage_object)
+        except Exception as e:
+            logger.error(f"删除笔记文件失败 note_id={note_id}: {e}")
+
         return True
+
+    async def _delete_note_metadata(
+        self,
+        *,
+        db: AsyncSession,
+        user_id: str,
+        note_id: str,
+        document_id: str,
+        storage_object_id: str,
+    ) -> None:
+        await db.execute(
+            delete(NoteFolderAssignment).where(
+                NoteFolderAssignment.user_id == user_id,
+                NoteFolderAssignment.note_id == note_id,
+            )
+        )
+        await db.execute(
+            delete(ProjectSource).where(
+                ProjectSource.user_id == user_id,
+                ProjectSource.source_type == "note",
+                ProjectSource.source_id == note_id,
+            )
+        )
+        await db.execute(
+            delete(Note).where(
+                Note.id == note_id,
+                Note.user_id == user_id,
+                Note.document_id == document_id,
+            )
+        )
+        await db.execute(
+            delete(Document).where(
+                Document.id == document_id,
+                Document.user_id == user_id,
+                Document.source_type == "note",
+            )
+        )
+        await db.execute(delete(StorageObject).where(StorageObject.id == storage_object_id))
 
     async def get_note(self, db: AsyncSession, note_id: str, user_id: str) -> NoteResponse | None:
         """

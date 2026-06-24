@@ -9,6 +9,7 @@ from collections.abc import AsyncGenerator, Awaitable, Callable
 from dataclasses import dataclass
 
 from fastapi import UploadFile
+from sqlalchemy import delete
 
 from core.logger_handler import logger
 from db.db_config import AsyncSessionLocal
@@ -16,6 +17,7 @@ from mvc.agent_gateway.indexing_gateway import DocumentParser, IndexRepository, 
 from mvc.models.document import Document
 from mvc.models.knowledge_document import KnowledgeDocument
 from mvc.models.knowledge_folder import KnowledgeFolderAssignment
+from mvc.models.project import ProjectSource
 from mvc.models.storage_object import StorageObject
 from mvc.services.storage_service import StorageService, get_storage_service
 from utils.magic_compat import ensure_magic_dll_path
@@ -26,6 +28,8 @@ import magic
 
 MAX_FILE_SIZE = 20 * 1024 * 1024
 MAX_FOLDER_SIZE = 200 * 1024 * 1024
+DEFAULT_PARSE_TIMEOUT_SECONDS = 120
+DEFAULT_INDEX_TIMEOUT_SECONDS = 300
 ALLOWED_EXTENSIONS = {".pdf", ".txt", ".md", ".markdown", ".doc", ".docx", ".ppt", ".pptx"}
 ALLOWED_MIME_TYPES = {
     "application/pdf",
@@ -37,6 +41,21 @@ ALLOWED_MIME_TYPES = {
     "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
     "application/octet-stream",
 }
+
+
+def _timeout_seconds(env_name: str, default: float) -> float:
+    raw_value = os.getenv(env_name, "").strip()
+    if not raw_value:
+        return default
+    try:
+        value = float(raw_value)
+    except ValueError:
+        logger.warning(f"{env_name} 配置无效，使用默认值 {default} 秒")
+        return default
+    if value <= 0:
+        logger.warning(f"{env_name} 必须大于 0，使用默认值 {default} 秒")
+        return default
+    return value
 
 
 @dataclass
@@ -78,8 +97,10 @@ class KnowledgeIngestionService:
         success_count = 0
         failed_count = len(validation_events)
         for item in file_contents:
+            document_id: str | None = None
             document: Document | None = None
             storage_object: StorageObject | None = None
+            document_ready = False
             try:
                 document_id = str(uuid.uuid4())
                 content_hash = hashlib.sha256(item.content).hexdigest()
@@ -116,12 +137,16 @@ class KnowledgeIngestionService:
                 )
 
                 stored_content = await self.storage_service.read_object_bytes(storage_object)
-                parsed = await asyncio.to_thread(
-                    self.parser.parse_bytes_sync,
-                    content=stored_content,
-                    filename=item.filename,
-                    user_id=user_id,
-                    use_multimodal=False,
+                parsed = await self._with_timeout(
+                    asyncio.to_thread(
+                        self.parser.parse_bytes_sync,
+                        content=stored_content,
+                        filename=item.filename,
+                        user_id=user_id,
+                        use_multimodal=False,
+                    ),
+                    timeout_seconds=_timeout_seconds("KNOWLEDGE_PARSE_TIMEOUT_SECONDS", DEFAULT_PARSE_TIMEOUT_SECONDS),
+                    timeout_message=f"文件 {item.filename} 解析超时，请稍后重试或检查文件内容",
                 )
 
                 for chunk_index, doc in enumerate(parsed.documents):
@@ -149,22 +174,27 @@ class KnowledgeIngestionService:
                 )
 
                 await self.index_repository.delete_source(user_id=user_id, source_type="knowledge", source_id=document.id)
-                await self.index_repository.upsert_documents(
-                    source_type="knowledge",
-                    source_id=document.id,
-                    user_id=user_id,
-                    documents=parsed.documents,
-                    metadata={
-                        "document_id": document.id,
-                        "filename": document.title,
-                        "original_filename": storage_object.original_filename,
-                        "content_hash": document.content_hash,
-                        "doc_type": "knowledge",
-                    },
+                await self._with_timeout(
+                    self.index_repository.upsert_documents(
+                        source_type="knowledge",
+                        source_id=document.id,
+                        user_id=user_id,
+                        documents=parsed.documents,
+                        metadata={
+                            "document_id": document.id,
+                            "filename": document.title,
+                            "original_filename": storage_object.original_filename,
+                            "content_hash": document.content_hash,
+                            "doc_type": "knowledge",
+                        },
+                    ),
+                    timeout_seconds=_timeout_seconds("KNOWLEDGE_INDEX_TIMEOUT_SECONDS", DEFAULT_INDEX_TIMEOUT_SECONDS),
+                    timeout_message=f"文件 {item.filename} 写入索引超时，请检查嵌入模型服务后重试",
                 )
                 await self._mark_ready(document.id, user_id, len(parsed.documents))
                 if on_document_ready is not None:
                     await on_document_ready(document)
+                document_ready = True
                 success_count += 1
                 yield self._event(
                     "completed",
@@ -178,13 +208,20 @@ class KnowledgeIngestionService:
                     success_count=success_count,
                     failed_count=failed_count,
                 )
+            except asyncio.CancelledError:
+                if storage_object and document_id and not document_ready:
+                    logger.warning(f"知识库文件上传连接中断，清理半成品 document_id={document_id}, filename={item.filename}")
+                    await self._cleanup_partial_document(user_id=user_id, document_id=document_id, storage_object=storage_object)
+                elif storage_object:
+                    await self._delete_storage_object_data(storage_object, f"filename={item.filename}")
+                raise
             except Exception as exc:
                 failed_count += 1
                 logger.error(f"知识库文件处理失败 filename={item.filename}: {exc}", exc_info=True)
                 if document:
                     await self._mark_failed(document.id, user_id, str(exc))
                 elif storage_object:
-                    await self.storage_service.delete_storage_object_data(storage_object)
+                    await self._delete_storage_object_data(storage_object, f"filename={item.filename}")
                 yield self._event(
                     "error",
                     f"文件 {item.filename} 处理失败",
@@ -315,6 +352,53 @@ class KnowledgeIngestionService:
                 document.status = "failed"
                 document.status_message = error
                 await session.commit()
+
+    async def _cleanup_partial_document(self, *, user_id: str, document_id: str, storage_object: StorageObject) -> None:
+        try:
+            await self.index_repository.delete_source(user_id=user_id, source_type="knowledge", source_id=document_id)
+        except Exception as exc:
+            logger.error(f"清理半成品知识库索引失败 document_id={document_id}: {exc}")
+
+        async with AsyncSessionLocal() as session:
+            await session.execute(delete(KnowledgeFolderAssignment).where(KnowledgeFolderAssignment.knowledge_id == document_id))
+            await session.execute(
+                delete(ProjectSource).where(
+                    ProjectSource.user_id == user_id,
+                    ProjectSource.source_type == "knowledge",
+                    ProjectSource.source_id == document_id,
+                )
+            )
+            await session.execute(
+                delete(KnowledgeDocument).where(
+                    KnowledgeDocument.id == document_id,
+                    KnowledgeDocument.user_id == user_id,
+                    KnowledgeDocument.document_id == document_id,
+                )
+            )
+            await session.execute(
+                delete(Document).where(
+                    Document.id == document_id,
+                    Document.user_id == user_id,
+                    Document.source_type == "knowledge",
+                )
+            )
+            await session.execute(delete(StorageObject).where(StorageObject.id == storage_object.id))
+            await session.commit()
+
+        await self._delete_storage_object_data(storage_object, f"document_id={document_id}")
+
+    async def _delete_storage_object_data(self, storage_object: StorageObject, context: str) -> None:
+        try:
+            await self.storage_service.delete_storage_object_data(storage_object)
+        except Exception as exc:
+            logger.error(f"删除知识库上传文件失败 {context}: {exc}")
+
+    @staticmethod
+    async def _with_timeout(awaitable, *, timeout_seconds: float, timeout_message: str):
+        try:
+            return await asyncio.wait_for(awaitable, timeout=timeout_seconds)
+        except TimeoutError as exc:
+            raise TimeoutError(timeout_message) from exc
 
     @staticmethod
     def _progress(current_index: int, total_files: int) -> int:

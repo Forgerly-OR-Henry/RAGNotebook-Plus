@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, ref, watch } from 'vue'
-import { Copy, RotateCcw, ZoomIn, ZoomOut } from '@lucide/vue'
+import { Copy, Download, RotateCcw, ZoomIn, ZoomOut } from '@lucide/vue'
 import MindMapTreeNode from './MindMapTreeNode.vue'
 import type { MindMapNode, MindMapResponse } from '../types/api'
 
@@ -26,6 +26,37 @@ const dragging = ref(false)
 const dragStart = ref({ x: 0, y: 0 })
 const copyMessage = ref('')
 let copyTimer: number | undefined
+
+interface ExportNodeMetrics {
+  width: number
+  height: number
+  labelLines: string[]
+  summaryLines: string[]
+}
+
+interface ExportNodeLayout {
+  node: MindMapTreeNodeData
+  depth: number
+  x: number
+  y: number
+  width: number
+  height: number
+  metrics: ExportNodeMetrics
+  children: ExportNodeLayout[]
+}
+
+const EXPORT_PADDING_X = 72
+const EXPORT_PADDING_Y = 96
+const EXPORT_COLUMN_GAP = 342
+const EXPORT_VERTICAL_GAP = 26
+
+const exportTones = [
+  { fill: '#1F6C9F', stroke: '#1F6C9F', text: '#FFFFFF', muted: '#DDF0FF', line: '#82B8D8' },
+  { fill: '#EAF8F1', stroke: '#39A66C', text: '#14583A', muted: '#4C7B62', line: '#79C79D' },
+  { fill: '#EAF5FF', stroke: '#3B8FC4', text: '#195273', muted: '#527B94', line: '#8CC4E6' },
+  { fill: '#FFF5E3', stroke: '#D98B18', text: '#754A0B', muted: '#927246', line: '#E7B66C' },
+  { fill: '#FDF0F3', stroke: '#C75A72', text: '#7A2638', muted: '#96616D', line: '#DC9AAC' },
+]
 
 const tree = computed(() => buildTree(props.mindmap))
 const scaleLabel = computed(() => `${Math.round(scale.value * 100)}%`)
@@ -170,6 +201,247 @@ function fallbackCopy(text: string) {
   document.body.removeChild(textarea)
 }
 
+function downloadSvg() {
+  if (!tree.value || !props.mindmap) return
+
+  const svg = buildMindMapSvg(tree.value, props.mindmap.title)
+  const blob = new Blob([svg], { type: 'image/svg+xml;charset=utf-8' })
+  const url = URL.createObjectURL(blob)
+  const link = document.createElement('a')
+  link.href = url
+  link.download = `${sanitizeFilename(props.mindmap.title || 'mindmap')}.svg`
+  document.body.appendChild(link)
+  link.click()
+  document.body.removeChild(link)
+  window.setTimeout(() => URL.revokeObjectURL(url), 0)
+  showCopyMessage('SVG 已下载')
+}
+
+function buildMindMapSvg(root: MindMapTreeNodeData, title: string) {
+  const layout = buildExportLayout(root)
+  const nodes = flattenExportLayout(layout)
+  const minTop = Math.min(...nodes.map((node) => node.y - node.height / 2))
+  const maxBottom = Math.max(...nodes.map((node) => node.y + node.height / 2))
+  const maxRight = Math.max(...nodes.map((node) => node.x + node.width))
+  const yShift = EXPORT_PADDING_Y - minTop
+
+  nodes.forEach((node) => {
+    node.y += yShift
+  })
+
+  const width = Math.ceil(maxRight + EXPORT_PADDING_X)
+  const height = Math.ceil(maxBottom + yShift + EXPORT_PADDING_Y)
+  const safeTitle = escapeXml(title || '思维导图')
+
+  return [
+    '<?xml version="1.0" encoding="UTF-8"?>',
+    `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}" role="img" aria-label="${safeTitle}">`,
+    '<defs>',
+    '<pattern id="mindmap-dot-grid" width="28" height="28" patternUnits="userSpaceOnUse"><circle cx="1.5" cy="1.5" r="1.2" fill="#C8DDEB" opacity="0.45"/></pattern>',
+    '<filter id="mindmap-node-shadow" x="-20%" y="-30%" width="140%" height="170%"><feDropShadow dx="0" dy="10" stdDeviation="12" flood-color="#1F2937" flood-opacity="0.12"/></filter>',
+    '</defs>',
+    `<rect width="${width}" height="${height}" fill="#F7F6F3"/>`,
+    `<rect width="${width}" height="${height}" fill="url(#mindmap-dot-grid)"/>`,
+    `<text x="${EXPORT_PADDING_X}" y="46" fill="#111111" font-family="'Noto Sans SC', 'PingFang SC', sans-serif" font-size="22" font-weight="700">${safeTitle}</text>`,
+    `<text x="${EXPORT_PADDING_X}" y="70" fill="#787774" font-family="'Noto Sans SC', 'PingFang SC', sans-serif" font-size="12">${nodes.length} 个节点</text>`,
+    renderExportConnectors(layout),
+    nodes.map((node) => renderExportNode(node)).join(''),
+    '</svg>',
+  ].join('')
+}
+
+function buildExportLayout(root: MindMapTreeNodeData) {
+  let cursor = 0
+
+  function place(node: MindMapTreeNodeData, depth: number): ExportNodeLayout {
+    const metrics = getExportNodeMetrics(node, depth)
+    const children = node.children.map((child) => place(child, depth + 1))
+    let y = 0
+
+    if (children.length === 0) {
+      y = cursor + metrics.height / 2
+      cursor += metrics.height + EXPORT_VERTICAL_GAP
+    } else {
+      y = (children[0].y + children[children.length - 1].y) / 2
+      const top = y - metrics.height / 2
+      if (top < cursor) {
+        const shift = cursor - top
+        children.forEach((child) => shiftExportLayout(child, shift))
+        y += shift
+      }
+      cursor = Math.max(cursor, y + metrics.height / 2 + EXPORT_VERTICAL_GAP)
+    }
+
+    return {
+      node,
+      depth,
+      x: EXPORT_PADDING_X + depth * EXPORT_COLUMN_GAP,
+      y,
+      width: metrics.width,
+      height: metrics.height,
+      metrics,
+      children,
+    }
+  }
+
+  return place(root, 0)
+}
+
+function shiftExportLayout(layout: ExportNodeLayout, shift: number) {
+  layout.y += shift
+  layout.children.forEach((child) => shiftExportLayout(child, shift))
+}
+
+function flattenExportLayout(layout: ExportNodeLayout): ExportNodeLayout[] {
+  return [layout, ...layout.children.flatMap((child) => flattenExportLayout(child))]
+}
+
+function getExportNodeMetrics(node: MindMapTreeNodeData, depth: number): ExportNodeMetrics {
+  const width = getExportNodeWidth(depth)
+  const labelUnits = Math.max(10, Math.floor((width - 42) / 13))
+  const summaryUnits = Math.max(12, Math.floor((width - 42) / 10))
+  const labelLines = wrapSvgText(node.label || '未命名主题', labelUnits, depth === 0 ? 2 : 2)
+  const summaryLines = node.summary ? wrapSvgText(node.summary, summaryUnits, 1) : []
+  const height = Math.max(depth === 0 ? 74 : 60, 30 + labelLines.length * 18 + summaryLines.length * 15 + (summaryLines.length ? 6 : 0))
+
+  return {
+    width,
+    height,
+    labelLines,
+    summaryLines,
+  }
+}
+
+function getExportNodeWidth(depth: number) {
+  if (depth === 0) return 280
+  if (depth === 1) return 252
+  if (depth === 2) return 232
+  return 214
+}
+
+function renderExportConnectors(layout: ExportNodeLayout): string {
+  const currentConnectors = layout.children.map((child) => {
+    const tone = getExportTone(child.depth)
+    const startX = layout.x + layout.width
+    const startY = layout.y
+    const endX = child.x
+    const endY = child.y
+    const control = Math.max(44, (endX - startX) * 0.44)
+    const path = `M ${formatSvgNumber(startX)} ${formatSvgNumber(startY)} C ${formatSvgNumber(startX + control)} ${formatSvgNumber(startY)}, ${formatSvgNumber(endX - control)} ${formatSvgNumber(endY)}, ${formatSvgNumber(endX)} ${formatSvgNumber(endY)}`
+    return `<path d="${path}" fill="none" stroke="${tone.line}" stroke-width="2.4" stroke-linecap="round" opacity="0.86"/>`
+  }).join('')
+
+  return currentConnectors + layout.children.map((child) => renderExportConnectors(child)).join('')
+}
+
+function renderExportNode(layout: ExportNodeLayout): string {
+  const tone = getExportTone(layout.depth)
+  const radius = layout.depth === 0 ? 24 : 18
+  const x = layout.x
+  const y = layout.y - layout.height / 2
+  const textX = layout.x + layout.width / 2
+  const labelSize = layout.depth === 0 ? 15 : 12.5
+  const summarySize = 10.5
+  const labelLineHeight = 18
+  const summaryLineHeight = 15
+  const contentHeight = layout.metrics.labelLines.length * labelLineHeight
+    + (layout.metrics.summaryLines.length ? 6 + layout.metrics.summaryLines.length * summaryLineHeight : 0)
+  let textY = layout.y - contentHeight / 2 + labelLineHeight * 0.78
+
+  const label = layout.metrics.labelLines.map((line) => {
+    const text = `<tspan x="${formatSvgNumber(textX)}" y="${formatSvgNumber(textY)}">${escapeXml(line)}</tspan>`
+    textY += labelLineHeight
+    return text
+  }).join('')
+
+  textY += layout.metrics.summaryLines.length ? 4 : 0
+  const summary = layout.metrics.summaryLines.map((line) => {
+    const text = `<tspan x="${formatSvgNumber(textX)}" y="${formatSvgNumber(textY)}">${escapeXml(line)}</tspan>`
+    textY += summaryLineHeight
+    return text
+  }).join('')
+
+  return [
+    `<g filter="url(#mindmap-node-shadow)">`,
+    `<rect x="${formatSvgNumber(x)}" y="${formatSvgNumber(y)}" width="${layout.width}" height="${layout.height}" rx="${radius}" fill="${tone.fill}" stroke="${tone.stroke}" stroke-width="1.4"/>`,
+    `<text text-anchor="middle" font-family="'Noto Sans SC', 'PingFang SC', sans-serif" font-size="${labelSize}" font-weight="${layout.depth === 0 ? 700 : 600}" fill="${tone.text}">${label}</text>`,
+    summary ? `<text text-anchor="middle" font-family="'Noto Sans SC', 'PingFang SC', sans-serif" font-size="${summarySize}" fill="${tone.muted}">${summary}</text>` : '',
+    '</g>',
+  ].join('')
+}
+
+function getExportTone(depth: number) {
+  return exportTones[Math.min(depth, exportTones.length - 1)]
+}
+
+function wrapSvgText(value: string, maxUnits: number, maxLines: number) {
+  const normalized = value.trim().replace(/\s+/g, ' ')
+  if (!normalized) return []
+
+  const lines: string[] = []
+  let current = ''
+  let currentUnits = 0
+  let truncated = false
+
+  for (const char of Array.from(normalized)) {
+    const charUnits = getTextUnit(char)
+    if (current && currentUnits + charUnits > maxUnits) {
+      lines.push(current.trim())
+      if (lines.length === maxLines) {
+        truncated = true
+        break
+      }
+      current = char
+      currentUnits = charUnits
+    } else {
+      current += char
+      currentUnits += charUnits
+    }
+  }
+
+  if (!truncated && current.trim()) {
+    lines.push(current.trim())
+  }
+
+  if (lines.length > maxLines) {
+    lines.length = maxLines
+    truncated = true
+  }
+
+  if (truncated && lines.length > 0) {
+    lines[lines.length - 1] = withEllipsis(lines[lines.length - 1])
+  }
+
+  return lines
+}
+
+function getTextUnit(char: string) {
+  return /[\x00-\x7F]/.test(char) ? 0.55 : 1
+}
+
+function withEllipsis(value: string) {
+  const trimmed = value.replace(/[，。；、,.!?;:\s]+$/g, '')
+  if (trimmed.length <= 1) return `${trimmed}...`
+  return `${trimmed.slice(0, trimmed.length - 1)}...`
+}
+
+function escapeXml(value: string) {
+  return value
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&apos;')
+}
+
+function sanitizeFilename(value: string) {
+  return value.trim().replace(/[\\/:*?"<>|]+/g, '-').replace(/\s+/g, ' ').slice(0, 80) || 'mindmap'
+}
+
+function formatSvgNumber(value: number) {
+  return Number(value.toFixed(2))
+}
+
 function showCopyMessage(message: string) {
   copyMessage.value = message
   if (copyTimer) window.clearTimeout(copyTimer)
@@ -180,8 +452,8 @@ function showCopyMessage(message: string) {
 </script>
 
 <template>
-  <section class="relative flex h-full min-h-[560px] flex-col overflow-hidden rounded-md border border-[var(--color-border)] bg-[var(--color-card)]">
-    <div v-if="mindmap" class="absolute left-4 right-4 top-4 z-20 flex flex-wrap items-center justify-between gap-3 rounded-md border border-[var(--color-border)] bg-[var(--color-card)]/95 px-4 py-3 shadow-sm backdrop-blur">
+  <section class="mindmap-canvas relative flex h-full min-h-[560px] flex-col overflow-hidden rounded-lg border border-[var(--color-border)] bg-[var(--color-card)]">
+    <div v-if="mindmap" class="absolute left-4 right-4 top-4 z-20 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-[var(--color-border)] bg-[var(--color-card)]/95 px-4 py-3 shadow-sm backdrop-blur">
       <div class="min-w-0">
         <div class="flex items-center gap-2">
           <h2 class="truncate font-heading text-base font-semibold text-[var(--color-text)]">{{ mindmap.title }}</h2>
@@ -192,18 +464,22 @@ function showCopyMessage(message: string) {
 
       <div class="flex items-center gap-2">
         <span v-if="copyMessage" class="text-xs text-[var(--color-success)]">{{ copyMessage }}</span>
-        <button class="inline-flex items-center gap-1.5 rounded-md border border-[var(--color-border)] px-3 py-1.5 text-xs text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-secondary)] hover:text-[var(--color-text)]" type="button" @click="copyOutline">
+        <button class="inline-flex items-center gap-1.5 rounded-full border border-[var(--color-border)] px-3 py-1.5 text-xs text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-secondary)] hover:text-[var(--color-text)]" type="button" @click="copyOutline">
           <Copy :size="14" />
           复制大纲
         </button>
+        <button class="inline-flex items-center gap-1.5 rounded-full border border-[var(--color-border)] px-3 py-1.5 text-xs text-[var(--color-text-secondary)] hover:bg-[var(--color-accent-bg)] hover:text-[var(--color-accent)]" type="button" @click="downloadSvg">
+          <Download :size="14" />
+          下载 SVG
+        </button>
         <div class="h-4 w-px bg-[var(--color-border)]" />
-        <button class="rounded-md border border-[var(--color-border)] p-1.5 text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-secondary)] hover:text-[var(--color-text)]" type="button" title="放大" @click="zoomBy(0.1)">
+        <button class="rounded-full border border-[var(--color-border)] p-1.5 text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-secondary)] hover:text-[var(--color-text)]" type="button" title="放大" @click="zoomBy(0.1)">
           <ZoomIn :size="14" />
         </button>
-        <button class="rounded-md border border-[var(--color-border)] p-1.5 text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-secondary)] hover:text-[var(--color-text)]" type="button" title="缩小" @click="zoomBy(-0.1)">
+        <button class="rounded-full border border-[var(--color-border)] p-1.5 text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-secondary)] hover:text-[var(--color-text)]" type="button" title="缩小" @click="zoomBy(-0.1)">
           <ZoomOut :size="14" />
         </button>
-        <button class="rounded-md border border-[var(--color-border)] p-1.5 text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-secondary)] hover:text-[var(--color-text)]" type="button" title="重置视图" @click="resetView">
+        <button class="rounded-full border border-[var(--color-border)] p-1.5 text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-secondary)] hover:text-[var(--color-text)]" type="button" title="重置视图" @click="resetView">
           <RotateCcw :size="14" />
         </button>
         <span class="w-10 text-right text-[10px] text-[var(--color-text-tertiary)]">{{ scaleLabel }}</span>
@@ -227,8 +503,8 @@ function showCopyMessage(message: string) {
       @wheel.prevent="handleWheel"
     >
       <div
-        class="absolute origin-center select-none transition-transform duration-75"
-        :style="{ left: '28%', top: '40%', transform: `translate(${offset.x}px, ${offset.y}px) scale(${scale})` }"
+        class="absolute origin-left select-none transition-transform duration-75"
+        :style="{ left: '8%', top: '50%', transform: `translate(${offset.x}px, ${offset.y}px) translateY(-50%) scale(${scale})` }"
       >
         <div class="flex items-center">
           <MindMapTreeNode :node="tree" />
@@ -241,3 +517,17 @@ function showCopyMessage(message: string) {
     </div>
   </section>
 </template>
+
+<style scoped>
+.mindmap-canvas {
+  background:
+    radial-gradient(circle at 18px 18px, rgba(31, 108, 159, 0.08) 1.2px, transparent 1.3px) 0 0 / 28px 28px,
+    linear-gradient(135deg, color-mix(in srgb, var(--color-card) 88%, var(--color-accent-bg)), var(--color-card));
+}
+
+.dark .mindmap-canvas {
+  background:
+    radial-gradient(circle at 18px 18px, rgba(74, 158, 214, 0.13) 1.2px, transparent 1.3px) 0 0 / 28px 28px,
+    linear-gradient(135deg, color-mix(in srgb, var(--color-card) 90%, var(--color-accent-bg)), var(--color-card));
+}
+</style>

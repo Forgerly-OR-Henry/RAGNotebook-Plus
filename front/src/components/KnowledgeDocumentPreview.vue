@@ -1,9 +1,8 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, ref, watch } from 'vue'
-import DOMPurify from 'dompurify'
-import { marked } from 'marked'
 import { Download, Eye, FileText, LoaderCircle, X } from '@lucide/vue'
 import { knowledgeApi } from '../api/knowledge'
+import MarkdownRenderer from './MarkdownRenderer.vue'
 import type { KnowledgeChunk, KnowledgeDocument, KnowledgeDocumentDetail } from '../types/api'
 
 type PreviewKind = 'pdf' | 'markdown' | 'text' | 'word' | 'presentation' | 'fallback'
@@ -24,10 +23,13 @@ const fileLoading = ref(false)
 const fileError = ref('')
 const fileBlob = ref<Blob | null>(null)
 const objectUrl = ref('')
+const previewMimeType = ref('')
 const originalText = ref('')
 const downloading = ref(false)
 const downloadError = ref('')
 let loadSerial = 0
+
+const PDF_VIEWER_PARAMS = '#toolbar=0&navpanes=0&view=FitH'
 
 function getDocumentTitle(doc: KnowledgeDocument) {
   return doc.original_filename || doc.filename
@@ -81,6 +83,7 @@ function resetFileState() {
   fileError.value = ''
   downloadError.value = ''
   fileBlob.value = null
+  previewMimeType.value = ''
   originalText.value = ''
 }
 
@@ -128,28 +131,20 @@ const renderedLabel = computed(() => {
   }
 })
 
-const canLoadOriginal = computed(() => ['pdf', 'markdown', 'text'].includes(previewKind.value))
+const canLoadRenderedPreview = computed(() => ['pdf', 'word', 'presentation'].includes(previewKind.value))
+const canLoadOriginalText = computed(() => ['markdown', 'text'].includes(previewKind.value))
+const hasOfficeFallback = computed(() => ['word', 'presentation'].includes(previewKind.value))
 const isBusy = computed(() => props.loading || fileLoading.value)
 const blockingError = computed(() => props.error || (previewKind.value === 'pdf' ? fileError.value : ''))
-
-const renderedMarkdown = computed(() => {
-  const source = originalText.value || props.detail?.content || ''
-  const rawHtml = marked.parse(source, {
-    async: false,
-    breaks: true,
-    gfm: true,
-  }) as string
-
-  return DOMPurify.sanitize(rawHtml, {
-    USE_PROFILES: { html: true },
-    ADD_ATTR: ['target', 'rel'],
-  })
+const previewFrameSrc = computed(() => {
+  if (!objectUrl.value) {
+    return ''
+  }
+  const isPdfPreview = previewKind.value === 'pdf' || previewMimeType.value.toLowerCase().includes('application/pdf')
+  return isPdfPreview ? `${objectUrl.value}${PDF_VIEWER_PARAMS}` : objectUrl.value
 })
 
-const plainTextParagraphs = computed(() => {
-  const source = originalText.value || props.detail?.content || ''
-  return source.split(/\n{2,}/).map((item) => item.trim()).filter(Boolean)
-})
+const plainTextContent = computed(() => originalText.value || props.detail?.content || '')
 
 function splitDisplayLines(content: string) {
   return content.split(/\r?\n/).map((line) => line.trim()).filter(Boolean)
@@ -180,8 +175,36 @@ function createObjectUrl(blob: Blob) {
   objectUrl.value = URL.createObjectURL(blob)
 }
 
-async function loadOriginalFile() {
-  if (!canLoadOriginal.value) {
+async function loadRenderedPreview() {
+  if (!canLoadRenderedPreview.value) {
+    return
+  }
+
+  const serial = ++loadSerial
+  fileLoading.value = true
+  fileError.value = ''
+
+  try {
+    const response = await knowledgeApi.previewBlob(props.document.id)
+    if (serial !== loadSerial) {
+      return
+    }
+    previewMimeType.value = response.data.type || ''
+    createObjectUrl(response.data)
+  } catch (error) {
+    if (serial !== loadSerial) {
+      return
+    }
+    fileError.value = error instanceof Error ? error.message : '预览加载失败'
+  } finally {
+    if (serial === loadSerial) {
+      fileLoading.value = false
+    }
+  }
+}
+
+async function loadOriginalText() {
+  if (!canLoadOriginalText.value) {
     return
   }
 
@@ -195,11 +218,7 @@ async function loadOriginalFile() {
       return
     }
     fileBlob.value = response.data
-    if (previewKind.value === 'pdf') {
-      createObjectUrl(response.data)
-    } else {
-      originalText.value = await response.data.text()
-    }
+    originalText.value = await response.data.text()
   } catch (error) {
     if (serial !== loadSerial) {
       return
@@ -242,7 +261,11 @@ watch(
   () => {
     activeTab.value = 'rendered'
     resetFileState()
-    void loadOriginalFile()
+    if (canLoadRenderedPreview.value) {
+      void loadRenderedPreview()
+    } else if (canLoadOriginalText.value) {
+      void loadOriginalText()
+    }
   },
   { immediate: true },
 )
@@ -325,23 +348,21 @@ onBeforeUnmount(() => {
 
       <template v-else-if="activeTab === 'rendered'">
         <iframe
-          v-if="previewKind === 'pdf' && objectUrl"
-          class="knowledge-preview__pdf"
-          :src="objectUrl"
+          v-if="canLoadRenderedPreview && previewFrameSrc"
+          class="knowledge-preview__frame"
+          :src="previewFrameSrc"
           :title="title"
         />
 
-        <!-- eslint-disable vue/no-v-html -->
-        <article
+        <MarkdownRenderer
           v-else-if="previewKind === 'markdown'"
-          class="markdown-body knowledge-preview__markdown"
-          v-html="renderedMarkdown"
+          class="knowledge-preview__markdown"
+          :content="plainTextContent"
         />
-        <!-- eslint-enable vue/no-v-html -->
 
         <article v-else-if="previewKind === 'text'" class="knowledge-preview__text">
-          <p v-for="(paragraph, index) in plainTextParagraphs" :key="index">{{ paragraph }}</p>
-          <p v-if="!plainTextParagraphs.length" class="knowledge-preview__empty">暂无可预览内容</p>
+          <pre v-if="plainTextContent">{{ plainTextContent }}</pre>
+          <p v-else class="knowledge-preview__empty">暂无可预览内容</p>
         </article>
 
         <div v-else-if="previewKind === 'presentation'" class="knowledge-preview__slides">
@@ -383,7 +404,10 @@ onBeforeUnmount(() => {
 
       <p v-else class="knowledge-preview__empty">暂无可预览内容</p>
 
-      <p v-if="fileError && activeTab === 'rendered' && previewKind !== 'pdf'" class="knowledge-preview__warning">
+      <p v-if="fileError && activeTab === 'rendered' && hasOfficeFallback" class="knowledge-preview__warning">
+        Office 原样预览不可用，当前使用解析后的文本预览。
+      </p>
+      <p v-else-if="fileError && activeTab === 'rendered' && previewKind !== 'pdf'" class="knowledge-preview__warning">
         原文件读取失败，当前使用解析后的内容预览。
       </p>
       <p v-if="downloadError" class="knowledge-preview__error knowledge-preview__download-error">{{ downloadError }}</p>
@@ -404,11 +428,12 @@ onBeforeUnmount(() => {
 }
 
 .knowledge-preview.is-page {
-  min-height: calc(100vh - 9rem);
-  max-height: none;
+  height: 100%;
+  min-height: 0;
+  max-height: 100%;
   width: 100%;
   border: 1px solid var(--color-border);
-  overflow: visible;
+  overflow: hidden;
   box-shadow: none;
 }
 
@@ -515,8 +540,8 @@ onBeforeUnmount(() => {
 }
 
 .knowledge-preview.is-page .knowledge-preview__body {
-  flex: none;
-  overflow: visible;
+  flex: 1;
+  overflow: auto;
 }
 
 .knowledge-preview__state,
@@ -547,7 +572,7 @@ onBeforeUnmount(() => {
   margin-top: 12px;
 }
 
-.knowledge-preview__pdf {
+.knowledge-preview__frame {
   height: min(72vh, 760px);
   width: 100%;
   border: 1px solid var(--color-border);
@@ -555,9 +580,9 @@ onBeforeUnmount(() => {
   background: var(--color-card);
 }
 
-.knowledge-preview.is-page .knowledge-preview__pdf {
+.knowledge-preview.is-page .knowledge-preview__frame {
   min-height: 560px;
-  height: calc(100vh - 15rem);
+  height: 100%;
 }
 
 .knowledge-preview__markdown,
@@ -571,12 +596,14 @@ onBeforeUnmount(() => {
   padding: clamp(20px, 4vw, 48px);
 }
 
-.knowledge-preview__text p {
-  margin: 0 0 0.9em;
+.knowledge-preview__text pre {
+  margin: 0;
   color: var(--color-text);
+  font-family: var(--font-mono);
   font-size: 15px;
   line-height: 1.8;
   white-space: pre-wrap;
+  word-break: break-word;
 }
 
 .knowledge-preview__pages {

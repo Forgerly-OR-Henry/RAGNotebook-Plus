@@ -150,8 +150,8 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <div class="mx-auto max-w-6xl">
-    <div v-if="!document && loading" class="text-sm text-[var(--color-text-secondary)]">加载中</div>
+  <div class="mx-auto flex h-[calc(100vh-7rem)] max-w-6xl flex-col overflow-hidden">
+    <div v-if="!document && loading" class="flex min-h-0 flex-1 items-center justify-center text-sm text-[var(--color-text-secondary)]">加载中</div>
     <p v-else-if="!document" class="text-sm text-[var(--color-danger)]">{{ errorMessage }}</p>
     <template v-else>
       <div class="shrink-0 px-2 pb-6">
@@ -187,6 +187,7 @@ onBeforeUnmount(() => {
       </div>
 
       <KnowledgeDocumentPreview
+        class="min-h-0 flex-1"
         :document="document"
         :detail="detail"
         :loading="loading"

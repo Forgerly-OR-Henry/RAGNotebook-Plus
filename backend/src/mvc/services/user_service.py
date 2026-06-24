@@ -118,10 +118,25 @@ class UserService:
         existing = await self.repository.get_by_uuid(user_id)
         if not existing:
             raise HTTPException(status_code=400, detail="用户不存在")
-        if req.telephone and await self.repository.telephone_exists(req.telephone, exclude_user_id=user_id):
+        update_data = req.model_dump(exclude_unset=True)
+
+        if "email" in update_data and update_data["email"]:
+            email = str(update_data["email"]).strip()
+            if await self.repository.email_exists(email, exclude_user_id=user_id):
+                raise HTTPException(status_code=400, detail={"email": "该邮箱已被注册"})
+            update_data["email"] = email
+
+        if "telephone" in update_data and update_data["telephone"]:
+            update_data["telephone"] = str(update_data["telephone"]).strip()
+        telephone = update_data.get("telephone")
+        if telephone and await self.repository.telephone_exists(str(telephone), exclude_user_id=user_id):
             raise HTTPException(status_code=400, detail={"telephone": "该电话号码已被注册"})
 
-        user = await self.repository.update_user(user_id, req.model_dump(exclude_unset=True)) or existing
+        if "gender" in update_data:
+            gender = str(update_data["gender"] or "").strip()
+            update_data["gender"] = gender or None
+
+        user = await self.repository.update_user(user_id, update_data) or existing
         await blacklist_token(token)
         await delete_cache(f"user:{user_id}")
         new_token, _ = generate_token(user.uuid, user.username, user.email)

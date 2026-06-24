@@ -12,14 +12,15 @@ import { authApi } from '../api/auth'
 import { useUserStore } from '../stores/useUserStore'
 import type { UserInfo } from '../types/api'
 
-type GenderValue = 1 | 2 | ''
-
 interface ProfileForm {
   username: string
   email: string
   phone: string
   gender: string
+  genderOption: string
+  genderCustom: string
   bio: string
+  avatar: string
 }
 
 const userStore = useUserStore()
@@ -34,8 +35,14 @@ const form = ref<ProfileForm>({
   email: '',
   phone: '',
   gender: '',
+  genderOption: '',
+  genderCustom: '',
   bio: '',
+  avatar: '',
 })
+const avatarInput = ref<HTMLInputElement | null>(null)
+const avatarUploading = ref(false)
+const avatarLoadFailed = ref(false)
 
 const pwdOpen = ref(false)
 const pwdLoading = ref(false)
@@ -67,23 +74,59 @@ const avatarText = computed(() => {
   return name ? name[0].toUpperCase() : 'U'
 })
 
+const avatarUrl = computed(() => {
+  if (avatarLoadFailed.value) return ''
+  return form.value.avatar.trim()
+})
+
+function getErrorMessage(err: unknown, fallback: string) {
+  const detail = (err as { response?: { data?: { detail?: string | { [key: string]: string } } } })?.response?.data?.detail
+  if (typeof detail === 'string') return detail
+  if (detail && typeof detail === 'object') {
+    const first = Object.values(detail)[0]
+    if (typeof first === 'string') return first
+  }
+  return fallback
+}
+
+function normalizeGender(value: UserInfo['gender']) {
+  if (value === 1 || value === '1') return 'male'
+  if (value === 2 || value === '2') return 'female'
+  if (typeof value !== 'string') return ''
+
+  const normalized = value.trim()
+  if (normalized === '男') return 'male'
+  if (normalized === '女') return 'female'
+  return normalized
+}
+
+function genderOptionFor(value: string) {
+  if (value === 'male' || value === 'female') return value
+  return value ? 'custom' : ''
+}
+
 function syncForm(payload: UserInfo | null) {
   if (!payload) {
     return
   }
+  const gender = normalizeGender(payload.gender)
+  avatarLoadFailed.value = false
   form.value = {
     username: payload.username || '',
     email: payload.email || '',
     phone: payload.phone || payload.telephone || '',
-    gender: payload.gender ? String(payload.gender) : '',
+    gender,
+    genderOption: genderOptionFor(gender),
+    genderCustom: genderOptionFor(gender) === 'custom' ? gender : '',
     bio: payload.bio || '',
+    avatar: payload.avatar || '',
   }
 }
 
 function genderText(value: string) {
-  if (value === '1') return '男'
-  if (value === '2') return '女'
-  return '-'
+  if (value === 'male') return '男'
+  if (value === 'female') return '女'
+  return value.trim() || '-'
 }
 
 async function loadProfile() {
@@ -117,14 +160,27 @@ async function saveProfile() {
     setMessage('用户名不能为空', 'error')
     return
   }
+  if (!form.value.email.trim()) {
+    setMessage('邮箱不能为空', 'error')
+    return
+  }
+  if (form.value.genderOption === 'custom' && !form.value.genderCustom.trim()) {
+    setMessage('请填写自定义性别', 'error')
+    return
+  }
 
   saving.value = true
   try {
+    const gender = form.value.genderOption === 'custom'
+      ? form.value.genderCustom.trim()
+      : form.value.genderOption
     const payload: Record<string, unknown> = {
       username: form.value.username.trim() || undefined,
+      email: form.value.email.trim(),
       telephone: form.value.phone.trim() || undefined,
-      gender: form.value.gender ? (Number(form.value.gender) as GenderValue | number) : undefined,
+      gender: gender || undefined,
       bio: form.value.bio.trim() || undefined,
+      avatar: form.value.avatar.trim() || undefined,
     }
     const res = await authApi.updateProfile(payload)
     const next = res.user
@@ -138,10 +194,57 @@ async function saveProfile() {
     }
     editing.value = false
     setMessage('账号资料更新成功')
-  } catch {
-    setMessage('保存失败，请稍后重试', 'error')
+  } catch (err: unknown) {
+    setMessage(getErrorMessage(err, '保存失败，请稍后重试'), 'error')
   } finally {
     saving.value = false
+  }
+}
+
+function openAvatarPicker() {
+  if (!editing.value || avatarUploading.value) return
+  avatarInput.value?.click()
+}
+
+function handleAvatarError() {
+  avatarLoadFailed.value = true
+}
+
+async function handleAvatarChange(event: Event) {
+  const input = event.target as HTMLInputElement
+  const file = input.files?.[0]
+  input.value = ''
+  if (!file) return
+
+  if (!file.type.startsWith('image/')) {
+    setMessage('请选择图片文件', 'error')
+    return
+  }
+  if (file.size > 5 * 1024 * 1024) {
+    setMessage('头像图片不能超过 5MB', 'error')
+    return
+  }
+
+  avatarUploading.value = true
+  try {
+    const res = await authApi.uploadAvatar(file)
+    const nextAvatar = res.data.url
+    if (!nextAvatar) {
+      throw new Error('missing avatar url')
+    }
+    form.value.avatar = nextAvatar
+    avatarLoadFailed.value = false
+    if (profile.value) {
+      profile.value = { ...profile.value, avatar: nextAvatar }
+    }
+    if (userStore.userInfo) {
+      userStore.setUserInfo({ ...userStore.userInfo, avatar: nextAvatar })
+    }
+    setMessage('头像更新成功')
+  } catch (err: unknown) {
+    setMessage(getErrorMessage(err, '头像上传失败，请稍后重试'), 'error')
+  } finally {
+    avatarUploading.value = false
   }
 }
 
@@ -228,11 +331,11 @@ onMounted(() => {
           <button
             type="button"
             class="inline-flex items-center gap-1.5 rounded-md bg-[var(--color-accent)] px-4 py-2 text-sm text-white transition-colors hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
-            :disabled="saving"
+            :disabled="saving || avatarUploading"
             @click="saveProfile"
           >
             <Save :size="14" />
-            {{ saving ? '保存中...' : '保存' }}
+            {{ avatarUploading ? '上传中...' : saving ? '保存中...' : '保存' }}
           </button>
         </template>
       </div>
@@ -254,12 +357,36 @@ onMounted(() => {
     <template v-else>
       <div class="space-y-6 rounded-lg border border-[var(--color-border)] bg-[var(--color-card)] divide-y divide-[var(--color-divider)]">
         <div class="flex items-center gap-4 p-6">
-          <div class="relative flex h-16 w-16 items-center justify-center rounded-full bg-[var(--color-accent-bg)] text-xl font-medium text-[var(--color-accent)]">
-            <span>{{ avatarText }}</span>
-            <div v-if="editing" class="absolute inset-0 flex items-center justify-center rounded-full bg-black/30">
+          <button
+            type="button"
+            class="relative flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-full bg-[var(--color-accent-bg)] text-xl font-medium text-[var(--color-accent)] outline-none transition-opacity"
+            :class="editing ? 'cursor-pointer hover:opacity-90' : 'cursor-default'"
+            title="更换头像"
+            @click="openAvatarPicker"
+          >
+            <img
+              v-if="avatarUrl"
+              :src="avatarUrl"
+              alt="用户头像"
+              class="h-full w-full object-cover"
+              @error="handleAvatarError"
+            />
+            <span v-else>{{ avatarText }}</span>
+            <div
+              v-if="editing"
+              class="absolute inset-0 flex items-center justify-center rounded-full bg-black/35 text-white"
+              :class="{ 'animate-pulse': avatarUploading }"
+            >
               <Camera :size="16" />
             </div>
-          </div>
+          </button>
+          <input
+            ref="avatarInput"
+            type="file"
+            accept="image/*"
+            class="hidden"
+            @change="handleAvatarChange"
+          />
           <div>
             <p class="text-sm font-medium text-[var(--color-text)]">{{ form.username || '-' }}</p>
             <p class="text-xs text-[var(--color-text-secondary)]">{{ form.email || '-' }}</p>
@@ -279,7 +406,13 @@ onMounted(() => {
 
         <div class="flex items-center justify-between px-6 py-4 text-sm">
           <span class="text-[var(--color-text-secondary)]">邮箱</span>
-          <span class="text-[var(--color-text)]">{{ form.email || '-' }}</span>
+          <input
+            v-if="editing"
+            v-model="form.email"
+            type="email"
+            class="w-56 rounded-md border border-[var(--color-border)] bg-transparent px-3 py-1.5 text-[var(--color-text)] outline-none"
+          />
+          <span v-else class="text-[var(--color-text)]">{{ form.email || '-' }}</span>
         </div>
 
         <div class="flex items-center justify-between px-6 py-4 text-sm">
@@ -295,15 +428,27 @@ onMounted(() => {
 
         <div class="flex items-center justify-between px-6 py-4 text-sm">
           <span class="text-[var(--color-text-secondary)]">性别</span>
-          <div v-if="editing" class="flex gap-4">
+          <div v-if="editing" class="flex max-w-md flex-wrap items-center justify-end gap-3">
             <label class="flex items-center gap-1.5 cursor-pointer">
-              <input v-model="form.gender" type="radio" value="1" />
+              <input v-model="form.genderOption" type="radio" value="male" />
               <span class="text-[var(--color-text)]">男</span>
             </label>
             <label class="flex items-center gap-1.5 cursor-pointer">
-              <input v-model="form.gender" type="radio" value="2" />
+              <input v-model="form.genderOption" type="radio" value="female" />
               <span class="text-[var(--color-text)]">女</span>
             </label>
+            <label class="flex items-center gap-1.5 cursor-pointer">
+              <input v-model="form.genderOption" type="radio" value="custom" />
+              <span class="text-[var(--color-text)]">自定义</span>
+            </label>
+            <input
+              v-if="form.genderOption === 'custom'"
+              v-model="form.genderCustom"
+              type="text"
+              maxlength="50"
+              placeholder="填写性别"
+              class="h-9 w-32 rounded-md border border-[var(--color-border)] bg-transparent px-3 text-[var(--color-text)] outline-none"
+            />
           </div>
           <span v-else class="text-[var(--color-text)]">{{ genderText(form.gender) }}</span>
         </div>

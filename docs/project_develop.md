@@ -17,7 +17,7 @@
 | 数据库 | PostgreSQL 承载用户、笔记、模板、会话、测评、导图和运行态数据 |
 | 向量库 | pgvector 统一存储知识库切片和笔记向量 |
 | 数据库初始化 | 后端启动只支持新库/空库，自动创建当前表结构和 pgvector 索引表 |
-| 前端 | Vue3 + TypeScript + Vite + Pinia |
+| 前端 | Vue 3 + TypeScript + Vite + Pinia |
 | 启动 | 根目录 `start.py` 统一读取 `config/.env` 并注入给数据库、后端和前端；后端/前端也支持按各自目录单独启动 |
 | 配置 | 统一启动用 `config/.env`；后端单启用 `backend/.env`；前端单启用 `front/.env`；真实模型 API Key 放在 `config/apikey.txt` |
 | API | 静态 `backend/openapi.json` 与运行时 `/docs` 同步 |

@@ -14,6 +14,7 @@ from mvc.agent_gateway import note_ai_gateway
 from mvc.models.document import Document
 from mvc.models.knowledge_document import KnowledgeDocument
 from mvc.models.knowledge_folder import KnowledgeFolder, KnowledgeFolderAssignment
+from mvc.models.project import ProjectSource
 from mvc.models.storage_object import StorageObject
 from mvc.schemas import (
     KnowledgeBatchCategoryRequest,
@@ -24,6 +25,7 @@ from mvc.schemas import (
     KnowledgeFolderTreeResponse,
     KnowledgeFolderUpdate,
 )
+from mvc.services.document_preview_service import DocumentPreviewService, RenderedDocumentPreview
 from mvc.services.knowledge_ingestion_service import KnowledgeIngestionService
 from mvc.services.storage_service import StorageService, get_storage_service
 
@@ -38,9 +40,11 @@ class KnowledgeService:
         ingestion_service: KnowledgeIngestionService | None = None,
         index_repository: IndexRepository | None = None,
         storage_service: StorageService | None = None,
+        preview_service: DocumentPreviewService | None = None,
     ):
         self.storage_service = storage_service or get_storage_service()
         self.index_repository = index_repository or IndexRepository()
+        self.preview_service = preview_service or DocumentPreviewService()
         self.ingestion_service = ingestion_service or KnowledgeIngestionService(
             index_repository=self.index_repository,
             storage_service=self.storage_service,
@@ -105,7 +109,7 @@ class KnowledgeService:
         if category:
             stmt = stmt.where(KnowledgeDocument.category == category)
 
-        result = await db.execute(stmt.order_by(Document.created_at.desc()))
+        result = await db.execute(stmt.order_by(KnowledgeDocument.is_pinned.desc(), Document.created_at.desc()))
         documents: list[dict] = []
         for knowledge_document, document, storage_object, assignment_folder_id in result.all():
             payload = self._document_to_dict(knowledge_document, document, storage_object)
@@ -425,6 +429,21 @@ class KnowledgeService:
         data["folder_id"] = folder_id
         return data
 
+    async def toggle_document_pin(self, db: AsyncSession, user_id: str, document_id: str) -> dict | None:
+        row = await self._get_document_row(db, user_id, document_id)
+        if not row:
+            return None
+        document, storage_object, knowledge_document = row
+
+        knowledge_document.is_pinned = not bool(knowledge_document.is_pinned)
+        await db.commit()
+        await db.refresh(knowledge_document)
+
+        folder_id = await self._get_knowledge_folder_id(db, user_id, knowledge_document.id)
+        data = self._document_to_dict(knowledge_document, document, storage_object)
+        data["folder_id"] = folder_id
+        return data
+
     async def get_document_detail(self, db: AsyncSession, user_id: str, document_id: str) -> dict | None:
         row = await self._get_document_row(db, user_id, document_id)
         if not row:
@@ -449,6 +468,21 @@ class KnowledgeService:
         content = await self.storage_service.read_object_bytes(storage_object)
         return document, storage_object, content
 
+    async def get_document_preview(self, db: AsyncSession, user_id: str, document_id: str) -> tuple[Document, StorageObject, RenderedDocumentPreview] | None:
+        row = await self._get_document_row(db, user_id, document_id)
+        if not row:
+            return None
+        document, storage_object, _ = row
+        content = await self.storage_service.read_object_bytes(storage_object)
+        preview = await self.preview_service.render(
+            filename=storage_object.original_filename or document.title,
+            file_ext=document.file_ext or storage_object.file_ext,
+            mime_type=document.mime_type or storage_object.mime_type,
+            content=content,
+            content_hash=document.content_hash or storage_object.checksum_sha256,
+        )
+        return document, storage_object, preview
+
     async def get_document_chunks(self, db: AsyncSession, user_id: str, document_id: str) -> dict | None:
         row = await self._get_document_row(db, user_id, document_id)
         if not row:
@@ -468,17 +502,24 @@ class KnowledgeService:
             return False
         document, storage_object, knowledge_document = row
 
-        await self.index_repository.delete_source(user_id=user_id, source_type="knowledge", source_id=document_id)
-        await db.execute(delete(KnowledgeFolderAssignment).where(KnowledgeFolderAssignment.knowledge_id == knowledge_document.id))
+        try:
+            await self.index_repository.delete_source(user_id=user_id, source_type="knowledge", source_id=document_id)
+        except Exception as exc:
+            logger.error(f"删除知识库索引失败 document_id={document_id}: {exc}")
+
+        await self._delete_document_metadata(
+            db=db,
+            user_id=user_id,
+            document_id=document.id,
+            knowledge_id=knowledge_document.id,
+            storage_object_id=storage_object.id,
+        )
+        await db.commit()
+
         try:
             await self.storage_service.delete_storage_object_data(storage_object)
         except Exception as exc:
             logger.error(f"删除知识库文件失败 document_id={document_id}: {exc}")
-
-        await db.delete(document)
-        await db.delete(storage_object)
-        await db.delete(knowledge_document)
-        await db.commit()
         return True
 
     async def clean_user_documents(self, db: AsyncSession, user_id: str) -> None:
@@ -490,18 +531,65 @@ class KnowledgeService:
         )
 
         rows = result.all()
+        storage_objects: list[StorageObject] = []
         for document, storage_object, knowledge_document_id in rows:
-            await self.index_repository.delete_source(user_id=user_id, source_type="knowledge", source_id=document.id)
-            await db.execute(delete(KnowledgeFolderAssignment).where(KnowledgeFolderAssignment.knowledge_id == knowledge_document_id))
+            try:
+                await self.index_repository.delete_source(user_id=user_id, source_type="knowledge", source_id=document.id)
+            except Exception as exc:
+                logger.error(f"删除知识库索引失败 document_id={document.id}: {exc}")
+
+            await self._delete_document_metadata(
+                db=db,
+                user_id=user_id,
+                document_id=document.id,
+                knowledge_id=knowledge_document_id,
+                storage_object_id=storage_object.id,
+            )
+            storage_objects.append(storage_object)
+
+        await db.commit()
+
+        for storage_object in storage_objects:
             try:
                 await self.storage_service.delete_storage_object_data(storage_object)
             except Exception as exc:
-                logger.error(f"删除知识库文件失败 document_id={document.id}: {exc}")
-            await db.delete(document)
-            await db.delete(storage_object)
-            await db.execute(delete(KnowledgeDocument).where(KnowledgeDocument.id == knowledge_document_id))
+                logger.error(f"删除知识库文件失败 storage_object_id={storage_object.id}: {exc}")
 
-        await db.commit()
+    async def _delete_document_metadata(
+        self,
+        *,
+        db: AsyncSession,
+        user_id: str,
+        document_id: str,
+        knowledge_id: str,
+        storage_object_id: str,
+    ) -> None:
+        await db.execute(
+            delete(KnowledgeFolderAssignment).where(KnowledgeFolderAssignment.knowledge_id == knowledge_id)
+        )
+        await db.execute(
+            delete(ProjectSource).where(
+                ProjectSource.user_id == user_id,
+                ProjectSource.source_type == "knowledge",
+                ProjectSource.source_id == document_id,
+            )
+        )
+        await db.execute(
+            delete(KnowledgeDocument).where(
+                KnowledgeDocument.id == knowledge_id,
+                KnowledgeDocument.user_id == user_id,
+                KnowledgeDocument.document_id == document_id,
+            )
+        )
+        await db.execute(
+            delete(Document).where(
+                Document.id == document_id,
+                Document.user_id == user_id,
+                Document.source_type == "knowledge",
+            )
+        )
+        await db.execute(delete(StorageObject).where(StorageObject.id == storage_object_id))
+
     async def _get_document_row(self, db: AsyncSession, user_id: str, document_id: str):
         result = await db.execute(
             select(Document, StorageObject, KnowledgeDocument)
@@ -659,6 +747,7 @@ class KnowledgeService:
             "mime_type": document.mime_type,
             "category": knowledge_document.category,
             "tags": knowledge_document.tags if knowledge_document.tags else None,
+            "is_pinned": bool(knowledge_document.is_pinned),
             "status": document.status,
             "status_message": document.status_message,
             "chunk_count": document.chunk_count,

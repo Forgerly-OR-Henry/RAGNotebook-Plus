@@ -26,8 +26,8 @@ const navItems = [
   { path: '/notes', label: '笔记', icon: FileText },
   { path: '/knowledge', label: '知识库', icon: Library },
   { path: '/chat', label: 'AI 问答', icon: MessageSquare },
-  { path: '/quick-test', label: '快速测试', icon: BookOpenCheck },
   { path: '/mindmap', label: '思维导图', icon: Map },
+  { path: '/quick-test', label: '快速测试', icon: BookOpenCheck },
 ]
 
 const bottomItems = [
@@ -85,14 +85,18 @@ async function logout() {
 <template>
   <div class="theme-transition min-h-screen bg-[var(--color-bg)] text-[var(--color-text)]">
     <aside
-      class="fixed inset-y-0 left-0 z-20 flex flex-col border-r border-[var(--color-border)] bg-[var(--color-card)] transition-all"
-      :class="collapsed ? 'w-16' : 'w-60'"
+      class="app-shell__sidebar fixed inset-y-0 left-0 z-20 flex flex-col border-r border-[var(--color-border)] bg-[var(--color-card)]"
+      :class="{ 'is-collapsed': collapsed }"
     >
-      <div class="flex h-16 items-center justify-between px-4">
-        <span v-if="!collapsed" class="font-heading text-lg font-semibold">云笺集</span>
+      <div class="app-shell__brand-row flex h-16 items-center px-4">
+        <span class="app-shell__brand-clip">
+          <span class="app-shell__brand-text font-heading text-lg font-semibold">云笺集</span>
+        </span>
         <button
-          class="rounded-md p-1.5 text-[var(--color-text-secondary)] transition-colors hover:bg-[var(--color-bg-secondary)]"
+          class="app-shell__collapse-button rounded-md p-1.5 text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-secondary)]"
           :title="collapsed ? '展开侧栏' : '收起侧栏'"
+          :aria-expanded="!collapsed"
+          aria-label="切换侧栏"
           @click="collapsed = !collapsed"
         >
           <Columns2 :size="18" class="transition-transform duration-300" :class="{ 'rotate-180': collapsed }" />
@@ -104,11 +108,16 @@ async function logout() {
           v-for="item in navItems"
           :key="item.path"
           :to="item.path"
-          class="flex items-center gap-3 rounded-md px-3 py-2.5 text-sm text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-secondary)] hover:text-[var(--color-text)]"
-          :class="{ 'bg-[var(--color-accent-bg)] text-[var(--color-accent)]': route.path.startsWith(item.path), 'justify-center': collapsed }"
+          class="app-shell__nav-link flex items-center rounded-md px-3 py-2.5 text-sm text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-secondary)] hover:text-[var(--color-text)]"
+          :class="{ 'is-active': route.path.startsWith(item.path) }"
+          :title="collapsed ? item.label : undefined"
         >
-          <component :is="item.icon" :size="18" />
-          <span v-if="!collapsed">{{ item.label }}</span>
+          <span class="app-shell__nav-icon">
+            <component :is="item.icon" :size="18" />
+          </span>
+          <span class="app-shell__label-clip">
+            <span class="app-shell__nav-label">{{ item.label }}</span>
+          </span>
         </RouterLink>
       </nav>
 
@@ -117,24 +126,33 @@ async function logout() {
           v-for="item in bottomItems"
           :key="item.path"
           :to="item.path"
-          class="flex items-center gap-3 rounded-md px-3 py-2.5 text-sm text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-secondary)] hover:text-[var(--color-text)]"
-          :class="{ 'bg-[var(--color-accent-bg)] text-[var(--color-accent)]': route.path.startsWith(item.path), 'justify-center': collapsed }"
+          class="app-shell__nav-link flex items-center rounded-md px-3 py-2.5 text-sm text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-secondary)] hover:text-[var(--color-text)]"
+          :class="{ 'is-active': route.path.startsWith(item.path) }"
+          :title="collapsed ? item.label : undefined"
         >
-          <component :is="item.icon" :size="18" />
-          <span v-if="!collapsed">{{ item.label }}</span>
+          <span class="app-shell__nav-icon">
+            <component :is="item.icon" :size="18" />
+          </span>
+          <span class="app-shell__label-clip">
+            <span class="app-shell__nav-label">{{ item.label }}</span>
+          </span>
         </RouterLink>
         <button
-          class="flex w-full items-center gap-3 rounded-md px-3 py-2.5 text-sm text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-secondary)] hover:text-[var(--color-danger)]"
-          :class="{ 'justify-center': collapsed }"
+          class="app-shell__nav-link app-shell__logout flex w-full items-center rounded-md px-3 py-2.5 text-sm text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-secondary)] hover:text-[var(--color-danger)]"
+          :title="collapsed ? '退出' : undefined"
           @click="logout"
         >
-          <LogOut :size="18" />
-          <span v-if="!collapsed">退出</span>
+          <span class="app-shell__nav-icon">
+            <LogOut :size="18" />
+          </span>
+          <span class="app-shell__label-clip">
+            <span class="app-shell__nav-label">退出</span>
+          </span>
         </button>
       </div>
     </aside>
 
-    <main class="theme-transition min-h-screen transition-all" :class="collapsed ? 'ml-16' : 'ml-60'">
+    <main class="app-shell__main theme-transition min-h-screen" :class="{ 'is-collapsed': collapsed }">
       <header class="sticky top-0 z-10 flex h-16 items-center justify-between border-b border-[var(--color-border)] bg-[var(--color-bg)] px-8">
         <div class="flex min-w-0 items-center gap-3">
           <button
@@ -156,3 +174,182 @@ async function logout() {
     </main>
   </div>
 </template>
+
+<style scoped>
+.app-shell__sidebar {
+  width: 15rem;
+  transition: width 420ms cubic-bezier(0.22, 1, 0.36, 1), box-shadow 260ms ease;
+  will-change: width;
+}
+
+.app-shell__sidebar.is-collapsed {
+  width: 4rem;
+}
+
+.app-shell__brand-row {
+  gap: 0.5rem;
+  justify-content: space-between;
+  overflow: hidden;
+  transition: padding 420ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.app-shell__sidebar.is-collapsed .app-shell__brand-row {
+  justify-content: center;
+  padding-left: 0.75rem;
+  padding-right: 0.75rem;
+}
+
+.app-shell__brand-clip {
+  display: block;
+  flex: 1 1 9rem;
+  max-width: 9rem;
+  min-width: 0;
+  overflow: hidden;
+  clip-path: inset(0 0 0 0);
+  transition:
+    flex-basis 420ms cubic-bezier(0.22, 1, 0.36, 1),
+    max-width 420ms cubic-bezier(0.22, 1, 0.36, 1),
+    opacity 220ms ease,
+    clip-path 420ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.app-shell__brand-text,
+.app-shell__nav-label {
+  display: block;
+  white-space: nowrap;
+  transform-origin: left center;
+  transition:
+    transform 420ms cubic-bezier(0.22, 1, 0.36, 1),
+    opacity 220ms ease,
+    filter 220ms ease;
+}
+
+.app-shell__sidebar.is-collapsed .app-shell__brand-clip {
+  flex: 0 0 0;
+  max-width: 0;
+  opacity: 0;
+  clip-path: inset(0 100% 0 0);
+}
+
+.app-shell__sidebar.is-collapsed .app-shell__brand-text {
+  opacity: 0;
+  filter: blur(0.8px);
+  transform: translate3d(-0.75rem, 70%, 0) scale(0.96);
+}
+
+.app-shell__collapse-button {
+  flex: 0 0 auto;
+  transition:
+    color 180ms ease,
+    background-color 180ms ease,
+    transform 420ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.app-shell__nav-link {
+  position: relative;
+  min-height: 2.5rem;
+  gap: 0.75rem;
+  overflow: hidden;
+  transition:
+    gap 420ms cubic-bezier(0.22, 1, 0.36, 1),
+    padding 420ms cubic-bezier(0.22, 1, 0.36, 1),
+    color 180ms ease,
+    background-color 180ms ease;
+}
+
+.app-shell__nav-link.is-active {
+  background: var(--color-accent-bg);
+  color: var(--color-accent);
+}
+
+.app-shell__nav-icon {
+  position: relative;
+  z-index: 1;
+  display: inline-flex;
+  width: 1.5rem;
+  flex: 0 0 1.5rem;
+  align-items: center;
+  justify-content: center;
+  transition:
+    width 420ms cubic-bezier(0.22, 1, 0.36, 1),
+    flex-basis 420ms cubic-bezier(0.22, 1, 0.36, 1),
+    transform 420ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.app-shell__label-clip {
+  display: block;
+  flex: 1 1 auto;
+  max-width: 8.5rem;
+  min-width: 0;
+  overflow: hidden;
+  clip-path: inset(0 0 0 0);
+  transition:
+    max-width 420ms cubic-bezier(0.22, 1, 0.36, 1),
+    opacity 220ms ease,
+    clip-path 420ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.app-shell__sidebar.is-collapsed .app-shell__nav-link {
+  gap: 0;
+  padding-left: 0.6875rem;
+  padding-right: 0.6875rem;
+}
+
+.app-shell__sidebar.is-collapsed .app-shell__nav-icon {
+  width: 1.125rem;
+  flex-basis: 1.125rem;
+}
+
+.app-shell__sidebar.is-collapsed .app-shell__label-clip {
+  flex: 0 1 0;
+  max-width: 0;
+  opacity: 0;
+  clip-path: inset(0 100% 0 0);
+}
+
+.app-shell__sidebar.is-collapsed .app-shell__nav-label {
+  opacity: 0;
+  filter: blur(0.7px);
+  transform: translate3d(-0.875rem, 0.875rem, 0) scale(0.94);
+}
+
+.app-shell__logout {
+  justify-content: flex-start;
+  text-align: left;
+}
+
+.app-shell__logout .app-shell__label-clip {
+  flex: 0 1 auto;
+  max-width: none;
+}
+
+.app-shell__main {
+  margin-left: 15rem;
+  transition: margin-left 420ms cubic-bezier(0.22, 1, 0.36, 1);
+  will-change: margin-left;
+}
+
+.app-shell__main.is-collapsed {
+  margin-left: 4rem;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .app-shell__sidebar,
+  .app-shell__brand-row,
+  .app-shell__brand-clip,
+  .app-shell__brand-text,
+  .app-shell__collapse-button,
+  .app-shell__nav-link,
+  .app-shell__nav-icon,
+  .app-shell__label-clip,
+  .app-shell__nav-label,
+  .app-shell__main {
+    transition-duration: 0.01ms !important;
+  }
+
+  .app-shell__sidebar.is-collapsed .app-shell__brand-text,
+  .app-shell__sidebar.is-collapsed .app-shell__nav-label {
+    filter: none;
+  }
+}
+</style>

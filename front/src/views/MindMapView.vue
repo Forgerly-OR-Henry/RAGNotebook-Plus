@@ -1,24 +1,25 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
-import { ArrowLeft, Brain, Database, FileText, Loader2, Search, Sparkles } from '@lucide/vue'
+import { ArrowLeft, Brain, Check, ChevronRight, Database, FileText, Folder, Loader2, Search, Sparkles } from '@lucide/vue'
 import { knowledgeApi } from '../api/knowledge'
 import { mindmapApi } from '../api/mindmaps'
 import { notesApi } from '../api/notes'
 import MindMapCanvas from '../components/MindMapCanvas.vue'
-import type { KnowledgeDocument, MindMapResponse, MindMapSourceType, Note } from '../types/api'
+import { buildFolderTreeRows, type FolderTreeFile } from '../features/sources/folderTree'
+import type { KnowledgeDocument, KnowledgeFolder, MindMapResponse, MindMapSourceType, Note, NoteFolder } from '../types/api'
 
 type Step = 'selection' | 'generating' | 'canvas'
 
-interface SourceOption {
-  id: string
-  title: string
-  subtitle: string
-}
-
 const notes = ref<Note[]>([])
 const docs = ref<KnowledgeDocument[]>([])
+const noteFolders = ref<NoteFolder[]>([])
+const knowledgeFolders = ref<KnowledgeFolder[]>([])
 const sourceType = ref<MindMapSourceType>('note')
 const selectedSourceIds = ref<Set<string>>(new Set())
+const collapsedFolderKeys = ref<Record<MindMapSourceType, Set<string>>>({
+  note: new Set(),
+  knowledge: new Set(),
+})
 const focus = ref('')
 const searchQuery = ref('')
 const mindmap = ref<MindMapResponse | null>(null)
@@ -28,37 +29,48 @@ const errorMessage = ref('')
 const generatingMessage = ref('正在读取内容...')
 let generatingTimer: number | undefined
 
-const sourceOptions = computed<SourceOption[]>(() => {
+const sourceFiles = computed<FolderTreeFile[]>(() => {
   if (sourceType.value === 'note') {
     return notes.value
       .filter((note) => note.id)
       .map((note) => ({
         id: note.id,
+        folderId: note.folder_id,
         title: note.title || '无标题',
         subtitle: `${note.category || '未分类'} · ${formatDate(note.updated_at || note.created_at)}`,
+        searchText: [note.title, note.category, ...(note.tags || [])].filter(Boolean).join(' '),
       }))
   }
 
   return docs.value
-    .map((doc) => ({
-      id: doc.id || doc.document_id || '',
-      title: doc.original_filename || doc.title || doc.filename || '未命名文档',
-      subtitle: `${doc.status || 'ready'} · ${doc.chunk_count || 0} 个片段`,
-    }))
+    .map((doc) => {
+      const title = doc.original_filename || doc.title || doc.filename || '未命名文档'
+      return {
+        id: doc.id || doc.document_id || '',
+        folderId: doc.folder_id,
+        title,
+        subtitle: `${doc.status || 'ready'} · ${doc.chunk_count || 0} 个片段`,
+        searchText: [title, doc.status, doc.category, ...(doc.tags || [])].filter(Boolean).join(' '),
+      }
+    })
     .filter((item) => item.id)
 })
 
-const filteredSources = computed(() => {
-  const keyword = searchQuery.value.trim().toLowerCase()
-  if (!keyword) return sourceOptions.value
-  return sourceOptions.value.filter((item) => (
-    item.title.toLowerCase().includes(keyword)
-    || item.subtitle.toLowerCase().includes(keyword)
-  ))
-})
+const sourceRows = computed(() => buildFolderTreeRows(
+  sourceType.value === 'note' ? noteFolders.value : knowledgeFolders.value,
+  sourceFiles.value,
+  sourceType.value === 'note' ? '暂无可用笔记' : '暂无可用文档',
+  searchQuery.value,
+  collapsedFolderKeys.value[sourceType.value],
+  true,
+))
+
+const visibleSourceIds = computed(() => sourceRows.value
+  .filter((item) => item.kind === 'file' && item.sourceId)
+  .map((item) => item.sourceId as string))
 
 const selectedIds = computed(() => Array.from(selectedSourceIds.value))
-const allVisibleSelected = computed(() => filteredSources.value.length > 0 && filteredSources.value.every((item) => selectedSourceIds.value.has(item.id)))
+const allVisibleSelected = computed(() => visibleSourceIds.value.length > 0 && visibleSourceIds.value.every((id) => selectedSourceIds.value.has(id)))
 
 watch(sourceType, () => {
   selectedSourceIds.value = new Set()
@@ -93,12 +105,16 @@ async function loadSources() {
   loadingSources.value = true
   errorMessage.value = ''
   try {
-    const [noteRes, docRes] = await Promise.all([
+    const [noteRes, docRes, noteFolderRes, knowledgeFolderRes] = await Promise.all([
       notesApi.list({ page: 1, page_size: 100 }),
       knowledgeApi.list(),
+      notesApi.listFolders(),
+      knowledgeApi.listFolders(),
     ])
     notes.value = noteRes.data.notes
     docs.value = docRes.data.documents
+    noteFolders.value = noteFolderRes.data.folders
+    knowledgeFolders.value = knowledgeFolderRes.data.folders
   } catch (error) {
     errorMessage.value = resolveErrorMessage(error, '来源加载失败')
   } finally {
@@ -113,12 +129,12 @@ function clearGeneratingTimer() {
   }
 }
 
-function toggleSource(id: string, checked: boolean) {
+function toggleSourceSelection(id: string) {
   const next = new Set(selectedSourceIds.value)
-  if (checked) {
-    next.add(id)
-  } else {
+  if (next.has(id)) {
     next.delete(id)
+  } else {
+    next.add(id)
   }
   selectedSourceIds.value = next
 }
@@ -126,11 +142,29 @@ function toggleSource(id: string, checked: boolean) {
 function toggleAllVisible() {
   const next = new Set(selectedSourceIds.value)
   if (allVisibleSelected.value) {
-    filteredSources.value.forEach((item) => next.delete(item.id))
+    visibleSourceIds.value.forEach((id) => next.delete(id))
   } else {
-    filteredSources.value.forEach((item) => next.add(item.id))
+    visibleSourceIds.value.forEach((id) => next.add(id))
   }
   selectedSourceIds.value = next
+}
+
+function isFolderCollapsed(key: string) {
+  if (searchQuery.value.trim()) return false
+  return !collapsedFolderKeys.value[sourceType.value].has(key)
+}
+
+function toggleFolder(key: string) {
+  const next = new Set(collapsedFolderKeys.value[sourceType.value])
+  if (next.has(key)) {
+    next.delete(key)
+  } else {
+    next.add(key)
+  }
+  collapsedFolderKeys.value = {
+    ...collapsedFolderKeys.value,
+    [sourceType.value]: next,
+  }
 }
 
 async function generate() {
@@ -225,7 +259,7 @@ function formatDate(value?: string | null) {
             class="min-w-56 flex-1 rounded-md border border-[var(--color-border)] bg-[var(--color-bg)] px-3 py-2 text-sm text-[var(--color-text)] outline-none placeholder:text-[var(--color-text-placeholder)] focus:ring-2 focus:ring-[var(--color-accent)]"
             placeholder="导图关注点"
           />
-          <button class="rounded-md border border-[var(--color-border)] px-3 py-2 text-xs text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-secondary)] hover:text-[var(--color-text)]" type="button" @click="toggleAllVisible">
+          <button class="rounded-md border border-[var(--color-border)] px-3 py-2 text-xs text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-secondary)] hover:text-[var(--color-text)] disabled:cursor-not-allowed disabled:opacity-50" type="button" :disabled="visibleSourceIds.length === 0" @click="toggleAllVisible">
             {{ allVisibleSelected ? '取消全选' : '全选当前' }}
           </button>
         </div>
@@ -235,28 +269,49 @@ function formatDate(value?: string | null) {
             <Loader2 :size="18" class="animate-spin" />
             加载中
           </div>
-          <p v-else-if="filteredSources.length === 0" class="py-12 text-center text-sm text-[var(--color-text-secondary)]">暂无可用来源</p>
           <template v-else>
-            <label
-              v-for="item in filteredSources"
-              :key="item.id"
-              class="mb-2 flex cursor-pointer items-start gap-3 rounded-md border px-3 py-3 transition-colors last:mb-0"
-              :class="selectedSourceIds.has(item.id) ? 'border-[var(--color-accent)] bg-[var(--color-accent-bg)]/60' : 'border-transparent hover:bg-[var(--color-bg-secondary)]'"
+            <div
+              v-for="row in sourceRows"
+              :key="row.key"
+              class="mb-1 last:mb-0"
             >
-              <input
-                class="mt-1"
-                type="checkbox"
-                :checked="selectedSourceIds.has(item.id)"
-                @change="toggleSource(item.id, ($event.target as HTMLInputElement).checked)"
-              />
-              <div class="min-w-0 flex-1">
-                <p class="truncate text-sm font-medium text-[var(--color-text)]">{{ item.title }}</p>
-                <p class="mt-0.5 text-xs text-[var(--color-text-tertiary)]">{{ item.subtitle }}</p>
-              </div>
-            </label>
+              <p v-if="row.kind === 'empty'" class="py-12 text-center text-sm text-[var(--color-text-secondary)]">{{ row.title }}</p>
+              <button
+                v-else-if="row.kind === 'folder'"
+                class="flex min-h-9 w-full items-center gap-2 rounded-md px-3 py-2 text-left text-sm text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-secondary)]"
+                type="button"
+                :aria-expanded="!isFolderCollapsed(row.key)"
+                :style="{ paddingLeft: `${0.75 + row.depth * 0.875}rem` }"
+                @click="toggleFolder(row.key)"
+              >
+                <ChevronRight :size="14" class="shrink-0 text-[var(--color-text-tertiary)] transition-transform" :class="{ 'rotate-90': !isFolderCollapsed(row.key) }" />
+                <Folder :size="15" class="shrink-0 text-[var(--color-text-tertiary)]" />
+                <span class="min-w-0 flex-1 truncate font-medium">{{ row.title }}</span>
+                <span class="shrink-0 text-xs text-[var(--color-text-tertiary)]">{{ row.count }}</span>
+              </button>
+              <button
+                v-else
+                class="flex min-h-12 w-full items-start gap-3 rounded-md border px-3 py-2.5 text-left transition-colors hover:bg-[var(--color-bg-secondary)]"
+                :class="row.sourceId && selectedSourceIds.has(row.sourceId) ? 'border-[var(--color-accent)] bg-[var(--color-accent-bg)]/60' : 'border-transparent'"
+                type="button"
+                :aria-pressed="row.sourceId ? selectedSourceIds.has(row.sourceId) : false"
+                :style="{ paddingLeft: `${0.75 + row.depth * 0.875}rem` }"
+                @click="row.sourceId && toggleSourceSelection(row.sourceId)"
+              >
+                <span class="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded border border-[var(--color-border)]" :class="{ 'bg-[var(--color-accent)] text-white': row.sourceId && selectedSourceIds.has(row.sourceId) }">
+                  <Check v-if="row.sourceId && selectedSourceIds.has(row.sourceId)" :size="14" />
+                </span>
+                <FileText v-if="sourceType === 'note'" :size="15" class="mt-0.5 shrink-0 text-[var(--color-text-tertiary)]" />
+                <Database v-else :size="15" class="mt-0.5 shrink-0 text-[var(--color-text-tertiary)]" />
+                <span class="min-w-0 flex-1">
+                  <span class="block truncate text-sm font-medium text-[var(--color-text)]">{{ row.title }}</span>
+                  <span v-if="row.subtitle" class="mt-0.5 block truncate text-xs text-[var(--color-text-tertiary)]">{{ row.subtitle }}</span>
+                </span>
+              </button>
+            </div>
           </template>
         </div>
-      </div>
+              </div>
 
       <p v-if="errorMessage" class="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{{ errorMessage }}</p>
 

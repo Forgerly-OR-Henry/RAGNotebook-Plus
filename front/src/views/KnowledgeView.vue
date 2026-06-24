@@ -8,6 +8,7 @@ import {
   Folder,
   FolderOpen,
   FolderPlus,
+  Pin,
   Search,
   Settings2,
   Tag,
@@ -17,6 +18,7 @@ import {
 import CategoryManageDialog from '../components/CategoryManageDialog.vue'
 import { knowledgeApi } from '../api/knowledge'
 import { readJsonPref } from '../api/localPrefs'
+import { confirmDialog } from '../composables/useAppDialog'
 import type { KnowledgeDocument, KnowledgeFolder } from '../types/api'
 
 type ApiError = {
@@ -49,6 +51,7 @@ const documents = ref<KnowledgeDocument[]>([])
 const loading = ref(false)
 const uploading = ref(false)
 const deletingId = ref('')
+const pinningId = ref('')
 const searchQuery = ref('')
 const category = ref('')
 const message = ref('')
@@ -307,6 +310,14 @@ function matchesQuery(doc: KnowledgeDocument) {
 const filteredDocuments = computed(() => documents.value.filter((doc) => matchesQuery(doc)))
 const documentCount = computed(() => filteredDocuments.value.length)
 
+function sortPinned(items: KnowledgeDocument[]) {
+  return [...items].sort((a, b) => {
+    if (a.is_pinned && !b.is_pinned) return -1
+    if (!a.is_pinned && b.is_pinned) return 1
+    return 0
+  })
+}
+
 function folderFilterParams() {
   if (activeFolderMode.value === 'folder' && activeFolderId.value) {
     const exists = folderOptions.value.some((item) => item.id === activeFolderId.value)
@@ -366,7 +377,7 @@ async function load() {
       ...folderFilterParams(),
       category: category.value || undefined,
     })
-    documents.value = res.data.documents || []
+    documents.value = sortPinned(res.data.documents || [])
   } catch (error) {
     documents.value = []
     errorMessage.value = getErrorMessage(error, '文档加载失败，请稍后重试')
@@ -472,10 +483,21 @@ async function uploadFiles(fileList: FileList | File[]) {
   uploading.value = true
   message.value = ''
   errorMessage.value = ''
-    progressMessage.value = '正在上传文件...'
-    progressValue.value = 0
+  progressMessage.value = '正在上传文件...'
+  progressValue.value = 0
   try {
-    const result = await knowledgeApi.uploadMultiple(files, currentFolderIdForUpload(), category.value || undefined)
+    const result = await knowledgeApi.uploadStream(
+      files,
+      (event) => {
+        progressValue.value = event.progress ?? progressValue.value
+        progressMessage.value = event.filename ? `${event.filename}：${event.message || ''}` : event.message || progressMessage.value
+        if (event.event_type === 'completed' || event.event_type === 'error') {
+          void refreshAll()
+        }
+      },
+      currentFolderIdForUpload(),
+      category.value || undefined,
+    )
     const finalEvent = result.finalEvent
     const successCount = finalEvent?.success_count ?? files.length
     const failedCount = finalEvent?.failed_count ?? 0
@@ -501,10 +523,30 @@ function openDocument(documentId: string) {
   void router.push(`/knowledge/${documentId}`)
 }
 
+async function togglePin(doc: KnowledgeDocument) {
+  if (pinningId.value) return
+  pinningId.value = doc.id
+  message.value = ''
+  errorMessage.value = ''
+  try {
+    const res = await knowledgeApi.pin(doc.id)
+    documents.value = sortPinned(documents.value.map((item) => (item.id === doc.id ? { ...item, is_pinned: res.data.is_pinned } : item)))
+  } catch (error) {
+    errorMessage.value = getErrorMessage(error, '置顶失败')
+  } finally {
+    pinningId.value = ''
+  }
+}
+
 async function deleteDocument(doc: KnowledgeDocument) {
   if (deletingId.value) return
   const filename = getDocumentTitle(doc)
-  const confirmed = window.confirm(`确认删除「${filename}」？删除后会从知识库检索中移除。`)
+  const confirmed = await confirmDialog({
+    title: '删除文档',
+    message: `确认删除「${filename}」？删除后会从知识库检索中移除。`,
+    confirmText: '删除',
+    variant: 'danger',
+  })
   if (!confirmed) return
 
   deletingId.value = doc.id
@@ -512,6 +554,7 @@ async function deleteDocument(doc: KnowledgeDocument) {
   errorMessage.value = ''
   try {
     await knowledgeApi.delete(doc.id)
+    documents.value = documents.value.filter((item) => item.id !== doc.id)
     await refreshAll()
   } catch (error) {
     errorMessage.value = getErrorMessage(error, '删除文档失败，请稍后重试')
@@ -699,6 +742,15 @@ watch(extraCategories, () => {
                 <div class="mb-1 flex items-start justify-between gap-3">
                   <h3 class="truncate text-sm font-medium text-[var(--color-text)]">{{ getDocumentTitle(doc) }}</h3>
                   <div class="flex shrink-0 items-center gap-1">
+                    <button
+                      class="rounded p-0.5 hover:bg-[var(--color-bg-secondary)] disabled:cursor-not-allowed disabled:opacity-50"
+                      type="button"
+                      :disabled="pinningId === doc.id"
+                      :title="doc.is_pinned ? '取消置顶' : '置顶'"
+                      @click.stop="togglePin(doc)"
+                    >
+                      <Pin :size="14" :class="doc.is_pinned ? 'fill-[var(--color-accent)] text-[var(--color-accent)]' : 'text-[var(--color-text-tertiary)]'" />
+                    </button>
                     <span class="text-xs text-[var(--color-text-tertiary)]">{{ formatDate(doc.created_at) }}</span>
                     <button
                       class="rounded p-0.5 text-[var(--color-text-tertiary)] hover:bg-[var(--color-danger-bg)] hover:text-[var(--color-danger)] disabled:cursor-not-allowed disabled:opacity-50"

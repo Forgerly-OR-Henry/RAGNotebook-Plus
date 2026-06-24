@@ -239,9 +239,9 @@ $env:PYTHONPATH = "src"
 .venv\Scripts\python.exe -m pytest test\test_enterprise_contracts.py
 ```
 
-```bash
+```powershell
 cd front
-npm run build
+npm.cmd run build
 ```
 
 ---

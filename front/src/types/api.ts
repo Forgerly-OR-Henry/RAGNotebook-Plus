@@ -12,7 +12,7 @@ export interface UserInfo {
   email: string
   phone?: string
   telephone?: string
-  gender?: number | null
+  gender?: string | number | null
   bio?: string
   avatar?: string
   date_joined?: string
@@ -121,6 +121,7 @@ export interface KnowledgeDocument {
   mime_type?: string
   category?: string | null
   tags?: string[] | null
+  is_pinned: boolean
   status?: string
   status_message?: string | null
   chunk_count: number
@@ -153,6 +154,7 @@ export interface KnowledgeDocumentDetail {
   mime_type?: string
   category?: string | null
   tags?: string[] | null
+  is_pinned: boolean
   status?: string
   status_message?: string | null
   chunk_count: number

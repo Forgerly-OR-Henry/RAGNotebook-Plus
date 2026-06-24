@@ -26,7 +26,7 @@ class User(Base):
     password = Column(String(255), nullable=False)
     is_active = Column(Boolean, default=False)
     status = Column(Integer, default=UserStatusChoice.DISABLED)
-    gender = Column(Integer, nullable=True)
+    gender = Column(String(50), nullable=True)
     bio = Column(Text, nullable=True)
     avatar = Column(String(255), nullable=True)
     date_joined = Column(DateTime(timezone=True), server_default=func.now())

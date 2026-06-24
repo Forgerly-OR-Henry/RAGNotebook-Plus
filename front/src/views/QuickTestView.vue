@@ -5,8 +5,10 @@ import {
   Brain,
   Check,
   CheckCircle2,
+  ChevronRight,
   Database,
   FileText,
+  Folder,
   Info,
   Loader2,
   Play,
@@ -18,7 +20,8 @@ import {
 import { chatApi } from '../api/chat'
 import { knowledgeApi } from '../api/knowledge'
 import { notesApi } from '../api/notes'
-import type { KnowledgeDocument, Note, QuizResponse } from '../types/api'
+import { buildFolderTreeRows, type FolderTreeFile } from '../features/sources/folderTree'
+import type { KnowledgeDocument, KnowledgeFolder, Note, NoteFolder, QuizResponse } from '../types/api'
 
 type Step = 'selection' | 'generating' | 'quiz' | 'result'
 
@@ -26,9 +29,13 @@ const step = ref<Step>('selection')
 const generatingMessage = ref('正在读取所选内容...')
 const notes = ref<Note[]>([])
 const documents = ref<KnowledgeDocument[]>([])
+const noteFolders = ref<NoteFolder[]>([])
+const knowledgeFolders = ref<KnowledgeFolder[]>([])
 const loadingContext = ref(true)
 const selectedNotes = ref<string[]>([])
 const selectedFiles = ref<string[]>([])
+const collapsedNoteFolderKeys = ref<Set<string>>(new Set())
+const collapsedDocumentFolderKeys = ref<Set<string>>(new Set())
 const noteSearch = ref('')
 const fileSearch = ref('')
 const quiz = ref<QuizResponse | null>(null)
@@ -38,35 +45,47 @@ const errorMessage = ref('')
 
 let generationTimer: number | undefined
 
-const filteredNotes = computed(() => {
-  const query = noteSearch.value.trim().toLowerCase()
-  if (!query) return notes.value
-  return notes.value.filter((note) => {
-    const haystack = [note.title, note.category, ...(note.tags || [])].join(' ').toLowerCase()
-    return haystack.includes(query)
-  })
-})
+const noteFiles = computed<FolderTreeFile[]>(() => notes.value.map((note) => ({
+  id: note.id,
+  folderId: note.folder_id,
+  title: note.title || '无标题',
+  subtitle: `${note.category || '默认分类'} · ${formatDate(note.updated_at || note.created_at)}`,
+  searchText: [note.title, note.category, ...(note.tags || [])].filter(Boolean).join(' '),
+})))
 
-const filteredDocs = computed(() => {
-  const query = fileSearch.value.trim().toLowerCase()
-  if (!query) return documents.value
-  return documents.value.filter((doc) => docTitle(doc).toLowerCase().includes(query))
-})
+const documentFiles = computed<FolderTreeFile[]>(() => documents.value.map((doc) => {
+  const title = docTitle(doc)
+  return {
+    id: doc.id,
+    folderId: doc.folder_id,
+    title,
+    subtitle: `${doc.status || 'ready'} · ${formatFileSize(doc.file_size)}`,
+    searchText: [title, doc.status, doc.category, ...(doc.tags || [])].filter(Boolean).join(' '),
+  }
+}))
 
-const allNotesSelected = computed(() => notes.value.length > 0 && selectedNotes.value.length === notes.value.length)
-const allDocsSelected = computed(() => documents.value.length > 0 && selectedFiles.value.length === documents.value.length)
+const noteRows = computed(() => buildFolderTreeRows(noteFolders.value, noteFiles.value, '暂无可用笔记', noteSearch.value, collapsedNoteFolderKeys.value, true))
+const documentRows = computed(() => buildFolderTreeRows(knowledgeFolders.value, documentFiles.value, '暂无可用文档', fileSearch.value, collapsedDocumentFolderKeys.value, true))
+const visibleNoteIds = computed(() => noteRows.value.filter((row) => row.kind === 'file' && row.sourceId).map((row) => row.sourceId as string))
+const visibleDocumentIds = computed(() => documentRows.value.filter((row) => row.kind === 'file' && row.sourceId).map((row) => row.sourceId as string))
+const allNotesSelected = computed(() => visibleNoteIds.value.length > 0 && visibleNoteIds.value.every((id) => selectedNotes.value.includes(id)))
+const allDocsSelected = computed(() => visibleDocumentIds.value.length > 0 && visibleDocumentIds.value.every((id) => selectedFiles.value.includes(id)))
 const answeredCount = computed(() => quiz.value?.questions.filter((q) => userAnswers.value[q.id]).length || 0)
 
 async function loadData() {
   loadingContext.value = true
   errorMessage.value = ''
   try {
-    const [notesRes, docsRes] = await Promise.all([
+    const [notesRes, docsRes, noteFolderRes, knowledgeFolderRes] = await Promise.all([
       notesApi.list({ page: 1, page_size: 100 }),
       knowledgeApi.list(),
+      notesApi.listFolders(),
+      knowledgeApi.listFolders(),
     ])
     notes.value = notesRes.data.notes || []
     documents.value = docsRes.data.documents || []
+    noteFolders.value = noteFolderRes.data.folders
+    knowledgeFolders.value = knowledgeFolderRes.data.folders
   } catch (error) {
     errorMessage.value = messageFromError(error, '加载选项数据失败')
   } finally {
@@ -155,11 +174,47 @@ function toggleFile(docId: string) {
 }
 
 function toggleAllNotes() {
-  selectedNotes.value = allNotesSelected.value ? [] : notes.value.map((note) => note.id)
+  selectedNotes.value = toggleVisibleSelection(selectedNotes.value, visibleNoteIds.value, allNotesSelected.value)
 }
 
 function toggleAllDocs() {
-  selectedFiles.value = allDocsSelected.value ? [] : documents.value.map((doc) => doc.id)
+  selectedFiles.value = toggleVisibleSelection(selectedFiles.value, visibleDocumentIds.value, allDocsSelected.value)
+}
+
+function toggleVisibleSelection(selectedIds: string[], visibleIds: string[], allVisibleSelected: boolean) {
+  const visibleSet = new Set(visibleIds)
+  if (allVisibleSelected) {
+    return selectedIds.filter((id) => !visibleSet.has(id))
+  }
+  return Array.from(new Set([...selectedIds, ...visibleIds]))
+}
+
+function isNoteFolderCollapsed(key: string) {
+  if (noteSearch.value.trim()) return false
+  return !collapsedNoteFolderKeys.value.has(key)
+}
+
+function isDocumentFolderCollapsed(key: string) {
+  if (fileSearch.value.trim()) return false
+  return !collapsedDocumentFolderKeys.value.has(key)
+}
+
+function toggleNoteFolder(key: string) {
+  collapsedNoteFolderKeys.value = toggleCollapsedSet(collapsedNoteFolderKeys.value, key)
+}
+
+function toggleDocumentFolder(key: string) {
+  collapsedDocumentFolderKeys.value = toggleCollapsedSet(collapsedDocumentFolderKeys.value, key)
+}
+
+function toggleCollapsedSet(current: Set<string>, key: string) {
+  const next = new Set(current)
+  if (next.has(key)) {
+    next.delete(key)
+  } else {
+    next.add(key)
+  }
+  return next
 }
 
 function docTitle(doc: KnowledgeDocument) {
@@ -247,7 +302,7 @@ onMounted(() => {
               <FileText class="text-[var(--color-success)]" :size="17" />
               <span>笔记 {{ selectedNotes.length }}/{{ notes.length }}</span>
             </div>
-            <button class="text-xs text-[var(--color-accent)] hover:underline disabled:opacity-50" type="button" :disabled="notes.length === 0" @click="toggleAllNotes">
+            <button class="text-xs text-[var(--color-accent)] hover:underline disabled:opacity-50" type="button" :disabled="visibleNoteIds.length === 0" @click="toggleAllNotes">
               {{ allNotesSelected ? '取消全选' : '全选' }}
             </button>
           </div>
@@ -257,26 +312,45 @@ onMounted(() => {
               <input v-model="noteSearch" class="w-full rounded-md border border-[var(--color-border)] bg-[var(--color-bg)] py-2 pl-9 pr-3 text-sm outline-none focus:border-[var(--color-accent)]" placeholder="搜索笔记" />
             </label>
           </div>
-          <div class="flex-1 space-y-2 overflow-y-auto p-3">
-            <p v-if="filteredNotes.length === 0" class="py-10 text-center text-sm text-[var(--color-text-tertiary)]">暂无可用笔记</p>
-            <button
-              v-for="note in filteredNotes"
-              :key="note.id"
-              class="flex w-full items-start gap-3 rounded-md border p-3 text-left transition-colors hover:bg-[var(--color-bg-secondary)]"
-              :class="selectedNotes.includes(note.id) ? 'border-[var(--color-success)] bg-[var(--color-success-bg)]' : 'border-transparent'"
-              type="button"
-              @click="toggleNote(note.id)"
+          <div class="flex-1 overflow-y-auto p-3">
+            <div
+              v-for="row in noteRows"
+              :key="row.key"
+              class="mb-1 last:mb-0"
             >
-              <span class="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded border border-[var(--color-border)]" :class="{ 'bg-[var(--color-success)] text-white': selectedNotes.includes(note.id) }">
-                <Check v-if="selectedNotes.includes(note.id)" :size="14" />
-              </span>
-              <span class="min-w-0 flex-1">
-                <span class="block truncate text-sm font-medium">{{ note.title }}</span>
-                <span class="mt-1 block truncate text-xs text-[var(--color-text-tertiary)]">
-                  {{ note.category || '默认分类' }} · {{ formatDate(note.updated_at || note.created_at) }}
+              <p v-if="row.kind === 'empty'" class="py-10 text-center text-sm text-[var(--color-text-tertiary)]">{{ row.title }}</p>
+              <button
+                v-else-if="row.kind === 'folder'"
+                class="flex min-h-9 w-full items-center gap-2 rounded-md px-3 py-2 text-left text-sm text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-secondary)]"
+                type="button"
+                :aria-expanded="!isNoteFolderCollapsed(row.key)"
+                :style="{ paddingLeft: `${0.75 + row.depth * 0.875}rem` }"
+                @click="toggleNoteFolder(row.key)"
+              >
+                <ChevronRight :size="14" class="shrink-0 text-[var(--color-text-tertiary)] transition-transform" :class="{ 'rotate-90': !isNoteFolderCollapsed(row.key) }" />
+                <Folder :size="15" class="shrink-0 text-[var(--color-text-tertiary)]" />
+                <span class="min-w-0 flex-1 truncate font-medium">{{ row.title }}</span>
+                <span class="shrink-0 text-xs text-[var(--color-text-tertiary)]">{{ row.count }}</span>
+              </button>
+              <button
+                v-else
+                class="flex min-h-12 w-full items-start gap-3 rounded-md border px-3 py-2.5 text-left transition-colors hover:bg-[var(--color-bg-secondary)]"
+                :class="row.sourceId && selectedNotes.includes(row.sourceId) ? 'border-[var(--color-success)] bg-[var(--color-success-bg)]' : 'border-transparent'"
+                type="button"
+                :aria-pressed="row.sourceId ? selectedNotes.includes(row.sourceId) : false"
+                :style="{ paddingLeft: `${0.75 + row.depth * 0.875}rem` }"
+                @click="row.sourceId && toggleNote(row.sourceId)"
+              >
+                <span class="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded border border-[var(--color-border)]" :class="{ 'bg-[var(--color-success)] text-white': row.sourceId && selectedNotes.includes(row.sourceId) }">
+                  <Check v-if="row.sourceId && selectedNotes.includes(row.sourceId)" :size="14" />
                 </span>
-              </span>
-            </button>
+                <FileText :size="15" class="mt-0.5 shrink-0 text-[var(--color-text-tertiary)]" />
+                <span class="min-w-0 flex-1">
+                  <span class="block truncate text-sm font-medium">{{ row.title }}</span>
+                  <span v-if="row.subtitle" class="mt-1 block truncate text-xs text-[var(--color-text-tertiary)]">{{ row.subtitle }}</span>
+                </span>
+              </button>
+            </div>
           </div>
         </div>
 
@@ -286,7 +360,7 @@ onMounted(() => {
               <Database class="text-[var(--color-accent)]" :size="17" />
               <span>知识库 {{ selectedFiles.length }}/{{ documents.length }}</span>
             </div>
-            <button class="text-xs text-[var(--color-accent)] hover:underline disabled:opacity-50" type="button" :disabled="documents.length === 0" @click="toggleAllDocs">
+            <button class="text-xs text-[var(--color-accent)] hover:underline disabled:opacity-50" type="button" :disabled="visibleDocumentIds.length === 0" @click="toggleAllDocs">
               {{ allDocsSelected ? '取消全选' : '全选' }}
             </button>
           </div>
@@ -296,26 +370,45 @@ onMounted(() => {
               <input v-model="fileSearch" class="w-full rounded-md border border-[var(--color-border)] bg-[var(--color-bg)] py-2 pl-9 pr-3 text-sm outline-none focus:border-[var(--color-accent)]" placeholder="搜索知识库文档" />
             </label>
           </div>
-          <div class="flex-1 space-y-2 overflow-y-auto p-3">
-            <p v-if="filteredDocs.length === 0" class="py-10 text-center text-sm text-[var(--color-text-tertiary)]">暂无可用文档</p>
-            <button
-              v-for="doc in filteredDocs"
-              :key="doc.id"
-              class="flex w-full items-start gap-3 rounded-md border p-3 text-left transition-colors hover:bg-[var(--color-bg-secondary)]"
-              :class="selectedFiles.includes(doc.id) ? 'border-[var(--color-accent)] bg-[var(--color-accent-bg)]' : 'border-transparent'"
-              type="button"
-              @click="toggleFile(doc.id)"
+          <div class="flex-1 overflow-y-auto p-3">
+            <div
+              v-for="row in documentRows"
+              :key="row.key"
+              class="mb-1 last:mb-0"
             >
-              <span class="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded border border-[var(--color-border)]" :class="{ 'bg-[var(--color-accent)] text-white': selectedFiles.includes(doc.id) }">
-                <Check v-if="selectedFiles.includes(doc.id)" :size="14" />
-              </span>
-              <span class="min-w-0 flex-1">
-                <span class="block truncate text-sm font-medium">{{ docTitle(doc) }}</span>
-                <span class="mt-1 block truncate text-xs text-[var(--color-text-tertiary)]">
-                  {{ doc.status || 'ready' }} · {{ formatFileSize(doc.file_size) }}
+              <p v-if="row.kind === 'empty'" class="py-10 text-center text-sm text-[var(--color-text-tertiary)]">{{ row.title }}</p>
+              <button
+                v-else-if="row.kind === 'folder'"
+                class="flex min-h-9 w-full items-center gap-2 rounded-md px-3 py-2 text-left text-sm text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-secondary)]"
+                type="button"
+                :aria-expanded="!isDocumentFolderCollapsed(row.key)"
+                :style="{ paddingLeft: `${0.75 + row.depth * 0.875}rem` }"
+                @click="toggleDocumentFolder(row.key)"
+              >
+                <ChevronRight :size="14" class="shrink-0 text-[var(--color-text-tertiary)] transition-transform" :class="{ 'rotate-90': !isDocumentFolderCollapsed(row.key) }" />
+                <Folder :size="15" class="shrink-0 text-[var(--color-text-tertiary)]" />
+                <span class="min-w-0 flex-1 truncate font-medium">{{ row.title }}</span>
+                <span class="shrink-0 text-xs text-[var(--color-text-tertiary)]">{{ row.count }}</span>
+              </button>
+              <button
+                v-else
+                class="flex min-h-12 w-full items-start gap-3 rounded-md border px-3 py-2.5 text-left transition-colors hover:bg-[var(--color-bg-secondary)]"
+                :class="row.sourceId && selectedFiles.includes(row.sourceId) ? 'border-[var(--color-accent)] bg-[var(--color-accent-bg)]' : 'border-transparent'"
+                type="button"
+                :aria-pressed="row.sourceId ? selectedFiles.includes(row.sourceId) : false"
+                :style="{ paddingLeft: `${0.75 + row.depth * 0.875}rem` }"
+                @click="row.sourceId && toggleFile(row.sourceId)"
+              >
+                <span class="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded border border-[var(--color-border)]" :class="{ 'bg-[var(--color-accent)] text-white': row.sourceId && selectedFiles.includes(row.sourceId) }">
+                  <Check v-if="row.sourceId && selectedFiles.includes(row.sourceId)" :size="14" />
                 </span>
-              </span>
-            </button>
+                <Database :size="15" class="mt-0.5 shrink-0 text-[var(--color-text-tertiary)]" />
+                <span class="min-w-0 flex-1">
+                  <span class="block truncate text-sm font-medium">{{ row.title }}</span>
+                  <span v-if="row.subtitle" class="mt-1 block truncate text-xs text-[var(--color-text-tertiary)]">{{ row.subtitle }}</span>
+                </span>
+              </button>
+            </div>
           </div>
         </div>
       </div>

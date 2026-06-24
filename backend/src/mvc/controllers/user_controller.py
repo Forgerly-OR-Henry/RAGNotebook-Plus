@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, UploadFile
+from fastapi import APIRouter, Depends, File, UploadFile
 from fastapi.security import HTTPAuthorizationCredentials
 
 from mvc.schemas import LoginRequest, RegisterRequest, ResetPasswordRequest, TokenRefreshRequest, UserUpdateRequest
@@ -64,8 +64,16 @@ async def logout(
 
 @file_router.post("/upload/")
 async def upload_file(
-    file: UploadFile,
+    file: UploadFile = File(...),
     user_id: str = Depends(get_current_user_id),
     service: FileService = Depends(get_file_service),
 ):
     return await service.upload_avatar(file, user_id)
+
+
+@file_router.get("/avatar/{object_id}")
+async def get_avatar_file(
+    object_id: str,
+    service: FileService = Depends(get_file_service),
+):
+    return await service.get_avatar_response(object_id)

@@ -86,6 +86,7 @@ async def init_db():
 
         await conn.execute(text("CREATE EXTENSION IF NOT EXISTS vector"))
         await conn.run_sync(Base.metadata.create_all)
+        await _ensure_user_profile_columns(conn)
         await _ensure_knowledge_document_columns(conn)
         await _create_index_chunks_table(conn)
         await _backfill_knowledge_documents(conn)
@@ -134,6 +135,49 @@ async def _backfill_knowledge_documents(conn) -> None:
 async def _ensure_knowledge_document_columns(conn) -> None:
     await conn.execute(text("ALTER TABLE IF EXISTS knowledge_documents ADD COLUMN IF NOT EXISTS category VARCHAR(50)"))
     await conn.execute(text("ALTER TABLE IF EXISTS knowledge_documents ADD COLUMN IF NOT EXISTS tags JSONB"))
+    await conn.execute(text("ALTER TABLE IF EXISTS knowledge_documents ADD COLUMN IF NOT EXISTS is_pinned BOOLEAN NOT NULL DEFAULT FALSE"))
+
+
+async def _ensure_user_profile_columns(conn) -> None:
+    await conn.execute(
+        text(
+            """
+            ALTER TABLE IF EXISTS app_users
+            ALTER COLUMN gender TYPE VARCHAR(50)
+            USING CASE
+                WHEN gender IS NULL THEN NULL
+                WHEN LOWER(gender::text) IN ('1', '男', 'male') THEN 'male'
+                WHEN LOWER(gender::text) IN ('2', '女', 'female') THEN 'female'
+                WHEN LOWER(gender::text) IN ('3', '自定义', 'custom') THEN 'custom'
+                ELSE gender::text
+            END
+            """
+        )
+    )
+    await conn.execute(
+        text(
+            """
+            DO $$
+            BEGIN
+                IF to_regclass('public.app_users') IS NOT NULL
+                   AND EXISTS (
+                       SELECT 1
+                       FROM information_schema.columns
+                       WHERE table_schema = 'public'
+                         AND table_name = 'app_users'
+                         AND column_name = 'gender_custom'
+                   ) THEN
+                    UPDATE app_users
+                    SET gender = NULLIF(BTRIM(gender_custom), '')
+                    WHERE gender IN ('3', '自定义', 'custom')
+                      AND NULLIF(BTRIM(gender_custom), '') IS NOT NULL;
+
+                    ALTER TABLE app_users DROP COLUMN gender_custom;
+                END IF;
+            END $$;
+            """
+        )
+    )
 
 
 def _current_schema_tables() -> set[str]:

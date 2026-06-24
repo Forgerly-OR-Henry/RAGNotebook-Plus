@@ -19,6 +19,7 @@ class DocumentResponse(BaseModel):
     mime_type: str | None = None
     category: str | None = None
     tags: list[str] | None = None
+    is_pinned: bool = False
     status: str | None = None
     status_message: str | None = None
     chunk_count: int
@@ -69,6 +70,7 @@ class DocumentDetailResponse(BaseModel):
     mime_type: str | None = None
     category: str | None = None
     tags: list[str] | None = None
+    is_pinned: bool = False
     status: str | None = None
     status_message: str | None = None
     chunk_count: int

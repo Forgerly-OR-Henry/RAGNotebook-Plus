@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, ref, watch } from 'vue'
+import { computed, nextTick, onBeforeUnmount, ref, watch } from 'vue'
 import type { Editor } from '@tiptap/core'
 import StarterKit from '@tiptap/starter-kit'
 import CodeBlockLowlight from '@tiptap/extension-code-block-lowlight'
@@ -18,6 +18,7 @@ import DOMPurify from 'dompurify'
 import { marked } from 'marked'
 import TurndownService from 'turndown'
 import { common, createLowlight } from 'lowlight'
+import MarkdownRenderer from './MarkdownRenderer.vue'
 import {
   Bold,
   Code,
@@ -36,11 +37,14 @@ import {
   Rows3,
   Strikethrough,
   Table,
+  Type,
   Underline as UnderlineIcon,
   Undo2,
 } from '@lucide/vue'
+import { promptDialog } from '../composables/useAppDialog'
 
 type AutocompleteFn = (context: string) => Promise<string | null>
+type EditorMode = 'rich' | 'preview' | 'source'
 
 const props = withDefaults(defineProps<{
   modelValue: string
@@ -57,8 +61,9 @@ const emit = defineEmits<{
 
 const lowlight = createLowlight(common)
 const updatingFromModel = ref(false)
-const preview = ref(false)
+const editorMode = ref<EditorMode>('rich')
 const wrapperRef = ref<HTMLElement | null>(null)
+const sourceInput = ref<HTMLTextAreaElement | null>(null)
 const ghost = ref<{ text: string; left: number; top: number } | null>(null)
 const ghostText = ref<string | null>(null)
 const ghostFrom = ref(0)
@@ -83,11 +88,16 @@ turndown.addRule('taskListItem', {
 })
 
 function markdownToHtml(value: string) {
-  return marked.parse(value || '', {
+  const rawHtml = marked.parse(value || '', {
     async: false,
     breaks: true,
     gfm: true,
   }) as string
+
+  return DOMPurify.sanitize(rawHtml, {
+    USE_PROFILES: { html: true },
+    ADD_ATTR: ['target', 'rel', 'checked', 'disabled'],
+  })
 }
 
 function htmlToMarkdown(html: string) {
@@ -129,13 +139,6 @@ const editor = useEditor({
   },
 })
 
-const renderedPreview = computed(() => {
-  return DOMPurify.sanitize(markdownToHtml(props.modelValue), {
-    USE_PROFILES: { html: true },
-    ADD_ATTR: ['target', 'rel', 'checked'],
-  })
-})
-
 const activeHeading = computed(() => {
   const currentEditor = editor.value
   if (!currentEditor) return '0'
@@ -147,9 +150,34 @@ const activeHeading = computed(() => {
 
 const inTable = computed(() => editor.value?.isActive('table') ?? false)
 
+function isRichMode() {
+  return editorMode.value === 'rich'
+}
+
+async function setEditorMode(mode: EditorMode) {
+  editorMode.value = mode
+  clearGhost()
+
+  if (mode === 'source') {
+    await nextTick()
+    sourceInput.value?.focus()
+    return
+  }
+
+  if (mode === 'rich') {
+    await nextTick()
+    editor.value?.commands.focus()
+  }
+}
+
+function updateSource(event: Event) {
+  const target = event.target as HTMLTextAreaElement
+  emit('update:modelValue', target.value)
+}
+
 function run(command: (editorInstance: Editor) => void) {
   const currentEditor = editor.value
-  if (!currentEditor) return
+  if (!currentEditor || !isRichMode()) return
   command(currentEditor)
 }
 
@@ -163,25 +191,34 @@ function setHeading(value: string) {
   })
 }
 
-function addLink() {
-  run((currentEditor) => {
-    const previous = currentEditor.getAttributes('link').href as string | undefined
-    const href = window.prompt('输入链接地址', previous || 'https://')
-    if (href === null) return
-    if (!href.trim()) {
-      currentEditor.chain().focus().unsetLink().run()
-      return
-    }
-    currentEditor.chain().focus().extendMarkRange('link').setLink({ href: href.trim() }).run()
+async function addLink() {
+  const currentEditor = editor.value
+  if (!currentEditor) return
+  const previous = currentEditor.getAttributes('link').href as string | undefined
+  const href = await promptDialog({
+    title: '插入链接',
+    message: '输入链接地址',
+    initialValue: previous || 'https://',
+    placeholder: 'https://example.com',
   })
+  if (href === null) return
+  if (!href.trim()) {
+    currentEditor.chain().focus().unsetLink().run()
+    return
+  }
+  currentEditor.chain().focus().extendMarkRange('link').setLink({ href: href.trim() }).run()
 }
 
-function addImage() {
-  run((currentEditor) => {
-    const src = window.prompt('输入图片地址')
-    if (!src?.trim()) return
-    currentEditor.chain().focus().setImage({ src: src.trim() }).run()
+async function addImage() {
+  const currentEditor = editor.value
+  if (!currentEditor) return
+  const src = await promptDialog({
+    title: '插入图片',
+    message: '输入图片地址',
+    placeholder: 'https://example.com/image.png',
   })
+  if (!src?.trim()) return
+  currentEditor.chain().focus().setImage({ src: src.trim() }).run()
 }
 
 function updateGhostPosition() {
@@ -249,7 +286,7 @@ function handleKeydown(event: KeyboardEvent) {
 
   if (isCtrl && event.key === '/') {
     event.preventDefault()
-    preview.value = !preview.value
+    void setEditorMode(editorMode.value === 'preview' ? 'rich' : 'preview')
     return
   }
 
@@ -301,7 +338,11 @@ onBeforeUnmount(() => {
   editor.value?.destroy()
 })
 
-function scrollToHeading(text: string, level: number) {
+async function scrollToHeading(text: string, level: number) {
+  if (editorMode.value !== 'rich') {
+    await setEditorMode('rich')
+  }
+
   const currentEditor = editor.value
   if (!currentEditor) return
   const normalize = (value: string) => value.replace(/\\([.![\]()*_`~-])/g, '$1').trim().toLowerCase()
@@ -329,7 +370,7 @@ defineExpose({ scrollToHeading })
 <template>
   <div ref="wrapperRef" class="tiptap-wrapper relative flex h-full min-h-0 flex-col rounded-md border border-[var(--color-border)] bg-[var(--color-card)]">
     <div class="tiptap-toolbar">
-      <div class="toolbar-inner">
+      <div v-if="editorMode === 'rich'" class="toolbar-inner">
         <button class="top-bar-item" :class="{ 'is-active': editor?.isActive('bold') }" type="button" title="加粗" @click="run((instance) => instance.chain().focus().toggleBold().run())">
           <Bold :size="15" />
         </button>
@@ -404,15 +445,75 @@ defineExpose({ scrollToHeading })
         <button class="top-bar-item" type="button" title="重做" @click="run((instance) => instance.chain().focus().redo().run())">
           <Redo2 :size="15" />
         </button>
-        <button class="top-bar-item" :class="{ 'is-active': preview }" type="button" title="预览" @click="preview = !preview">
+        <button class="top-bar-item" type="button" title="预览" @click="setEditorMode('preview')">
           <Eye :size="15" />
+        </button>
+      </div>
+
+      <div v-else class="tiptap-toolbar__status">
+        <Eye v-if="editorMode === 'preview'" :size="15" />
+        <FileCode v-else :size="15" />
+        <span>{{ editorMode === 'preview' ? 'Markdown 预览' : 'Markdown 源码' }}</span>
+      </div>
+
+      <div class="tiptap-mode-group" role="tablist" aria-label="笔记显示模式">
+        <button class="tiptap-mode-button" :class="{ 'is-active': editorMode === 'rich' }" type="button" role="tab" :aria-selected="editorMode === 'rich'" title="富文本编辑" @click="setEditorMode('rich')">
+          <Type :size="14" />
+          <span>富文本</span>
+        </button>
+        <button class="tiptap-mode-button" :class="{ 'is-active': editorMode === 'preview' }" type="button" role="tab" :aria-selected="editorMode === 'preview'" title="Markdown 预览" @click="setEditorMode('preview')">
+          <Eye :size="14" />
+          <span>预览</span>
+        </button>
+        <button class="tiptap-mode-button" :class="{ 'is-active': editorMode === 'source' }" type="button" role="tab" :aria-selected="editorMode === 'source'" title="Markdown 源码" @click="setEditorMode('source')">
+          <FileCode :size="14" />
+          <span>源码</span>
         </button>
       </div>
     </div>
 
-    <div v-if="preview" class="flex-1 overflow-auto">
-      <!-- eslint-disable-next-line vue/no-v-html -->
-      <article class="markdown-body mx-auto max-w-3xl px-10 py-10" v-html="renderedPreview" />
+    <div v-if="editorMode === 'preview'" class="tiptap-preview-panel flex-1 overflow-auto">
+      <MarkdownRenderer :content="modelValue" />
+    </div>
+
+    <div v-else-if="editorMode === 'source'" class="tiptap-source-panel flex-1 overflow-hidden">
+      <textarea
+        ref="sourceInput"
+        class="tiptap-source-input"
+        :value="modelValue"
+        spellcheck="false"
+        placeholder="# 一级标题&#10;&#10;## 二级标题&#10;&#10;**加粗**、*斜体*、列表、引用、表格和代码块。"
+        @input="updateSource"
+      />
+      <aside class="tiptap-source-guide" aria-label="Markdown 源码说明">
+        <h3>源码说明</h3>
+        <dl>
+          <div>
+            <dt># / ## / ###</dt>
+            <dd>一级、二级、三级标题</dd>
+          </div>
+          <div>
+            <dt>**文字**</dt>
+            <dd>加粗文字</dd>
+          </div>
+          <div>
+            <dt>*文字*</dt>
+            <dd>倾斜文字</dd>
+          </div>
+          <div>
+            <dt>- / 1.</dt>
+            <dd>无序或有序列表</dd>
+          </div>
+          <div>
+            <dt>&gt; 引用</dt>
+            <dd>引用块</dd>
+          </div>
+          <div>
+            <dt>`code`</dt>
+            <dd>行内代码</dd>
+          </div>
+        </dl>
+      </aside>
     </div>
 
     <div v-else class="relative flex-1 overflow-auto">

@@ -100,6 +100,7 @@ def test_knowledge_router_uses_document_id_resources():
     assert ("/knowledge/documents/{document_id}", "DELETE") in routes
     assert ("/knowledge/documents/{document_id}", "GET") in routes
     assert ("/knowledge/documents/{document_id}/file", "GET") in routes
+    assert ("/knowledge/documents/{document_id}/preview", "GET") in routes
     assert ("/knowledge/documents/{document_id}/chunks", "GET") in routes
     assert ("/knowledge/documents/{document_id}/metadata", "PUT") in routes
     assert ("/knowledge/documents/{document_id}/auto-tag", "POST") in routes

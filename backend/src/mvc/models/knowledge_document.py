@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from sqlalchemy import Column, DateTime, ForeignKey, String
+from sqlalchemy import Boolean, Column, DateTime, ForeignKey, String
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
@@ -22,6 +22,7 @@ class KnowledgeDocument(Base):
     title = Column(String(255), nullable=False)
     category = Column(String(50), nullable=True)
     tags = Column(JSONB, nullable=True)
+    is_pinned = Column(Boolean, default=False, nullable=False, comment="是否置顶")
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
 

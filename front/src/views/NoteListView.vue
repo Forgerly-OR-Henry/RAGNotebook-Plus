@@ -26,6 +26,7 @@ import ConfirmDialog from '../components/ConfirmDialog.vue'
 import MindMapModal from '../components/MindMapModal.vue'
 import { readJsonPref } from '../api/localPrefs'
 import { notesApi } from '../api/notes'
+import { confirmDialog } from '../composables/useAppDialog'
 import type { Note, NoteFolder } from '../types/api'
 
 type ApiError = {
@@ -80,6 +81,7 @@ const searchQuery = ref('')
 const loading = ref(false)
 const hasMore = ref(false)
 const importing = ref(false)
+const deletingId = ref('')
 const actionError = ref('')
 const importError = ref('')
 const fileInput = ref<HTMLInputElement | null>(null)
@@ -539,6 +541,30 @@ async function togglePin(noteId: string) {
     notes.value = sortPinned(notes.value.map((note) => (note.id === noteId ? { ...note, is_pinned: !note.is_pinned } : note)))
   } catch (error) {
     actionError.value = getApiErrorMessage(error, '置顶失败')
+  }
+}
+
+async function deleteNote(note: Note) {
+  if (deletingId.value) return
+  const confirmed = await confirmDialog({
+    title: '删除笔记',
+    message: `确认删除「${note.title || '无标题'}」？删除后无法恢复。`,
+    confirmText: '删除',
+    variant: 'danger',
+  })
+  if (!confirmed) return
+
+  deletingId.value = note.id
+  actionError.value = ''
+  try {
+    await notesApi.delete(note.id)
+    await refreshCategories()
+    await refreshFolders()
+    await loadNotes(1, true)
+  } catch (error) {
+    actionError.value = getApiErrorMessage(error, '删除笔记失败')
+  } finally {
+    deletingId.value = ''
   }
 }
 
@@ -1073,6 +1099,17 @@ watch(extraCategories, () => {
                       <Pin :size="14" :class="note.is_pinned ? 'fill-[var(--color-accent)] text-[var(--color-accent)]' : 'text-[var(--color-text-tertiary)]'" />
                     </button>
                     <span class="text-xs text-[var(--color-text-tertiary)]">{{ formatDate(note.created_at) }}</span>
+                    <button
+                      class="rounded p-0.5 text-[var(--color-text-tertiary)] hover:bg-[var(--color-danger-bg)] hover:text-[var(--color-danger)] disabled:cursor-not-allowed disabled:opacity-50"
+                      type="button"
+                      :disabled="deletingId === note.id"
+                      title="删除笔记"
+                      @click.stop="deleteNote(note)"
+                      @pointerdown.stop
+                      @pointerup.stop
+                    >
+                      <Trash2 :size="14" />
+                    </button>
                   </div>
                 </div>
                 <p class="mb-2 line-clamp-2 text-xs text-[var(--color-text-secondary)]">{{ note.content?.slice(0, 200) }}</p>
