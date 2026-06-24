@@ -1,3 +1,9 @@
+"""
+模块职责：FastAPI 应用入口，负责组装路由、中间件、后台初始化与生命周期钩子。
+
+主要协作：本文件只声明当前模块的职责边界，运行时行为由下方函数、类和依赖对象共同完成。
+"""
+
 import argparse
 import time
 from contextlib import asynccontextmanager
@@ -22,6 +28,16 @@ from mvc.services.database_session_manager import init_database_session_manager
 
 @asynccontextmanager
 async def lifespan(_app: FastAPI):
+    """
+    用途：异步执行lifespan相关业务流程。
+
+    参数：
+    - _app（FastAPI）：调用方传入的_app数据或控制参数，用于驱动本函数处理流程。
+
+    返回：未显式标注；返回值供调用方继续编排业务流程或生成接口响应。
+
+    副作用：可能访问数据库、文件、模型服务或流式事件通道，异常会沿调用链抛出。
+    """
     await startup_event()
     try:
         yield
@@ -39,6 +55,17 @@ app = FastAPI(lifespan=lifespan)
 
 @app.middleware("http")
 async def add_process_time_header(request: Request, call_next):
+    """
+    用途：异步执行add process time header相关业务流程。
+
+    参数：
+    - request（Request）：调用方传入的request数据或控制参数，用于驱动本函数处理流程。
+    - call_next（未显式标注）：调用方传入的call_next数据或控制参数，用于驱动本函数处理流程。
+
+    返回：未显式标注；返回值供调用方继续编排业务流程或生成接口响应。
+
+    副作用：可能访问数据库、文件、模型服务或流式事件通道，异常会沿调用链抛出。
+    """
     start_time = time.time()
     response = await call_next(request)
     process_time = time.time() - start_time
@@ -71,10 +98,26 @@ register_exception_handlers(app)
 
 @app.get("/")
 async def root():
+    """
+    用途：异步执行root相关业务流程。
+
+    参数：无显式业务参数。
+
+    返回：未显式标注；返回值供调用方继续编排业务流程或生成接口响应。
+
+    副作用：可能访问数据库、文件、模型服务或流式事件通道，异常会沿调用链抛出。
+    """
     return {"message": "Hello World"}
 
 
 def should_seed_test_user() -> bool:
+    """
+    用途：执行should seed test user相关业务逻辑。
+
+    参数：无显式业务参数。
+
+    返回：bool；返回值供调用方继续编排业务流程或生成接口响应。
+    """
     return require_env_bool("SEED_TEST_USER")
 
 
@@ -109,6 +152,15 @@ async def shutdown_event():
 
 
 def _env_int(name: str, default: int) -> int:
+    """
+    用途：执行env int相关业务逻辑。
+
+    参数：
+    - name（str）：调用方传入的name数据或控制参数，用于驱动本函数处理流程。
+    - default（int）：调用方传入的default数据或控制参数，用于驱动本函数处理流程。
+
+    返回：int；返回值供调用方继续编排业务流程或生成接口响应。
+    """
     try:
         return require_env_int_value(name, default)
     except RuntimeError as exc:

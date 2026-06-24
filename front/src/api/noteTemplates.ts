@@ -1,3 +1,7 @@
+/**
+ * 模块职责：前端 API 模块，负责封装 HTTP/SSE 请求并保持视图层调用简洁。
+ * 主要协作：通过导出的类型、函数或组件配置供其他前端模块复用。
+ */
 import client from './client'
 import { endpoints } from './endpoints'
 import type { ApiResponse, NoteTemplate } from '../types/api'

@@ -1,3 +1,9 @@
+"""
+模块职责：本地开发启动脚本，负责环境准备、依赖检查、端口选择和前后端进程编排。
+
+主要协作：本文件只声明当前模块的职责边界，运行时行为由下方函数、类和依赖对象共同完成。
+"""
+
 from __future__ import annotations
 
 import argparse
@@ -29,19 +35,51 @@ BACKEND_FAILED_LOG_MARKER = "后台初始化失败"
 
 
 def log(message: str) -> None:
+    """
+    用途：执行log相关业务逻辑。
+
+    参数：
+    - message（str）：调用方传入的message数据或控制参数，用于驱动本函数处理流程。
+
+    返回：None；返回值供调用方继续编排业务流程或生成接口响应。
+    """
     print(f"[start] {message}", flush=True)
 
 
 def fail(message: str, code: int = 1) -> None:
+    """
+    用途：执行fail相关业务逻辑。
+
+    参数：
+    - message（str）：调用方传入的message数据或控制参数，用于驱动本函数处理流程。
+    - code（int）：调用方传入的code数据或控制参数，用于驱动本函数处理流程。
+
+    返回：None；返回值供调用方继续编排业务流程或生成接口响应。
+    """
     log(f"ERROR: {message}")
     raise SystemExit(code)
 
 
 def which(command: str) -> str | None:
+    """
+    用途：执行which相关业务逻辑。
+
+    参数：
+    - command（str）：调用方传入的command数据或控制参数，用于驱动本函数处理流程。
+
+    返回：str | None；返回值供调用方继续编排业务流程或生成接口响应。
+    """
     return shutil.which(command)
 
 
 def npm_command() -> str:
+    """
+    用途：执行npm command相关业务逻辑。
+
+    参数：无显式业务参数。
+
+    返回：str；返回值供调用方继续编排业务流程或生成接口响应。
+    """
     command = "npm.cmd" if os.name == "nt" else "npm"
     resolved = which(command) or which("npm")
     if not resolved:
@@ -50,10 +88,24 @@ def npm_command() -> str:
 
 
 def docker_command() -> str | None:
+    """
+    用途：执行docker command相关业务逻辑。
+
+    参数：无显式业务参数。
+
+    返回：str | None；返回值供调用方继续编排业务流程或生成接口响应。
+    """
     return which("docker.exe" if os.name == "nt" else "docker") or which("docker")
 
 
 def backend_python() -> str:
+    """
+    用途：执行backend python相关业务逻辑。
+
+    参数：无显式业务参数。
+
+    返回：str；返回值供调用方继续编排业务流程或生成接口响应。
+    """
     candidates = [
         BACKEND_DIR / ".venv" / "Scripts" / "python.exe",
         BACKEND_DIR / ".venv" / "bin" / "python",
@@ -67,6 +119,13 @@ def backend_python() -> str:
 
 
 def ensure_env_file() -> None:
+    """
+    用途：校验并确保ensure env file相关的数据或流程。
+
+    参数：无显式业务参数。
+
+    返回：None；返回值供调用方继续编排业务流程或生成接口响应。
+    """
     CONFIG_DIR.mkdir(parents=True, exist_ok=True)
     if GLOBAL_ENV_FILE.exists():
         return
@@ -78,6 +137,14 @@ def ensure_env_file() -> None:
 
 
 def read_env_file(path: Path) -> dict[str, str]:
+    """
+    用途：执行read env file相关业务逻辑。
+
+    参数：
+    - path（Path）：调用方传入的path数据或控制参数，用于驱动本函数处理流程。
+
+    返回：dict[str, str]；返回值供调用方继续编排业务流程或生成接口响应。
+    """
     values: dict[str, str] = {}
     if not path.exists():
         return values
@@ -94,10 +161,27 @@ def read_env_file(path: Path) -> dict[str, str]:
 
 
 def env_file_keys(path: Path) -> set[str]:
+    """
+    用途：执行env file keys相关业务逻辑。
+
+    参数：
+    - path（Path）：调用方传入的path数据或控制参数，用于驱动本函数处理流程。
+
+    返回：set[str]；返回值供调用方继续编排业务流程或生成接口响应。
+    """
     return set(read_env_file(path))
 
 
 def validate_env_declares_template_keys(env_file: Path, example_file: Path) -> None:
+    """
+    用途：校验validate env declares template keys相关的数据或流程。
+
+    参数：
+    - env_file（Path）：调用方传入的env_file数据或控制参数，用于驱动本函数处理流程。
+    - example_file（Path）：调用方传入的example_file数据或控制参数，用于驱动本函数处理流程。
+
+    返回：None；返回值供调用方继续编排业务流程或生成接口响应。
+    """
     if not env_file.exists() or not example_file.exists():
         return
 
@@ -110,6 +194,15 @@ def validate_env_declares_template_keys(env_file: Path, example_file: Path) -> N
 
 
 def secret_file_candidate(env_file: Path, value: str) -> Path | None:
+    """
+    用途：执行secret file candidate相关业务逻辑。
+
+    参数：
+    - env_file（Path）：调用方传入的env_file数据或控制参数，用于驱动本函数处理流程。
+    - value（str）：调用方传入的value数据或控制参数，用于驱动本函数处理流程。
+
+    返回：Path | None；返回值供调用方继续编排业务流程或生成接口响应。
+    """
     value = value.strip().strip('"').strip("'")
     if not value or value == "your_api_key" or value.startswith(("sk-", "ak-")):
         return None
@@ -125,6 +218,15 @@ def secret_file_candidate(env_file: Path, value: str) -> Path | None:
 
 
 def read_secret_file(path: Path, key: str) -> str:
+    """
+    用途：执行read secret file相关业务逻辑。
+
+    参数：
+    - path（Path）：调用方传入的path数据或控制参数，用于驱动本函数处理流程。
+    - key（str）：调用方传入的key数据或控制参数，用于驱动本函数处理流程。
+
+    返回：str；返回值供调用方继续编排业务流程或生成接口响应。
+    """
     if not path.is_file():
         return ""
 
@@ -144,6 +246,15 @@ def read_secret_file(path: Path, key: str) -> str:
 
 
 def resolve_file_backed_secrets(env: dict[str, str], env_file: Path) -> None:
+    """
+    用途：解析并归一化resolve file backed secrets相关的数据或流程。
+
+    参数：
+    - env（dict[str, str]）：调用方传入的env数据或控制参数，用于驱动本函数处理流程。
+    - env_file（Path）：调用方传入的env_file数据或控制参数，用于驱动本函数处理流程。
+
+    返回：None；返回值供调用方继续编排业务流程或生成接口响应。
+    """
     for key in FILE_BACKED_SECRET_KEYS:
         candidate = secret_file_candidate(env_file, env.get(key, ""))
         if candidate is None:
@@ -154,6 +265,13 @@ def resolve_file_backed_secrets(env: dict[str, str], env_file: Path) -> None:
 
 
 def ensure_file_backed_secret_files() -> None:
+    """
+    用途：校验并确保ensure file backed secret files相关的数据或流程。
+
+    参数：无显式业务参数。
+
+    返回：None；返回值供调用方继续编排业务流程或生成接口响应。
+    """
     env_values = read_env_file(GLOBAL_ENV_FILE)
     for key in FILE_BACKED_SECRET_KEYS:
         candidate = secret_file_candidate(GLOBAL_ENV_FILE, env_values.get(key, ""))
@@ -169,6 +287,15 @@ def ensure_file_backed_secret_files() -> None:
 
 
 def required_env(env: dict[str, str], key: str) -> str:
+    """
+    用途：执行required env相关业务逻辑。
+
+    参数：
+    - env（dict[str, str]）：调用方传入的env数据或控制参数，用于驱动本函数处理流程。
+    - key（str）：调用方传入的key数据或控制参数，用于驱动本函数处理流程。
+
+    返回：str；返回值供调用方继续编排业务流程或生成接口响应。
+    """
     value = declared_env(env, key).strip()
     if not value:
         fail(f"{key} is required in config/.env")
@@ -176,12 +303,30 @@ def required_env(env: dict[str, str], key: str) -> str:
 
 
 def declared_env(env: dict[str, str], key: str) -> str:
+    """
+    用途：执行declared env相关业务逻辑。
+
+    参数：
+    - env（dict[str, str]）：调用方传入的env数据或控制参数，用于驱动本函数处理流程。
+    - key（str）：调用方传入的key数据或控制参数，用于驱动本函数处理流程。
+
+    返回：str；返回值供调用方继续编排业务流程或生成接口响应。
+    """
     if key not in env:
         fail(f"{key} must be declared in config/.env")
     return env[key]
 
 
 def env_int(env: dict[str, str], key: str) -> int:
+    """
+    用途：执行env int相关业务逻辑。
+
+    参数：
+    - env（dict[str, str]）：调用方传入的env数据或控制参数，用于驱动本函数处理流程。
+    - key（str）：调用方传入的key数据或控制参数，用于驱动本函数处理流程。
+
+    返回：int；返回值供调用方继续编排业务流程或生成接口响应。
+    """
     value = required_env(env, key)
     try:
         return int(value)
@@ -190,6 +335,16 @@ def env_int(env: dict[str, str], key: str) -> int:
 
 
 def env_bool(env: dict[str, str], key: str, default: bool = False) -> bool:
+    """
+    用途：执行env bool相关业务逻辑。
+
+    参数：
+    - env（dict[str, str]）：调用方传入的env数据或控制参数，用于驱动本函数处理流程。
+    - key（str）：调用方传入的key数据或控制参数，用于驱动本函数处理流程。
+    - default（bool）：调用方传入的default数据或控制参数，用于驱动本函数处理流程。
+
+    返回：bool；返回值供调用方继续编排业务流程或生成接口响应。
+    """
     if key not in env:
         fail(f"{key} must be declared in config/.env")
     value = env.get(key)
@@ -199,6 +354,16 @@ def env_bool(env: dict[str, str], key: str, default: bool = False) -> bool:
 
 
 def env_int_default(env: dict[str, str], key: str, default: int) -> int:
+    """
+    用途：执行env int default相关业务逻辑。
+
+    参数：
+    - env（dict[str, str]）：调用方传入的env数据或控制参数，用于驱动本函数处理流程。
+    - key（str）：调用方传入的key数据或控制参数，用于驱动本函数处理流程。
+    - default（int）：调用方传入的default数据或控制参数，用于驱动本函数处理流程。
+
+    返回：int；返回值供调用方继续编排业务流程或生成接口响应。
+    """
     if key not in env:
         fail(f"{key} must be declared in config/.env")
     value = env.get(key)
@@ -211,6 +376,13 @@ def env_int_default(env: dict[str, str], key: str, default: int) -> int:
 
 
 def build_env() -> dict[str, str]:
+    """
+    用途：构建build env相关的数据或流程。
+
+    参数：无显式业务参数。
+
+    返回：dict[str, str]；返回值供调用方继续编排业务流程或生成接口响应。
+    """
     validate_env_declares_template_keys(GLOBAL_ENV_FILE, GLOBAL_ENV_EXAMPLE)
     env = os.environ.copy()
     env.update(read_env_file(GLOBAL_ENV_FILE))
@@ -228,6 +400,15 @@ def build_env() -> dict[str, str]:
 
 
 def apply_env_defaults(args: argparse.Namespace, env: dict[str, str]) -> None:
+    """
+    用途：执行apply env defaults相关业务逻辑。
+
+    参数：
+    - args（argparse.Namespace）：调用方传入的args数据或控制参数，用于驱动本函数处理流程。
+    - env（dict[str, str]）：调用方传入的env数据或控制参数，用于驱动本函数处理流程。
+
+    返回：None；返回值供调用方继续编排业务流程或生成接口响应。
+    """
     args.backend_host = args.backend_host or required_env(env, "BACKEND_HOST")
     args.backend_port = args.backend_port or env_int(env, "BACKEND_PORT")
     args.frontend_host = args.frontend_host or required_env(env, "FRONTEND_HOST")
@@ -239,6 +420,14 @@ def apply_env_defaults(args: argparse.Namespace, env: dict[str, str]) -> None:
 
 
 def validate_database_config(env: dict[str, str]) -> None:
+    """
+    用途：校验validate database config相关的数据或流程。
+
+    参数：
+    - env（dict[str, str]）：调用方传入的env数据或控制参数，用于驱动本函数处理流程。
+
+    返回：None；返回值供调用方继续编排业务流程或生成接口响应。
+    """
     url = declared_env(env, "DATABASE_URL").strip()
     if not url:
         return
@@ -268,11 +457,30 @@ def validate_database_config(env: dict[str, str]) -> None:
 
 
 def run_checked(command: list[str], cwd: Path, env: dict[str, str] | None = None) -> None:
+    """
+    用途：执行run checked相关业务逻辑。
+
+    参数：
+    - command（list[str]）：调用方传入的command数据或控制参数，用于驱动本函数处理流程。
+    - cwd（Path）：调用方传入的cwd数据或控制参数，用于驱动本函数处理流程。
+    - env（dict[str, str] | None）：调用方传入的env数据或控制参数，用于驱动本函数处理流程。
+
+    返回：None；返回值供调用方继续编排业务流程或生成接口响应。
+    """
     log(f"Running: {' '.join(command)}")
     subprocess.run(command, cwd=str(cwd), env=env, check=True)
 
 
 def maybe_install_dependencies(args: argparse.Namespace, env: dict[str, str]) -> None:
+    """
+    用途：执行maybe install dependencies相关业务逻辑。
+
+    参数：
+    - args（argparse.Namespace）：调用方传入的args数据或控制参数，用于驱动本函数处理流程。
+    - env（dict[str, str]）：调用方传入的env数据或控制参数，用于驱动本函数处理流程。
+
+    返回：None；返回值供调用方继续编排业务流程或生成接口响应。
+    """
     if not args.install:
         return
 
@@ -288,6 +496,15 @@ def maybe_install_dependencies(args: argparse.Namespace, env: dict[str, str]) ->
 
 
 def check_backend_dependencies(args: argparse.Namespace, env: dict[str, str]) -> None:
+    """
+    用途：检查check backend dependencies相关的数据或流程。
+
+    参数：
+    - args（argparse.Namespace）：调用方传入的args数据或控制参数，用于驱动本函数处理流程。
+    - env（dict[str, str]）：调用方传入的env数据或控制参数，用于驱动本函数处理流程。
+
+    返回：None；返回值供调用方继续编排业务流程或生成接口响应。
+    """
     if args.frontend_only:
         return
 
@@ -315,6 +532,14 @@ def check_backend_dependencies(args: argparse.Namespace, env: dict[str, str]) ->
 
 
 def check_frontend_dependencies(args: argparse.Namespace) -> None:
+    """
+    用途：检查check frontend dependencies相关的数据或流程。
+
+    参数：
+    - args（argparse.Namespace）：调用方传入的args数据或控制参数，用于驱动本函数处理流程。
+
+    返回：None；返回值供调用方继续编排业务流程或生成接口响应。
+    """
     if args.backend_only:
         return
     if not (FRONTEND_DIR / "node_modules").exists():
@@ -322,6 +547,14 @@ def check_frontend_dependencies(args: argparse.Namespace) -> None:
 
 
 def db_endpoint(env: dict[str, str]) -> tuple[str, int]:
+    """
+    用途：执行db endpoint相关业务逻辑。
+
+    参数：
+    - env（dict[str, str]）：调用方传入的env数据或控制参数，用于驱动本函数处理流程。
+
+    返回：tuple[str, int]；返回值供调用方继续编排业务流程或生成接口响应。
+    """
     url = declared_env(env, "DATABASE_URL").strip()
     if url:
         parsed = urlparse(url)
@@ -331,6 +564,16 @@ def db_endpoint(env: dict[str, str]) -> tuple[str, int]:
 
 
 def wait_for_port(host: str, port: int, timeout: int) -> bool:
+    """
+    用途：执行wait for port相关业务逻辑。
+
+    参数：
+    - host（str）：调用方传入的host数据或控制参数，用于驱动本函数处理流程。
+    - port（int）：调用方传入的port数据或控制参数，用于驱动本函数处理流程。
+    - timeout（int）：调用方传入的timeout数据或控制参数，用于驱动本函数处理流程。
+
+    返回：bool；返回值供调用方继续编排业务流程或生成接口响应。
+    """
     deadline = time.time() + timeout
     while time.time() < deadline:
         try:
@@ -342,6 +585,15 @@ def wait_for_port(host: str, port: int, timeout: int) -> bool:
 
 
 def is_port_available(host: str, port: int) -> bool:
+    """
+    用途：执行is port available相关业务逻辑。
+
+    参数：
+    - host（str）：调用方传入的host数据或控制参数，用于驱动本函数处理流程。
+    - port（int）：调用方传入的port数据或控制参数，用于驱动本函数处理流程。
+
+    返回：bool；返回值供调用方继续编排业务流程或生成接口响应。
+    """
     bind_host = "127.0.0.1" if host in {"0.0.0.0", "::"} else host
     try:
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
@@ -353,6 +605,17 @@ def is_port_available(host: str, port: int) -> bool:
 
 
 def choose_port(host: str, preferred_port: int, label: str, strict: bool) -> int:
+    """
+    用途：执行choose port相关业务逻辑。
+
+    参数：
+    - host（str）：调用方传入的host数据或控制参数，用于驱动本函数处理流程。
+    - preferred_port（int）：调用方传入的preferred_port数据或控制参数，用于驱动本函数处理流程。
+    - label（str）：调用方传入的label数据或控制参数，用于驱动本函数处理流程。
+    - strict（bool）：调用方传入的strict数据或控制参数，用于驱动本函数处理流程。
+
+    返回：int；返回值供调用方继续编排业务流程或生成接口响应。
+    """
     if is_port_available(host, preferred_port):
         return preferred_port
     if strict:
@@ -368,10 +631,28 @@ def choose_port(host: str, preferred_port: int, label: str, strict: bool) -> int
 
 
 def local_target_host(host: str) -> str:
+    """
+    用途：执行local target host相关业务逻辑。
+
+    参数：
+    - host（str）：调用方传入的host数据或控制参数，用于驱动本函数处理流程。
+
+    返回：str；返回值供调用方继续编排业务流程或生成接口响应。
+    """
     return "127.0.0.1" if host in {"0.0.0.0", "::"} else host
 
 
 def backend_target(args: argparse.Namespace, backend_port: int, env: dict[str, str]) -> str:
+    """
+    用途：执行backend target相关业务逻辑。
+
+    参数：
+    - args（argparse.Namespace）：调用方传入的args数据或控制参数，用于驱动本函数处理流程。
+    - backend_port（int）：调用方传入的backend_port数据或控制参数，用于驱动本函数处理流程。
+    - env（dict[str, str]）：调用方传入的env数据或控制参数，用于驱动本函数处理流程。
+
+    返回：str；返回值供调用方继续编排业务流程或生成接口响应。
+    """
     configured = declared_env(env, "VITE_BACKEND_TARGET").strip()
     if args.frontend_only and configured:
         return configured
@@ -379,7 +660,21 @@ def backend_target(args: argparse.Namespace, backend_port: int, env: dict[str, s
 
 
 class ProcessOutputSignals:
+    """
+    用途：领域对象或协作组件，用于承载本模块内的核心状态和行为。
+
+    属性：
+    - ready（实例属性，由构造函数注入或初始化）：保存ready相关状态、配置或数据字段。
+    - failed（实例属性，由构造函数注入或初始化）：保存failed相关状态、配置或数据字段。
+    """
     def __init__(self):
+        """
+        用途：执行init相关业务逻辑。
+
+        参数：无显式业务参数。
+
+        返回：未显式标注；返回值供调用方继续编排业务流程或生成接口响应。
+        """
         self.ready = threading.Event()
         self.failed = threading.Event()
 
@@ -389,6 +684,16 @@ def wait_for_backend_ready_signal(
     process: subprocess.Popen,
     signals: ProcessOutputSignals,
 ) -> None:
+    """
+    用途：执行wait for backend ready signal相关业务逻辑。
+
+    参数：
+    - timeout（int）：调用方传入的timeout数据或控制参数，用于驱动本函数处理流程。
+    - process（subprocess.Popen）：调用方传入的process数据或控制参数，用于驱动本函数处理流程。
+    - signals（ProcessOutputSignals）：调用方传入的signals数据或控制参数，用于驱动本函数处理流程。
+
+    返回：None；返回值供调用方继续编排业务流程或生成接口响应。
+    """
     log(f"Waiting for backend startup signal: {BACKEND_READY_LOG_MARKER} ...")
     deadline = time.time() + timeout
 
@@ -407,6 +712,15 @@ def wait_for_backend_ready_signal(
 
 
 def start_postgres(args: argparse.Namespace, env: dict[str, str]) -> None:
+    """
+    用途：启动start postgres相关的数据或流程。
+
+    参数：
+    - args（argparse.Namespace）：调用方传入的args数据或控制参数，用于驱动本函数处理流程。
+    - env（dict[str, str]）：调用方传入的env数据或控制参数，用于驱动本函数处理流程。
+
+    返回：None；返回值供调用方继续编排业务流程或生成接口响应。
+    """
     if args.skip_db or args.frontend_only:
         return
 
@@ -423,6 +737,17 @@ def start_postgres(args: argparse.Namespace, env: dict[str, str]) -> None:
 
 
 def popen(command: list[str], cwd: Path, env: dict[str, str], capture_output: bool = False) -> subprocess.Popen:
+    """
+    用途：执行popen相关业务逻辑。
+
+    参数：
+    - command（list[str]）：调用方传入的command数据或控制参数，用于驱动本函数处理流程。
+    - cwd（Path）：调用方传入的cwd数据或控制参数，用于驱动本函数处理流程。
+    - env（dict[str, str]）：调用方传入的env数据或控制参数，用于驱动本函数处理流程。
+    - capture_output（bool）：调用方传入的capture_output数据或控制参数，用于驱动本函数处理流程。
+
+    返回：subprocess.Popen；返回值供调用方继续编排业务流程或生成接口响应。
+    """
     log(f"Starting: {' '.join(command)}")
     if capture_output:
         return subprocess.Popen(
@@ -444,9 +769,26 @@ def relay_process_output(
     ready_marker: str | None = None,
     failure_marker: str | None = None,
 ) -> ProcessOutputSignals:
+    """
+    用途：执行relay process output相关业务逻辑。
+
+    参数：
+    - process（subprocess.Popen）：调用方传入的process数据或控制参数，用于驱动本函数处理流程。
+    - ready_marker（str | None）：调用方传入的ready_marker数据或控制参数，用于驱动本函数处理流程。
+    - failure_marker（str | None）：调用方传入的failure_marker数据或控制参数，用于驱动本函数处理流程。
+
+    返回：ProcessOutputSignals；返回值供调用方继续编排业务流程或生成接口响应。
+    """
     signals = ProcessOutputSignals()
 
     def relay() -> None:
+        """
+        用途：执行relay相关业务逻辑。
+
+        参数：无显式业务参数。
+
+        返回：None；返回值供调用方继续编排业务流程或生成接口响应。
+        """
         if process.stdout is None:
             return
         for line in process.stdout:
@@ -461,6 +803,14 @@ def relay_process_output(
 
 
 def terminate_windows_process_tree(process: subprocess.Popen) -> bool:
+    """
+    用途：执行terminate windows process tree相关业务逻辑。
+
+    参数：
+    - process（subprocess.Popen）：调用方传入的process数据或控制参数，用于驱动本函数处理流程。
+
+    返回：bool；返回值供调用方继续编排业务流程或生成接口响应。
+    """
     try:
         result = subprocess.run(
             ["taskkill", "/PID", str(process.pid), "/T", "/F"],
@@ -474,6 +824,14 @@ def terminate_windows_process_tree(process: subprocess.Popen) -> bool:
 
 
 def terminate(process: subprocess.Popen) -> bool:
+    """
+    用途：执行terminate相关业务逻辑。
+
+    参数：
+    - process（subprocess.Popen）：调用方传入的process数据或控制参数，用于驱动本函数处理流程。
+
+    返回：bool；返回值供调用方继续编排业务流程或生成接口响应。
+    """
     if process.poll() is not None:
         return False
     try:
@@ -489,6 +847,14 @@ def terminate(process: subprocess.Popen) -> bool:
 
 
 def service_label(name: str) -> str:
+    """
+    用途：执行service label相关业务逻辑。
+
+    参数：
+    - name（str）：调用方传入的name数据或控制参数，用于驱动本函数处理流程。
+
+    返回：str；返回值供调用方继续编排业务流程或生成接口响应。
+    """
     return {
         "backend": "Backend",
         "frontend": "Frontend",
@@ -496,6 +862,15 @@ def service_label(name: str) -> str:
 
 
 def terminate_all(processes: list[tuple[str, subprocess.Popen]], announce: bool = False) -> bool:
+    """
+    用途：执行terminate all相关业务逻辑。
+
+    参数：
+    - processes（list[tuple[str, subprocess.Popen]]）：调用方传入的processes数据或控制参数，用于驱动本函数处理流程。
+    - announce（bool）：调用方传入的announce数据或控制参数，用于驱动本函数处理流程。
+
+    返回：bool；返回值供调用方继续编排业务流程或生成接口响应。
+    """
     had_services = bool(processes)
     stopped_any = False
     for name, process in list(processes):
@@ -509,9 +884,25 @@ def terminate_all(processes: list[tuple[str, subprocess.Popen]], announce: bool 
 
 
 def install_shutdown_signal_handlers() -> dict[int, signal.Handlers]:
+    """
+    用途：执行install shutdown signal handlers相关业务逻辑。
+
+    参数：无显式业务参数。
+
+    返回：dict[int, signal.Handlers]；返回值供调用方继续编排业务流程或生成接口响应。
+    """
     previous_handlers: dict[int, signal.Handlers] = {}
 
     def handle_shutdown(signum: int, _frame: object) -> None:
+        """
+        用途：执行handle shutdown相关业务逻辑。
+
+        参数：
+        - signum（int）：调用方传入的signum数据或控制参数，用于驱动本函数处理流程。
+        - _frame（object）：调用方传入的_frame数据或控制参数，用于驱动本函数处理流程。
+
+        返回：None；返回值供调用方继续编排业务流程或生成接口响应。
+        """
         raise KeyboardInterrupt
 
     for signum in [signal.SIGTERM, getattr(signal, "SIGBREAK", None)]:
@@ -523,15 +914,39 @@ def install_shutdown_signal_handlers() -> dict[int, signal.Handlers]:
 
 
 def restore_signal_handlers(previous_handlers: dict[int, signal.Handlers]) -> None:
+    """
+    用途：执行restore signal handlers相关业务逻辑。
+
+    参数：
+    - previous_handlers（dict[int, signal.Handlers]）：调用方传入的previous_handlers数据或控制参数，用于驱动本函数处理流程。
+
+    返回：None；返回值供调用方继续编排业务流程或生成接口响应。
+    """
     for signum, handler in previous_handlers.items():
         signal.signal(signum, handler)
 
 
 def start_services(args: argparse.Namespace, env: dict[str, str]) -> int:
+    """
+    用途：启动start services相关的数据或流程。
+
+    参数：
+    - args（argparse.Namespace）：调用方传入的args数据或控制参数，用于驱动本函数处理流程。
+    - env（dict[str, str]）：调用方传入的env数据或控制参数，用于驱动本函数处理流程。
+
+    返回：int；返回值供调用方继续编排业务流程或生成接口响应。
+    """
     processes: list[tuple[str, subprocess.Popen]] = []
     previous_handlers = install_shutdown_signal_handlers()
 
     def cleanup_processes() -> None:
+        """
+        用途：执行cleanup processes相关业务逻辑。
+
+        参数：无显式业务参数。
+
+        返回：None；返回值供调用方继续编排业务流程或生成接口响应。
+        """
         terminate_all(processes)
 
     atexit.register(cleanup_processes)
@@ -622,6 +1037,13 @@ def start_services(args: argparse.Namespace, env: dict[str, str]) -> int:
 
 
 def parse_args() -> argparse.Namespace:
+    """
+    用途：解析parse args相关的数据或流程。
+
+    参数：无显式业务参数。
+
+    返回：argparse.Namespace；返回值供调用方继续编排业务流程或生成接口响应。
+    """
     parser = argparse.ArgumentParser(description="Start the RAGNotebook development stack.")
     parser.add_argument("--install", action="store_true", help="Install backend and frontend dependencies before startup.")
     parser.add_argument("--skip-db", action="store_true", help="Do not start PostgreSQL with docker compose.")
@@ -646,6 +1068,13 @@ def parse_args() -> argparse.Namespace:
 
 
 def main() -> int:
+    """
+    用途：作为命令行或模块入口执行main相关的数据或流程。
+
+    参数：无显式业务参数。
+
+    返回：int；返回值供调用方继续编排业务流程或生成接口响应。
+    """
     args = parse_args()
     ensure_env_file()
     ensure_file_backed_secret_files()

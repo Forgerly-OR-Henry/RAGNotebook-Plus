@@ -1,3 +1,9 @@
+"""
+模块职责：通用工具模块，提供跨业务复用的配置、文件、路径或安全辅助函数。
+
+主要协作：本文件只声明当前模块的职责边界，运行时行为由下方函数、类和依赖对象共同完成。
+"""
+
 import asyncio
 import logging
 import os
@@ -13,7 +19,20 @@ from utils.path_tool import get_abstract_path
 
 
 class FontBBoxLogFilter(logging.Filter):
+    """
+    用途：领域对象或协作组件，用于承载本模块内的核心状态和行为。
+
+    属性：该类不声明持久字段，主要通过方法行为或异常类型表达语义。
+    """
     def filter(self, record: logging.LogRecord) -> bool:
+        """
+        用途：执行filter相关业务逻辑。
+
+        参数：
+        - record（logging.LogRecord）：调用方传入的record数据或控制参数，用于驱动本函数处理流程。
+
+        返回：bool；返回值供调用方继续编排业务流程或生成接口响应。
+        """
         return "FontBBox from font descriptor" not in record.getMessage()
 
 
@@ -195,6 +214,14 @@ def ppt_loader_sync(file_path: str) -> list[Document]:
 
 
 def _read_text_file(file_path: str) -> str:
+    """
+    用途：执行read text file相关业务逻辑。
+
+    参数：
+    - file_path（str）：调用方传入的file_path数据或控制参数，用于驱动本函数处理流程。
+
+    返回：str；返回值供调用方继续编排业务流程或生成接口响应。
+    """
     for encoding in ("utf-8-sig", "utf-8", "gb18030", "gbk"):
         try:
             with open(file_path, encoding=encoding) as handle:
@@ -206,6 +233,16 @@ def _read_text_file(file_path: str) -> str:
 
 
 def _single_document(content: str, source: str, metadata: dict | None = None) -> list[Document]:
+    """
+    用途：执行single document相关业务逻辑。
+
+    参数：
+    - content（str）：调用方传入的content数据或控制参数，用于驱动本函数处理流程。
+    - source（str）：调用方传入的source数据或控制参数，用于驱动本函数处理流程。
+    - metadata（dict | None）：调用方传入的metadata数据或控制参数，用于驱动本函数处理流程。
+
+    返回：list[Document]；返回值供调用方继续编排业务流程或生成接口响应。
+    """
     normalized = content.replace("\r\n", "\n").replace("\r", "\n").strip()
     if not normalized:
         return []
@@ -213,6 +250,16 @@ def _single_document(content: str, source: str, metadata: dict | None = None) ->
 
 
 def _iter_docx_blocks(document):
+    """
+    用途：执行iter docx blocks相关业务逻辑。
+
+    参数：
+    - document（未显式标注）：调用方传入的document数据或控制参数，用于驱动本函数处理流程。
+
+    返回：未显式标注；返回值供调用方继续编排业务流程或生成接口响应。
+
+    副作用：可能访问数据库、文件、模型服务或流式事件通道，异常会沿调用链抛出。
+    """
     from docx.oxml.table import CT_Tbl
     from docx.oxml.text.paragraph import CT_P
     from docx.table import Table
@@ -226,6 +273,14 @@ def _iter_docx_blocks(document):
 
 
 def _docx_table_text(table) -> str:
+    """
+    用途：执行docx table text相关业务逻辑。
+
+    参数：
+    - table（未显式标注）：调用方传入的table数据或控制参数，用于驱动本函数处理流程。
+
+    返回：str；返回值供调用方继续编排业务流程或生成接口响应。
+    """
     rows = []
     for row in table.rows:
         cells = [" ".join(cell.text.split()) for cell in row.cells]
@@ -235,6 +290,14 @@ def _docx_table_text(table) -> str:
 
 
 def _extract_docx_text(file_path: str) -> str:
+    """
+    用途：执行extract docx text相关业务逻辑。
+
+    参数：
+    - file_path（str）：调用方传入的file_path数据或控制参数，用于驱动本函数处理流程。
+
+    返回：str；返回值供调用方继续编排业务流程或生成接口响应。
+    """
     from docx import Document as DocxDocument
 
     document = DocxDocument(file_path)
@@ -250,6 +313,14 @@ def _extract_docx_text(file_path: str) -> str:
 
 
 def _pptx_shape_lines(shape) -> list[str]:
+    """
+    用途：执行pptx shape lines相关业务逻辑。
+
+    参数：
+    - shape（未显式标注）：调用方传入的shape数据或控制参数，用于驱动本函数处理流程。
+
+    返回：list[str]；返回值供调用方继续编排业务流程或生成接口响应。
+    """
     lines: list[str] = []
 
     if getattr(shape, "has_text_frame", False):
@@ -272,6 +343,14 @@ def _pptx_shape_lines(shape) -> list[str]:
 
 
 def _extract_pptx_documents(file_path: str) -> list[Document]:
+    """
+    用途：执行extract pptx documents相关业务逻辑。
+
+    参数：
+    - file_path（str）：调用方传入的file_path数据或控制参数，用于驱动本函数处理流程。
+
+    返回：list[Document]；返回值供调用方继续编排业务流程或生成接口响应。
+    """
     from pptx import Presentation
 
     presentation = Presentation(file_path)

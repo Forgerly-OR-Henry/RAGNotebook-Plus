@@ -1,3 +1,7 @@
+<!--
+模块职责：Vue 页面组件，负责组合业务 API、页面状态和用户交互。
+主要协作：通过组合 API、状态、组件和路由来支撑当前页面或功能。
+-->
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
 import {
@@ -23,28 +27,43 @@ import { notesApi } from '../api/notes'
 import { buildFolderTreeRows, type FolderTreeFile } from '../features/sources/folderTree'
 import type { KnowledgeDocument, KnowledgeFolder, Note, NoteFolder, QuizResponse } from '../types/api'
 
+/**
+ * 类型：`Step` 描述当前业务域中的数据结构。
+ * 字段含义应与后端接口、组件入参或本地状态保持一致。
+ */
 type Step = 'selection' | 'generating' | 'quiz' | 'result'
 
 const step = ref<Step>('selection')
+// 响应式状态：保存当前组件内部的临时 UI 或业务处理状态。
 const generatingMessage = ref('正在读取所选内容...')
 const notes = ref<Note[]>([])
 const documents = ref<KnowledgeDocument[]>([])
 const noteFolders = ref<NoteFolder[]>([])
 const knowledgeFolders = ref<KnowledgeFolder[]>([])
+// 响应式状态：保存当前组件内部的临时 UI 或业务处理状态。
 const loadingContext = ref(true)
 const selectedNotes = ref<string[]>([])
 const selectedFiles = ref<string[]>([])
 const collapsedNoteFolderKeys = ref<Set<string>>(new Set())
 const collapsedDocumentFolderKeys = ref<Set<string>>(new Set())
+// 响应式状态：保存当前组件内部的临时 UI 或业务处理状态。
 const noteSearch = ref('')
+// 响应式状态：保存当前组件内部的临时 UI 或业务处理状态。
 const fileSearch = ref('')
 const quiz = ref<QuizResponse | null>(null)
 const userAnswers = ref<Record<string, string>>({})
+// 响应式状态：保存当前组件内部的临时 UI 或业务处理状态。
 const score = ref(0)
+// 响应式状态：保存当前组件内部的临时 UI 或业务处理状态。
 const errorMessage = ref('')
 
 let generationTimer: number | undefined
 
+/**
+ * 用途：执行noteFiles相关业务逻辑。
+ * 参数：无显式业务参数。
+ * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+ */
 const noteFiles = computed<FolderTreeFile[]>(() => notes.value.map((note) => ({
   id: note.id,
   folderId: note.folder_id,
@@ -53,6 +72,11 @@ const noteFiles = computed<FolderTreeFile[]>(() => notes.value.map((note) => ({
   searchText: [note.title, note.category, ...(note.tags || [])].filter(Boolean).join(' '),
 })))
 
+/**
+ * 用途：执行documentFiles相关业务逻辑。
+ * 参数：无显式业务参数。
+ * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+ */
 const documentFiles = computed<FolderTreeFile[]>(() => documents.value.map((doc) => {
   const title = docTitle(doc)
   return {
@@ -64,14 +88,54 @@ const documentFiles = computed<FolderTreeFile[]>(() => documents.value.map((doc)
   }
 }))
 
+/**
+ * 用途：执行noteRows相关业务逻辑。
+ * 参数：无显式业务参数。
+ * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+ */
 const noteRows = computed(() => buildFolderTreeRows(noteFolders.value, noteFiles.value, '暂无可用笔记', noteSearch.value, collapsedNoteFolderKeys.value, true))
+/**
+ * 用途：执行documentRows相关业务逻辑。
+ * 参数：无显式业务参数。
+ * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+ */
 const documentRows = computed(() => buildFolderTreeRows(knowledgeFolders.value, documentFiles.value, '暂无可用文档', fileSearch.value, collapsedDocumentFolderKeys.value, true))
+/**
+ * 用途：执行visibleNoteIds相关业务逻辑。
+ * 参数：无显式业务参数。
+ * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+ */
 const visibleNoteIds = computed(() => noteRows.value.filter((row) => row.kind === 'file' && row.sourceId).map((row) => row.sourceId as string))
+/**
+ * 用途：执行visibleDocumentIds相关业务逻辑。
+ * 参数：无显式业务参数。
+ * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+ */
 const visibleDocumentIds = computed(() => documentRows.value.filter((row) => row.kind === 'file' && row.sourceId).map((row) => row.sourceId as string))
+/**
+ * 用途：执行allNotesSelected相关业务逻辑。
+ * 参数：无显式业务参数。
+ * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+ */
 const allNotesSelected = computed(() => visibleNoteIds.value.length > 0 && visibleNoteIds.value.every((id) => selectedNotes.value.includes(id)))
+/**
+ * 用途：执行allDocsSelected相关业务逻辑。
+ * 参数：无显式业务参数。
+ * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+ */
 const allDocsSelected = computed(() => visibleDocumentIds.value.length > 0 && visibleDocumentIds.value.every((id) => selectedFiles.value.includes(id)))
+/**
+ * 用途：执行answeredCount相关业务逻辑。
+ * 参数：无显式业务参数。
+ * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+ */
 const answeredCount = computed(() => quiz.value?.questions.filter((q) => userAnswers.value[q.id]).length || 0)
 
+/**
+ * 用途：执行loadData相关业务逻辑。
+ * 参数：无显式业务参数。
+ * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+ */
 async function loadData() {
   loadingContext.value = true
   errorMessage.value = ''
@@ -93,6 +157,11 @@ async function loadData() {
   }
 }
 
+/**
+ * 用途：执行startGeneratingMessages相关业务逻辑。
+ * 参数：无显式业务参数。
+ * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+ */
 function startGeneratingMessages() {
   stopGeneratingMessages()
   const messages = [
@@ -110,6 +179,11 @@ function startGeneratingMessages() {
   }, 1800)
 }
 
+/**
+ * 用途：执行stopGeneratingMessages相关业务逻辑。
+ * 参数：无显式业务参数。
+ * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+ */
 function stopGeneratingMessages() {
   if (generationTimer) {
     window.clearInterval(generationTimer)
@@ -117,6 +191,11 @@ function stopGeneratingMessages() {
   }
 }
 
+/**
+ * 用途：执行handleGenerate相关业务逻辑。
+ * 参数：无显式业务参数。
+ * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+ */
 async function handleGenerate() {
   errorMessage.value = ''
   if (!selectedNotes.value.length && !selectedFiles.value.length) {
@@ -146,8 +225,18 @@ async function handleGenerate() {
   }
 }
 
+/**
+ * 用途：执行handleSubmitQuiz相关业务逻辑。
+ * 参数：无显式业务参数。
+ * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+ */
 function handleSubmitQuiz() {
   if (!quiz.value) return
+  /**
+   * 用途：执行unanswered相关业务逻辑。
+   * 参数：无显式业务参数。
+   * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+   */
   const unanswered = quiz.value.questions.filter((q) => !userAnswers.value[q.id])
   if (unanswered.length) {
     errorMessage.value = `还有 ${unanswered.length} 道题未回答`
@@ -161,26 +250,53 @@ function handleSubmitQuiz() {
   step.value = 'result'
 }
 
+/**
+ * 用途：执行toggleNote相关业务逻辑。
+ * @param noteId 调用方传入的noteId参数，用于驱动当前前端逻辑。
+ * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+ */
 function toggleNote(noteId: string) {
   selectedNotes.value = selectedNotes.value.includes(noteId)
     ? selectedNotes.value.filter((id) => id !== noteId)
     : [...selectedNotes.value, noteId]
 }
 
+/**
+ * 用途：执行toggleFile相关业务逻辑。
+ * @param docId 调用方传入的docId参数，用于驱动当前前端逻辑。
+ * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+ */
 function toggleFile(docId: string) {
   selectedFiles.value = selectedFiles.value.includes(docId)
     ? selectedFiles.value.filter((id) => id !== docId)
     : [...selectedFiles.value, docId]
 }
 
+/**
+ * 用途：执行toggleAllNotes相关业务逻辑。
+ * 参数：无显式业务参数。
+ * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+ */
 function toggleAllNotes() {
   selectedNotes.value = toggleVisibleSelection(selectedNotes.value, visibleNoteIds.value, allNotesSelected.value)
 }
 
+/**
+ * 用途：执行toggleAllDocs相关业务逻辑。
+ * 参数：无显式业务参数。
+ * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+ */
 function toggleAllDocs() {
   selectedFiles.value = toggleVisibleSelection(selectedFiles.value, visibleDocumentIds.value, allDocsSelected.value)
 }
 
+/**
+ * 用途：执行toggleVisibleSelection相关业务逻辑。
+ * @param selectedIds 调用方传入的selectedIds参数，用于驱动当前前端逻辑。
+ * @param visibleIds 调用方传入的visibleIds参数，用于驱动当前前端逻辑。
+ * @param allVisibleSelected 调用方传入的allVisibleSelected参数，用于驱动当前前端逻辑。
+ * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+ */
 function toggleVisibleSelection(selectedIds: string[], visibleIds: string[], allVisibleSelected: boolean) {
   const visibleSet = new Set(visibleIds)
   if (allVisibleSelected) {
@@ -189,24 +305,50 @@ function toggleVisibleSelection(selectedIds: string[], visibleIds: string[], all
   return Array.from(new Set([...selectedIds, ...visibleIds]))
 }
 
+/**
+ * 用途：执行isNoteFolderCollapsed相关业务逻辑。
+ * @param key 调用方传入的key参数，用于驱动当前前端逻辑。
+ * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+ */
 function isNoteFolderCollapsed(key: string) {
   if (noteSearch.value.trim()) return false
   return !collapsedNoteFolderKeys.value.has(key)
 }
 
+/**
+ * 用途：执行isDocumentFolderCollapsed相关业务逻辑。
+ * @param key 调用方传入的key参数，用于驱动当前前端逻辑。
+ * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+ */
 function isDocumentFolderCollapsed(key: string) {
   if (fileSearch.value.trim()) return false
   return !collapsedDocumentFolderKeys.value.has(key)
 }
 
+/**
+ * 用途：执行toggleNoteFolder相关业务逻辑。
+ * @param key 调用方传入的key参数，用于驱动当前前端逻辑。
+ * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+ */
 function toggleNoteFolder(key: string) {
   collapsedNoteFolderKeys.value = toggleCollapsedSet(collapsedNoteFolderKeys.value, key)
 }
 
+/**
+ * 用途：执行toggleDocumentFolder相关业务逻辑。
+ * @param key 调用方传入的key参数，用于驱动当前前端逻辑。
+ * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+ */
 function toggleDocumentFolder(key: string) {
   collapsedDocumentFolderKeys.value = toggleCollapsedSet(collapsedDocumentFolderKeys.value, key)
 }
 
+/**
+ * 用途：执行toggleCollapsedSet相关业务逻辑。
+ * @param current 调用方传入的current参数，用于驱动当前前端逻辑。
+ * @param key 调用方传入的key参数，用于驱动当前前端逻辑。
+ * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+ */
 function toggleCollapsedSet(current: Set<string>, key: string) {
   const next = new Set(current)
   if (next.has(key)) {
@@ -217,26 +359,53 @@ function toggleCollapsedSet(current: Set<string>, key: string) {
   return next
 }
 
+/**
+ * 用途：执行docTitle相关业务逻辑。
+ * @param doc 调用方传入的doc参数，用于驱动当前前端逻辑。
+ * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+ */
 function docTitle(doc: KnowledgeDocument) {
   return doc.original_filename || doc.filename || doc.title || '未命名文档'
 }
 
+/**
+ * 用途：执行formatDate相关业务逻辑。
+ * 参数：无显式业务参数。
+ * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+ */
 function formatDate(value?: string | null) {
   if (!value) return '未更新'
   return new Date(value).toLocaleDateString()
 }
 
+/**
+ * 用途：执行formatFileSize相关业务逻辑。
+ * 参数：无显式业务参数。
+ * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+ */
 function formatFileSize(value?: number) {
   if (!value) return '未知大小'
   if (value < 1024 * 1024) return `${(value / 1024).toFixed(1)} KB`
   return `${(value / 1024 / 1024).toFixed(1)} MB`
 }
 
+/**
+ * 用途：执行messageFromError相关业务逻辑。
+ * @param error 调用方传入的error参数，用于驱动当前前端逻辑。
+ * @param fallback 调用方传入的fallback参数，用于驱动当前前端逻辑。
+ * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+ */
 function messageFromError(error: unknown, fallback: string) {
   const maybeError = error as { response?: { data?: { detail?: string; message?: string } }; message?: string }
   return maybeError.response?.data?.detail || maybeError.response?.data?.message || maybeError.message || fallback
 }
 
+/**
+ * 用途：执行optionClass相关业务逻辑。
+ * @param questionId 调用方传入的questionId参数，用于驱动当前前端逻辑。
+ * @param option 调用方传入的option参数，用于驱动当前前端逻辑。
+ * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+ */
 function optionClass(questionId: string, option: string) {
   const selected = userAnswers.value[questionId] === option
   return selected
@@ -244,6 +413,13 @@ function optionClass(questionId: string, option: string) {
     : 'border-[var(--color-border)] bg-[var(--color-card)] text-[var(--color-text-secondary)] hover:border-[var(--color-accent)] hover:bg-[var(--color-bg-secondary)]'
 }
 
+/**
+ * 用途：执行resultOptionClass相关业务逻辑。
+ * @param questionId 调用方传入的questionId参数，用于驱动当前前端逻辑。
+ * @param option 调用方传入的option参数，用于驱动当前前端逻辑。
+ * @param answer 调用方传入的answer参数，用于驱动当前前端逻辑。
+ * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+ */
 function resultOptionClass(questionId: string, option: string, answer: string) {
   const selected = userAnswers.value[questionId] === option
   if (option === answer) {
@@ -255,6 +431,11 @@ function resultOptionClass(questionId: string, option: string, answer: string) {
   return 'border-[var(--color-border)] bg-[var(--color-card)] text-[var(--color-text-secondary)] opacity-70'
 }
 
+/**
+ * 用途：执行resetToSelection相关业务逻辑。
+ * 参数：无显式业务参数。
+ * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+ */
 function resetToSelection() {
   quiz.value = null
   userAnswers.value = {}

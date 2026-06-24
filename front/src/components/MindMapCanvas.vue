@@ -1,9 +1,17 @@
+<!--
+模块职责：Vue 可复用组件，负责封装局部界面、交互状态和事件输出。
+主要协作：通过组合 API、状态、组件和路由来支撑当前页面或功能。
+-->
 <script setup lang="ts">
 import { computed, onBeforeUnmount, ref, watch } from 'vue'
 import { Copy, Download, RotateCcw, ZoomIn, ZoomOut } from '@lucide/vue'
 import MindMapTreeNode from './MindMapTreeNode.vue'
 import type { MindMapNode, MindMapResponse } from '../types/api'
 
+/**
+ * 接口：`MindMapTreeNodeData` 描述当前业务域中的数据结构。
+ * 字段含义应与后端接口、组件入参或本地状态保持一致。
+ */
 interface MindMapTreeNodeData {
   id: string
   label: string
@@ -20,13 +28,22 @@ const props = withDefaults(defineProps<{
   emptyText: '请选择来源后生成导图。',
 })
 
+// 响应式状态：保存当前组件内部的临时 UI 或业务处理状态。
 const scale = ref(1)
+// 响应式状态：保存当前组件内部的临时 UI 或业务处理状态。
 const offset = ref({ x: 0, y: 0 })
+// 响应式状态：保存当前组件内部的临时 UI 或业务处理状态。
 const dragging = ref(false)
+// 响应式状态：保存当前组件内部的临时 UI 或业务处理状态。
 const dragStart = ref({ x: 0, y: 0 })
+// 响应式状态：保存当前组件内部的临时 UI 或业务处理状态。
 const copyMessage = ref('')
 let copyTimer: number | undefined
 
+/**
+ * 接口：`ExportNodeMetrics` 描述当前业务域中的数据结构。
+ * 字段含义应与后端接口、组件入参或本地状态保持一致。
+ */
 interface ExportNodeMetrics {
   width: number
   height: number
@@ -34,6 +51,10 @@ interface ExportNodeMetrics {
   summaryLines: string[]
 }
 
+/**
+ * 接口：`ExportNodeLayout` 描述当前业务域中的数据结构。
+ * 字段含义应与后端接口、组件入参或本地状态保持一致。
+ */
 interface ExportNodeLayout {
   node: MindMapTreeNodeData
   depth: number
@@ -58,15 +79,31 @@ const exportTones = [
   { fill: '#FDF0F3', stroke: '#C75A72', text: '#7A2638', muted: '#96616D', line: '#DC9AAC' },
 ]
 
+/**
+ * 用途：执行tree相关业务逻辑。
+ * 参数：无显式业务参数。
+ * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+ */
 const tree = computed(() => buildTree(props.mindmap))
+/**
+ * 用途：执行scaleLabel相关业务逻辑。
+ * 参数：无显式业务参数。
+ * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+ */
 const scaleLabel = computed(() => `${Math.round(scale.value * 100)}%`)
 
+// 状态监听：在关键输入变化后同步副作用或刷新页面数据。
 watch(() => props.mindmap?.mindmap_id, () => resetView())
 
 onBeforeUnmount(() => {
   if (copyTimer) window.clearTimeout(copyTimer)
 })
 
+/**
+ * 用途：执行buildTree相关业务逻辑。
+ * @param mindmap 调用方传入的mindmap参数，用于驱动当前前端逻辑。
+ * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+ */
 function buildTree(mindmap: MindMapResponse | null): MindMapTreeNodeData | null {
   if (!mindmap?.nodes.length) return null
 
@@ -104,7 +141,19 @@ function buildTree(mindmap: MindMapResponse | null): MindMapTreeNodeData | null 
   return rootNode
 }
 
+/**
+ * 用途：执行pickRoot相关业务逻辑。
+ * @param nodes 调用方传入的nodes参数，用于驱动当前前端逻辑。
+ * @param targets 调用方传入的targets参数，用于驱动当前前端逻辑。
+ * @param nodeMap 调用方传入的nodeMap参数，用于驱动当前前端逻辑。
+ * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+ */
 function pickRoot(nodes: MindMapNode[], targets: Set<string>, nodeMap: Map<string, MindMapTreeNodeData>) {
+  /**
+   * 用途：执行root相关业务逻辑。
+   * 参数：无显式业务参数。
+   * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+   */
   const root = nodes.find((node) => node.level === 0 && !targets.has(node.id))
     || nodes.find((node) => !targets.has(node.id))
     || nodes[0]
@@ -116,12 +165,23 @@ function pickRoot(nodes: MindMapNode[], targets: Set<string>, nodeMap: Map<strin
   }
 }
 
+/**
+ * 用途：执行collectTreeIds相关业务逻辑。
+ * @param node 调用方传入的node参数，用于驱动当前前端逻辑。
+ * @param ids 调用方传入的ids参数，用于驱动当前前端逻辑。
+ * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+ */
 function collectTreeIds(node: MindMapTreeNodeData, ids: Set<string>) {
   if (ids.has(node.id)) return
   ids.add(node.id)
   node.children.forEach((child) => collectTreeIds(child, ids))
 }
 
+/**
+ * 用途：执行startPan相关业务逻辑。
+ * @param event 调用方传入的event参数，用于驱动当前前端逻辑。
+ * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+ */
 function startPan(event: PointerEvent) {
   if (!tree.value || event.button !== 0) return
   dragging.value = true
@@ -133,6 +193,11 @@ function startPan(event: PointerEvent) {
   target.setPointerCapture?.(event.pointerId)
 }
 
+/**
+ * 用途：执行movePan相关业务逻辑。
+ * @param event 调用方传入的event参数，用于驱动当前前端逻辑。
+ * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+ */
 function movePan(event: PointerEvent) {
   if (!dragging.value) return
   offset.value = {
@@ -141,6 +206,11 @@ function movePan(event: PointerEvent) {
   }
 }
 
+/**
+ * 用途：执行endPan相关业务逻辑。
+ * @param event 调用方传入的event参数，用于驱动当前前端逻辑。
+ * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+ */
 function endPan(event: PointerEvent) {
   dragging.value = false
   const target = event.currentTarget as HTMLElement
@@ -151,24 +221,50 @@ function endPan(event: PointerEvent) {
   }
 }
 
+/**
+ * 用途：执行zoomBy相关业务逻辑。
+ * @param delta 调用方传入的delta参数，用于驱动当前前端逻辑。
+ * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+ */
 function zoomBy(delta: number) {
   scale.value = Math.min(2.5, Math.max(0.5, Number((scale.value + delta).toFixed(2))))
 }
 
+/**
+ * 用途：执行handleWheel相关业务逻辑。
+ * @param event 调用方传入的event参数，用于驱动当前前端逻辑。
+ * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+ */
 function handleWheel(event: WheelEvent) {
   if (!tree.value) return
   zoomBy(event.deltaY < 0 ? 0.1 : -0.1)
 }
 
+/**
+ * 用途：执行resetView相关业务逻辑。
+ * 参数：无显式业务参数。
+ * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+ */
 function resetView() {
   scale.value = 1
   offset.value = { x: 0, y: 0 }
 }
 
+/**
+ * 用途：执行outlineText相关业务逻辑。
+ * @param node 调用方传入的node参数，用于驱动当前前端逻辑。
+ * @param indent 调用方传入的indent参数，用于驱动当前前端逻辑。
+ * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+ */
 function outlineText(node: MindMapTreeNodeData, indent = ''): string {
   return `${indent}- ${node.label}\n${node.children.map((child) => outlineText(child, `${indent}  `)).join('')}`
 }
 
+/**
+ * 用途：执行copyOutline相关业务逻辑。
+ * 参数：无显式业务参数。
+ * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+ */
 async function copyOutline() {
   if (!tree.value) return
   const text = outlineText(tree.value)
@@ -189,6 +285,11 @@ async function copyOutline() {
   }
 }
 
+/**
+ * 用途：执行fallbackCopy相关业务逻辑。
+ * @param text 调用方传入的text参数，用于驱动当前前端逻辑。
+ * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+ */
 function fallbackCopy(text: string) {
   const textarea = document.createElement('textarea')
   textarea.value = text
@@ -201,6 +302,11 @@ function fallbackCopy(text: string) {
   document.body.removeChild(textarea)
 }
 
+/**
+ * 用途：执行downloadSvg相关业务逻辑。
+ * 参数：无显式业务参数。
+ * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+ */
 function downloadSvg() {
   if (!tree.value || !props.mindmap) return
 
@@ -217,11 +323,32 @@ function downloadSvg() {
   showCopyMessage('SVG 已下载')
 }
 
+/**
+ * 用途：执行buildMindMapSvg相关业务逻辑。
+ * @param root 调用方传入的root参数，用于驱动当前前端逻辑。
+ * @param title 调用方传入的title参数，用于驱动当前前端逻辑。
+ * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+ */
 function buildMindMapSvg(root: MindMapTreeNodeData, title: string) {
   const layout = buildExportLayout(root)
   const nodes = flattenExportLayout(layout)
+  /**
+   * 用途：执行minTop相关业务逻辑。
+   * 参数：无显式业务参数。
+   * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+   */
   const minTop = Math.min(...nodes.map((node) => node.y - node.height / 2))
+  /**
+   * 用途：执行maxBottom相关业务逻辑。
+   * 参数：无显式业务参数。
+   * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+   */
   const maxBottom = Math.max(...nodes.map((node) => node.y + node.height / 2))
+  /**
+   * 用途：执行maxRight相关业务逻辑。
+   * 参数：无显式业务参数。
+   * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+   */
   const maxRight = Math.max(...nodes.map((node) => node.x + node.width))
   const yShift = EXPORT_PADDING_Y - minTop
 
@@ -250,11 +377,27 @@ function buildMindMapSvg(root: MindMapTreeNodeData, title: string) {
   ].join('')
 }
 
+/**
+ * 用途：执行buildExportLayout相关业务逻辑。
+ * @param root 调用方传入的root参数，用于驱动当前前端逻辑。
+ * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+ */
 function buildExportLayout(root: MindMapTreeNodeData) {
   let cursor = 0
 
+  /**
+   * 用途：执行place相关业务逻辑。
+   * @param node 调用方传入的node参数，用于驱动当前前端逻辑。
+   * @param depth 调用方传入的depth参数，用于驱动当前前端逻辑。
+   * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+   */
   function place(node: MindMapTreeNodeData, depth: number): ExportNodeLayout {
     const metrics = getExportNodeMetrics(node, depth)
+    /**
+     * 用途：执行children相关业务逻辑。
+     * 参数：无显式业务参数。
+     * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+     */
     const children = node.children.map((child) => place(child, depth + 1))
     let y = 0
 
@@ -287,15 +430,32 @@ function buildExportLayout(root: MindMapTreeNodeData) {
   return place(root, 0)
 }
 
+/**
+ * 用途：执行shiftExportLayout相关业务逻辑。
+ * @param layout 调用方传入的layout参数，用于驱动当前前端逻辑。
+ * @param shift 调用方传入的shift参数，用于驱动当前前端逻辑。
+ * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+ */
 function shiftExportLayout(layout: ExportNodeLayout, shift: number) {
   layout.y += shift
   layout.children.forEach((child) => shiftExportLayout(child, shift))
 }
 
+/**
+ * 用途：执行flattenExportLayout相关业务逻辑。
+ * @param layout 调用方传入的layout参数，用于驱动当前前端逻辑。
+ * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+ */
 function flattenExportLayout(layout: ExportNodeLayout): ExportNodeLayout[] {
   return [layout, ...layout.children.flatMap((child) => flattenExportLayout(child))]
 }
 
+/**
+ * 用途：执行getExportNodeMetrics相关业务逻辑。
+ * @param node 调用方传入的node参数，用于驱动当前前端逻辑。
+ * @param depth 调用方传入的depth参数，用于驱动当前前端逻辑。
+ * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+ */
 function getExportNodeMetrics(node: MindMapTreeNodeData, depth: number): ExportNodeMetrics {
   const width = getExportNodeWidth(depth)
   const labelUnits = Math.max(10, Math.floor((width - 42) / 13))
@@ -312,6 +472,11 @@ function getExportNodeMetrics(node: MindMapTreeNodeData, depth: number): ExportN
   }
 }
 
+/**
+ * 用途：执行getExportNodeWidth相关业务逻辑。
+ * @param depth 调用方传入的depth参数，用于驱动当前前端逻辑。
+ * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+ */
 function getExportNodeWidth(depth: number) {
   if (depth === 0) return 280
   if (depth === 1) return 252
@@ -319,7 +484,17 @@ function getExportNodeWidth(depth: number) {
   return 214
 }
 
+/**
+ * 用途：执行renderExportConnectors相关业务逻辑。
+ * @param layout 调用方传入的layout参数，用于驱动当前前端逻辑。
+ * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+ */
 function renderExportConnectors(layout: ExportNodeLayout): string {
+  /**
+   * 用途：执行currentConnectors相关业务逻辑。
+   * 参数：无显式业务参数。
+   * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+   */
   const currentConnectors = layout.children.map((child) => {
     const tone = getExportTone(child.depth)
     const startX = layout.x + layout.width
@@ -334,6 +509,11 @@ function renderExportConnectors(layout: ExportNodeLayout): string {
   return currentConnectors + layout.children.map((child) => renderExportConnectors(child)).join('')
 }
 
+/**
+ * 用途：执行renderExportNode相关业务逻辑。
+ * @param layout 调用方传入的layout参数，用于驱动当前前端逻辑。
+ * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+ */
 function renderExportNode(layout: ExportNodeLayout): string {
   const tone = getExportTone(layout.depth)
   const radius = layout.depth === 0 ? 24 : 18
@@ -348,6 +528,11 @@ function renderExportNode(layout: ExportNodeLayout): string {
     + (layout.metrics.summaryLines.length ? 6 + layout.metrics.summaryLines.length * summaryLineHeight : 0)
   let textY = layout.y - contentHeight / 2 + labelLineHeight * 0.78
 
+  /**
+   * 用途：执行label相关业务逻辑。
+   * 参数：无显式业务参数。
+   * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+   */
   const label = layout.metrics.labelLines.map((line) => {
     const text = `<tspan x="${formatSvgNumber(textX)}" y="${formatSvgNumber(textY)}">${escapeXml(line)}</tspan>`
     textY += labelLineHeight
@@ -355,6 +540,11 @@ function renderExportNode(layout: ExportNodeLayout): string {
   }).join('')
 
   textY += layout.metrics.summaryLines.length ? 4 : 0
+  /**
+   * 用途：执行summary相关业务逻辑。
+   * 参数：无显式业务参数。
+   * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+   */
   const summary = layout.metrics.summaryLines.map((line) => {
     const text = `<tspan x="${formatSvgNumber(textX)}" y="${formatSvgNumber(textY)}">${escapeXml(line)}</tspan>`
     textY += summaryLineHeight
@@ -370,10 +560,22 @@ function renderExportNode(layout: ExportNodeLayout): string {
   ].join('')
 }
 
+/**
+ * 用途：执行getExportTone相关业务逻辑。
+ * @param depth 调用方传入的depth参数，用于驱动当前前端逻辑。
+ * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+ */
 function getExportTone(depth: number) {
   return exportTones[Math.min(depth, exportTones.length - 1)]
 }
 
+/**
+ * 用途：执行wrapSvgText相关业务逻辑。
+ * @param value 调用方传入的value参数，用于驱动当前前端逻辑。
+ * @param maxUnits 调用方传入的maxUnits参数，用于驱动当前前端逻辑。
+ * @param maxLines 调用方传入的maxLines参数，用于驱动当前前端逻辑。
+ * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+ */
 function wrapSvgText(value: string, maxUnits: number, maxLines: number) {
   const normalized = value.trim().replace(/\s+/g, ' ')
   if (!normalized) return []
@@ -415,16 +617,31 @@ function wrapSvgText(value: string, maxUnits: number, maxLines: number) {
   return lines
 }
 
+/**
+ * 用途：执行getTextUnit相关业务逻辑。
+ * @param char 调用方传入的char参数，用于驱动当前前端逻辑。
+ * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+ */
 function getTextUnit(char: string) {
   return /[\x00-\x7F]/.test(char) ? 0.55 : 1
 }
 
+/**
+ * 用途：执行withEllipsis相关业务逻辑。
+ * @param value 调用方传入的value参数，用于驱动当前前端逻辑。
+ * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+ */
 function withEllipsis(value: string) {
   const trimmed = value.replace(/[，。；、,.!?;:\s]+$/g, '')
   if (trimmed.length <= 1) return `${trimmed}...`
   return `${trimmed.slice(0, trimmed.length - 1)}...`
 }
 
+/**
+ * 用途：执行escapeXml相关业务逻辑。
+ * @param value 调用方传入的value参数，用于驱动当前前端逻辑。
+ * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+ */
 function escapeXml(value: string) {
   return value
     .replace(/&/g, '&amp;')
@@ -434,14 +651,29 @@ function escapeXml(value: string) {
     .replace(/'/g, '&apos;')
 }
 
+/**
+ * 用途：执行sanitizeFilename相关业务逻辑。
+ * @param value 调用方传入的value参数，用于驱动当前前端逻辑。
+ * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+ */
 function sanitizeFilename(value: string) {
   return value.trim().replace(/[\\/:*?"<>|]+/g, '-').replace(/\s+/g, ' ').slice(0, 80) || 'mindmap'
 }
 
+/**
+ * 用途：执行formatSvgNumber相关业务逻辑。
+ * @param value 调用方传入的value参数，用于驱动当前前端逻辑。
+ * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+ */
 function formatSvgNumber(value: number) {
   return Number(value.toFixed(2))
 }
 
+/**
+ * 用途：执行showCopyMessage相关业务逻辑。
+ * @param message 调用方传入的message参数，用于驱动当前前端逻辑。
+ * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+ */
 function showCopyMessage(message: string) {
   copyMessage.value = message
   if (copyTimer) window.clearTimeout(copyTimer)

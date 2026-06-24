@@ -1,3 +1,7 @@
+<!--
+模块职责：Vue 可复用组件，负责封装局部界面、交互状态和事件输出。
+主要协作：通过组合 API、状态、组件和路由来支撑当前页面或功能。
+-->
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
 import { Sparkles, X } from '@lucide/vue'
@@ -5,26 +9,41 @@ import { mindmapApi } from '../api/mindmaps'
 import type { MindMapResponse } from '../types/api'
 import MindMapCanvas from './MindMapCanvas.vue'
 
+// 组件入参：由父组件传入业务对象、加载态和展示模式。
 const props = defineProps<{
   open: boolean
   noteIds: string[]
 }>()
 
+// 组件事件：向父组件报告关闭、保存、选择等交互结果。
 const emit = defineEmits<{
   'update:open': [value: boolean]
 }>()
 
+// 响应式状态：保存当前组件内部的临时 UI 或业务处理状态。
 const loading = ref(false)
+// 响应式状态：保存当前组件内部的临时 UI 或业务处理状态。
 const errorMessage = ref('')
 const mindmap = ref<MindMapResponse | null>(null)
+/**
+ * 用途：执行noteKey相关业务逻辑。
+ * 参数：无显式业务参数。
+ * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+ */
 const noteKey = computed(() => props.noteIds.join('|'))
 
+// 状态监听：在关键输入变化后同步副作用或刷新页面数据。
 watch([() => props.open, noteKey], ([open]) => {
   if (open) {
     void generateMindMap()
   }
 }, { immediate: true })
 
+/**
+ * 用途：执行generateMindMap相关业务逻辑。
+ * 参数：无显式业务参数。
+ * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+ */
 async function generateMindMap() {
   errorMessage.value = ''
   mindmap.value = null
@@ -48,11 +67,21 @@ async function generateMindMap() {
   }
 }
 
+/**
+ * 用途：执行resolveErrorMessage相关业务逻辑。
+ * @param error 调用方传入的error参数，用于驱动当前前端逻辑。
+ * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+ */
 function resolveErrorMessage(error: unknown) {
   const detail = error as { message?: string; response?: { data?: { detail?: string; message?: string } } }
   return detail.response?.data?.message || detail.response?.data?.detail || detail.message || '思维导图生成失败，请稍后重试。'
 }
 
+/**
+ * 用途：执行close相关业务逻辑。
+ * 参数：无显式业务参数。
+ * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+ */
 function close() {
   emit('update:open', false)
 }

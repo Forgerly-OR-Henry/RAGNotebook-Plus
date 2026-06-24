@@ -1,3 +1,7 @@
+<!--
+模块职责：Vue 可复用组件，负责封装局部界面、交互状态和事件输出。
+主要协作：通过组合 API、状态、组件和路由来支撑当前页面或功能。
+-->
 <script setup lang="ts">
 import { computed, ref } from 'vue'
 import { RouterLink, RouterView, useRoute, useRouter } from 'vue-router'
@@ -17,6 +21,7 @@ import {
 import { useUserStore } from '../stores/useUserStore'
 import { authApi } from '../api/auth'
 
+// 响应式状态：保存当前组件内部的临时 UI 或业务处理状态。
 const collapsed = ref(false)
 const route = useRoute()
 const router = useRouter()
@@ -36,6 +41,11 @@ const bottomItems = [
   { path: '/about', label: '关于', icon: Info },
 ]
 
+/**
+ * 用途：执行pageTitle相关业务逻辑。
+ * 参数：无显式业务参数。
+ * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+ */
 const pageTitle = computed(() => {
   if (route.path === '/notes/new') {
     return '新建笔记'
@@ -43,15 +53,30 @@ const pageTitle = computed(() => {
   if (route.path.startsWith('/notes/') && route.path !== '/notes') {
     return '编辑笔记'
   }
+  /**
+   * 用途：执行item相关业务逻辑。
+   * 参数：无显式业务参数。
+   * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+   */
   const item = [...navItems, ...bottomItems].find((entry) => route.path.startsWith(entry.path))
   return item?.label || '云笺集'
 })
 
+/**
+ * 用途：执行showBackButton相关业务逻辑。
+ * 参数：无显式业务参数。
+ * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+ */
 const showBackButton = computed(() => (
   (route.path.startsWith('/notes/') && route.path !== '/notes')
   || (route.path.startsWith('/knowledge/') && route.path !== '/knowledge')
 ))
 
+/**
+ * 用途：执行fallbackBackPath相关业务逻辑。
+ * 参数：无显式业务参数。
+ * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+ */
 const fallbackBackPath = computed(() => {
   if (route.path.startsWith('/notes/') && route.path !== '/notes') {
     return '/notes'
@@ -62,6 +87,11 @@ const fallbackBackPath = computed(() => {
   return '/chat'
 })
 
+/**
+ * 用途：执行goBack相关业务逻辑。
+ * 参数：无显式业务参数。
+ * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+ */
 function goBack() {
   const historyState = window.history.state as { back?: string | null }
   if (historyState?.back) {
@@ -71,6 +101,11 @@ function goBack() {
   router.push(fallbackBackPath.value)
 }
 
+/**
+ * 用途：执行logout相关业务逻辑。
+ * 参数：无显式业务参数。
+ * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+ */
 async function logout() {
   try {
     await authApi.logout()

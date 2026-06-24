@@ -1,3 +1,7 @@
+/**
+ * 模块职责：前端业务 API 封装，负责把视图层调用转换为后端 HTTP 或 SSE 请求。
+ * 主要协作：通过导出的类型、函数或组件配置供其他前端模块复用。
+ */
 import client from '../../api/client'
 import { endpoints } from '../../api/endpoints'
 import { uploadFormSse, type StreamResult } from '../../api/stream'
@@ -12,13 +16,26 @@ import type {
   DeleteCategoryResponse,
 } from '../../types/api'
 
+/**
+ * 接口：`KnowledgeListData` 描述当前业务域中的数据结构。
+ * 字段含义应与后端接口、组件入参或本地状态保持一致。
+ */
 interface KnowledgeListData {
   documents: KnowledgeDocument[]
   total_count: number
 }
 
+/**
+ * 类型：`KnowledgeUploadResult` 描述当前业务域中的数据结构。
+ * 字段含义应与后端接口、组件入参或本地状态保持一致。
+ */
 type KnowledgeUploadResult = StreamResult<KnowledgeUploadProgress>
 
+/**
+ * 用途：执行uploadWithProgress相关业务逻辑。
+ * 参数：无显式业务参数。
+ * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+ */
 async function uploadWithProgress(
   files: File[],
   onProgress?: (event: KnowledgeUploadProgress) => void,

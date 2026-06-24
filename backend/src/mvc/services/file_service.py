@@ -1,3 +1,9 @@
+"""
+模块职责：业务服务模块，负责组织领域用例、数据访问和外部能力协作。
+
+主要协作：本文件只声明当前模块的职责边界，运行时行为由下方函数、类和依赖对象共同完成。
+"""
+
 import os
 
 from fastapi import HTTPException, UploadFile
@@ -15,11 +21,38 @@ MAX_AVATAR_BYTES = 5 * 1024 * 1024
 
 
 class FileService:
+    """
+    用途：业务服务类，用于封装用例流程、依赖协作和事务边界。
+
+    属性：
+    - user_repo（实例属性，由构造函数注入或初始化）：保存user_repo相关状态、配置或数据字段。
+    - storage_service（实例属性，由构造函数注入或初始化）：保存storage_service相关状态、配置或数据字段。
+    """
     def __init__(self, user_repo: UserRepository | None = None, storage_service: StorageService | None = None):
+        """
+        用途：执行init相关业务逻辑。
+
+        参数：
+        - user_repo（UserRepository | None）：调用方传入的user_repo数据或控制参数，用于驱动本函数处理流程。
+        - storage_service（StorageService | None）：调用方传入的storage_service数据或控制参数，用于驱动本函数处理流程。
+
+        返回：未显式标注；返回值供调用方继续编排业务流程或生成接口响应。
+        """
         self.user_repo = user_repo or user_repository
         self.storage_service = storage_service or get_storage_service()
 
     async def upload_avatar(self, file: UploadFile, user_id: str) -> dict:
+        """
+        用途：上传upload avatar相关的数据或流程。
+
+        参数：
+        - file（UploadFile）：调用方传入的file数据或控制参数，用于驱动本函数处理流程。
+        - user_id（str）：调用方传入的user_id数据或控制参数，用于驱动本函数处理流程。
+
+        返回：dict；返回值供调用方继续编排业务流程或生成接口响应。
+
+        副作用：可能访问数据库、文件、模型服务或流式事件通道，异常会沿调用链抛出。
+        """
         if file.content_type and not file.content_type.startswith("image/"):
             raise HTTPException(status_code=400, detail="请选择图片文件")
 
@@ -61,9 +94,27 @@ class FileService:
 
     @staticmethod
     def public_avatar_url(object_id: str) -> str:
+        """
+        用途：执行public avatar url相关业务逻辑。
+
+        参数：
+        - object_id（str）：调用方传入的object_id数据或控制参数，用于驱动本函数处理流程。
+
+        返回：str；返回值供调用方继续编排业务流程或生成接口响应。
+        """
         return f"/file/avatar/{object_id}"
 
     async def get_avatar_response(self, object_id: str) -> Response:
+        """
+        用途：读取或查询get avatar response相关的数据或流程。
+
+        参数：
+        - object_id（str）：调用方传入的object_id数据或控制参数，用于驱动本函数处理流程。
+
+        返回：Response；返回值供调用方继续编排业务流程或生成接口响应。
+
+        副作用：可能访问数据库、文件、模型服务或流式事件通道，异常会沿调用链抛出。
+        """
         async with AsyncSessionLocal() as session:
             storage_object = await session.get(StorageObject, object_id)
             if not storage_object or not self._is_avatar_object(storage_object):
@@ -74,6 +125,14 @@ class FileService:
 
     @staticmethod
     def _is_avatar_object(storage_object: StorageObject) -> bool:
+        """
+        用途：执行is avatar object相关业务逻辑。
+
+        参数：
+        - storage_object（StorageObject）：调用方传入的storage_object数据或控制参数，用于驱动本函数处理流程。
+
+        返回：bool；返回值供调用方继续编排业务流程或生成接口响应。
+        """
         return "://avatars/" in storage_object.storage_uri
 
 
@@ -81,4 +140,11 @@ _file_service = FileService()
 
 
 def get_file_service() -> FileService:
+    """
+    用途：读取或查询get file service相关的数据或流程。
+
+    参数：无显式业务参数。
+
+    返回：FileService；返回值供调用方继续编排业务流程或生成接口响应。
+    """
     return _file_service

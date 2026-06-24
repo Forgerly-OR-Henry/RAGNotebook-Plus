@@ -1,3 +1,9 @@
+"""
+模块职责：业务服务模块，负责组织领域用例、数据访问和外部能力协作。
+
+主要协作：本文件只声明当前模块的职责边界，运行时行为由下方函数、类和依赖对象共同完成。
+"""
+
 from __future__ import annotations
 
 from sqlalchemy import or_, select
@@ -18,10 +24,36 @@ class QuizGenerationError(ValueError):
 
 
 class QuizService:
+    """
+    用途：业务服务类，用于封装用例流程、依赖协作和事务边界。
+
+    属性：
+    - collector（实例属性，由构造函数注入或初始化）：保存collector相关状态、配置或数据字段。
+    """
     def __init__(self, collector=None):
+        """
+        用途：执行init相关业务逻辑。
+
+        参数：
+        - collector（未显式标注）：调用方传入的collector数据或控制参数，用于驱动本函数处理流程。
+
+        返回：未显式标注；返回值供调用方继续编排业务流程或生成接口响应。
+        """
         self.collector = collector or get_source_registry()
 
     async def generate_quiz(self, db: AsyncSession, user_id: str, payload: QuizGenerateRequest) -> QuizResponse:
+        """
+        用途：生成generate quiz相关的数据或流程。
+
+        参数：
+        - db（AsyncSession）：调用方传入的db数据或控制参数，用于驱动本函数处理流程。
+        - user_id（str）：调用方传入的user_id数据或控制参数，用于驱动本函数处理流程。
+        - payload（QuizGenerateRequest）：调用方传入的payload数据或控制参数，用于驱动本函数处理流程。
+
+        返回：QuizResponse；返回值供调用方继续编排业务流程或生成接口响应。
+
+        副作用：可能访问数据库、文件、模型服务或流式事件通道，异常会沿调用链抛出。
+        """
         note_ids = _dedupe(payload.selected_notes)
         knowledge_refs = _dedupe(payload.selected_files)
         knowledge_ids = await self._resolve_knowledge_source_ids(db, user_id, knowledge_refs)
@@ -38,6 +70,18 @@ class QuizService:
         return await self._generate_from_chunks(chunks)
 
     async def _resolve_knowledge_source_ids(self, db: AsyncSession | None, user_id: str, source_refs: list[str]) -> list[str]:
+        """
+        用途：解析并归一化resolve knowledge source ids相关的数据或流程。
+
+        参数：
+        - db（AsyncSession | None）：调用方传入的db数据或控制参数，用于驱动本函数处理流程。
+        - user_id（str）：调用方传入的user_id数据或控制参数，用于驱动本函数处理流程。
+        - source_refs（list[str]）：调用方传入的source_refs数据或控制参数，用于驱动本函数处理流程。
+
+        返回：list[str]；返回值供调用方继续编排业务流程或生成接口响应。
+
+        副作用：可能访问数据库、文件、模型服务或流式事件通道，异常会沿调用链抛出。
+        """
         if not source_refs:
             return []
         if db is None:
@@ -60,6 +104,16 @@ class QuizService:
         return _dedupe(ref_to_id.get(ref, ref) for ref in source_refs)
 
     async def _generate_from_chunks(self, chunks: list[SourceChunk]) -> QuizResponse:
+        """
+        用途：生成generate from chunks相关的数据或流程。
+
+        参数：
+        - chunks（list[SourceChunk]）：调用方传入的chunks数据或控制参数，用于驱动本函数处理流程。
+
+        返回：QuizResponse；返回值供调用方继续编排业务流程或生成接口响应。
+
+        副作用：可能访问数据库、文件、模型服务或流式事件通道，异常会沿调用链抛出。
+        """
         context = format_source_context(chunks, max_chars=MAX_CONTEXT_CHARS)
         prompt = f"""你是一个智能学习助手。请根据以下资料生成一个包含 {DEFAULT_QUESTION_COUNT} 道题的快速测验，题型包含单选题和判断题。
 要求:
@@ -96,9 +150,27 @@ JSON 格式:
         return self._fallback_quiz(chunks)
 
     async def _model_json(self, prompt: str) -> dict | None:
+        """
+        用途：异步执行model json相关业务流程。
+
+        参数：
+        - prompt（str）：调用方传入的prompt数据或控制参数，用于驱动本函数处理流程。
+
+        返回：dict | None；返回值供调用方继续编排业务流程或生成接口响应。
+
+        副作用：可能访问数据库、文件、模型服务或流式事件通道，异常会沿调用链抛出。
+        """
         return await model_json(prompt)
 
     def _coerce_quiz(self, data: dict) -> QuizResponse | None:
+        """
+        用途：执行coerce quiz相关业务逻辑。
+
+        参数：
+        - data（dict）：调用方传入的data数据或控制参数，用于驱动本函数处理流程。
+
+        返回：QuizResponse | None；返回值供调用方继续编排业务流程或生成接口响应。
+        """
         questions = data.get("questions")
         if not isinstance(questions, list):
             return None
@@ -136,6 +208,14 @@ JSON 格式:
 
     @staticmethod
     def _fallback_quiz(chunks: list[SourceChunk]) -> QuizResponse:
+        """
+        用途：执行fallback quiz相关业务逻辑。
+
+        参数：
+        - chunks（list[SourceChunk]）：调用方传入的chunks数据或控制参数，用于驱动本函数处理流程。
+
+        返回：QuizResponse；返回值供调用方继续编排业务流程或生成接口响应。
+        """
         questions: list[QuizQuestion] = []
         usable_chunks = chunks or [SourceChunk(source_type="note", source_id="fallback", title="当前资料", content="")]
         for idx in range(DEFAULT_QUESTION_COUNT):
@@ -165,6 +245,14 @@ JSON 格式:
 
 
 def _dedupe(values) -> list[str]:
+    """
+    用途：执行dedupe相关业务逻辑。
+
+    参数：
+    - values（未显式标注）：调用方传入的values数据或控制参数，用于驱动本函数处理流程。
+
+    返回：list[str]；返回值供调用方继续编排业务流程或生成接口响应。
+    """
     seen: set[str] = set()
     result: list[str] = []
     for value in values or []:
@@ -179,6 +267,13 @@ _quiz_service: QuizService | None = None
 
 
 def get_quiz_service() -> QuizService:
+    """
+    用途：读取或查询get quiz service相关的数据或流程。
+
+    参数：无显式业务参数。
+
+    返回：QuizService；返回值供调用方继续编排业务流程或生成接口响应。
+    """
     global _quiz_service
     if _quiz_service is None:
         _quiz_service = QuizService()

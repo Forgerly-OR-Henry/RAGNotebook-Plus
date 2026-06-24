@@ -1,22 +1,30 @@
+<!--
+模块职责：Vue 可复用组件，负责封装局部界面、交互状态和事件输出。
+主要协作：通过组合 API、状态、组件和路由来支撑当前页面或功能。
+-->
 <script setup lang="ts">
 import { ref, watch } from 'vue'
 import { ChevronDown, ChevronUp, FileText, Library, X } from '@lucide/vue'
 import { notesApi } from '../api/notes'
 import type { RelatedFragment } from '../types/api'
 
+// 组件入参：由父组件传入业务对象、加载态和展示模式。
 const props = defineProps<{
   noteId: string
   open: boolean
 }>()
 
+// 组件事件：向父组件报告关闭、保存、选择等交互结果。
 const emit = defineEmits<{
   close: []
 }>()
 
 const fragments = ref<RelatedFragment[]>([])
+// 响应式状态：保存当前组件内部的临时 UI 或业务处理状态。
 const loading = ref(false)
 const expandedId = ref<string | null>(null)
 
+// 状态监听：在关键输入变化后同步副作用或刷新页面数据。
 watch(
   () => [props.open, props.noteId] as const,
   async ([open, noteId]) => {

@@ -1,13 +1,26 @@
+<!--
+模块职责：知识文档预览组件，负责原文件加载、PDF/文本/Office 预览和分片内容切换。
+主要协作：通过组合 API、状态、组件和路由来支撑当前页面或功能。
+-->
 <script setup lang="ts">
 import { computed, onBeforeUnmount, ref, watch } from 'vue'
 import { Download, Eye, FileText, LoaderCircle, X } from '@lucide/vue'
 import { knowledgeApi } from '../api/knowledge'
 import MarkdownRenderer from './MarkdownRenderer.vue'
-import type { KnowledgeChunk, KnowledgeDocument, KnowledgeDocumentDetail } from '../types/api'
+import type { KnowledgeDocument, KnowledgeDocumentDetail } from '../types/api'
 
+/**
+ * 类型：`PreviewKind` 描述当前业务域中的数据结构。
+ * 字段含义应与后端接口、组件入参或本地状态保持一致。
+ */
 type PreviewKind = 'pdf' | 'markdown' | 'text' | 'word' | 'presentation' | 'fallback'
+/**
+ * 类型：`PreviewTab` 描述当前业务域中的数据结构。
+ * 字段含义应与后端接口、组件入参或本地状态保持一致。
+ */
 type PreviewTab = 'rendered' | 'chunks'
 
+// 组件入参：由父组件传入业务对象、加载态和展示模式。
 const props = defineProps<{
   document: KnowledgeDocument
   detail: KnowledgeDocumentDetail | null
@@ -16,25 +29,43 @@ const props = defineProps<{
   mode?: 'modal' | 'page'
 }>()
 
+// 组件事件：向父组件报告关闭、保存、选择等交互结果。
 const emit = defineEmits<{ close: [] }>()
 
 const activeTab = ref<PreviewTab>('rendered')
+// 响应式状态：保存当前组件内部的临时 UI 或业务处理状态。
 const fileLoading = ref(false)
+// 响应式状态：保存当前组件内部的临时 UI 或业务处理状态。
 const fileError = ref('')
 const fileBlob = ref<Blob | null>(null)
+// 响应式状态：保存当前组件内部的临时 UI 或业务处理状态。
 const objectUrl = ref('')
+// 响应式状态：保存当前组件内部的临时 UI 或业务处理状态。
 const previewMimeType = ref('')
+// 响应式状态：保存当前组件内部的临时 UI 或业务处理状态。
 const originalText = ref('')
+// 响应式状态：保存当前组件内部的临时 UI 或业务处理状态。
 const downloading = ref(false)
+// 响应式状态：保存当前组件内部的临时 UI 或业务处理状态。
 const downloadError = ref('')
 let loadSerial = 0
 
 const PDF_VIEWER_PARAMS = '#toolbar=0&navpanes=0&view=FitH'
 
+/**
+ * 用途：执行getDocumentTitle相关业务逻辑。
+ * @param doc 调用方传入的doc参数，用于驱动当前前端逻辑。
+ * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+ */
 function getDocumentTitle(doc: KnowledgeDocument) {
   return doc.original_filename || doc.filename
 }
 
+/**
+ * 用途：执行getExtension相关业务逻辑。
+ * @param doc 调用方传入的doc参数，用于驱动当前前端逻辑。
+ * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+ */
 function getExtension(doc: KnowledgeDocument) {
   const explicitExt = doc.file_ext?.trim().toLowerCase()
   if (explicitExt) {
@@ -45,6 +76,11 @@ function getExtension(doc: KnowledgeDocument) {
   return match?.[0].toLowerCase() || ''
 }
 
+/**
+ * 用途：执行formatDate相关业务逻辑。
+ * 参数：无显式业务参数。
+ * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+ */
 function formatDate(value?: string | null) {
   if (!value) {
     return ''
@@ -56,6 +92,11 @@ function formatDate(value?: string | null) {
   return `${date.getMonth() + 1}月${date.getDate()}日 ${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`
 }
 
+/**
+ * 用途：执行formatFileSize相关业务逻辑。
+ * 参数：无显式业务参数。
+ * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+ */
 function formatFileSize(value?: number | null) {
   if (!value || value <= 0) {
     return ''
@@ -69,6 +110,11 @@ function formatFileSize(value?: number | null) {
   return `${(value / 1024 / 1024).toFixed(1)} MB`
 }
 
+/**
+ * 用途：执行revokeObjectUrl相关业务逻辑。
+ * 参数：无显式业务参数。
+ * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+ */
 function revokeObjectUrl() {
   if (objectUrl.value) {
     URL.revokeObjectURL(objectUrl.value)
@@ -76,6 +122,11 @@ function revokeObjectUrl() {
   }
 }
 
+/**
+ * 用途：执行resetFileState相关业务逻辑。
+ * 参数：无显式业务参数。
+ * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+ */
 function resetFileState() {
   loadSerial += 1
   revokeObjectUrl()
@@ -87,13 +138,48 @@ function resetFileState() {
   originalText.value = ''
 }
 
+/**
+ * 用途：执行title相关业务逻辑。
+ * 参数：无显式业务参数。
+ * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+ */
 const title = computed(() => getDocumentTitle(props.document))
+/**
+ * 用途：执行isPageMode相关业务逻辑。
+ * 参数：无显式业务参数。
+ * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+ */
 const isPageMode = computed(() => props.mode === 'page')
+/**
+ * 用途：执行extension相关业务逻辑。
+ * 参数：无显式业务参数。
+ * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+ */
 const extension = computed(() => getExtension(props.document))
+/**
+ * 用途：执行fileSize相关业务逻辑。
+ * 参数：无显式业务参数。
+ * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+ */
 const fileSize = computed(() => formatFileSize(props.document.file_size))
+/**
+ * 用途：执行createdAt相关业务逻辑。
+ * 参数：无显式业务参数。
+ * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+ */
 const createdAt = computed(() => formatDate(props.document.created_at))
+/**
+ * 用途：执行chunks相关业务逻辑。
+ * 参数：无显式业务参数。
+ * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+ */
 const chunks = computed(() => props.detail?.chunks || [])
 
+/**
+ * 用途：执行previewKind相关业务逻辑。
+ * 参数：无显式业务参数。
+ * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+ */
 const previewKind = computed<PreviewKind>(() => {
   const ext = extension.value
   if (ext === '.pdf' || props.document.mime_type === 'application/pdf') {
@@ -114,6 +200,11 @@ const previewKind = computed<PreviewKind>(() => {
   return 'fallback'
 })
 
+/**
+ * 用途：执行renderedLabel相关业务逻辑。
+ * 参数：无显式业务参数。
+ * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+ */
 const renderedLabel = computed(() => {
   switch (previewKind.value) {
     case 'pdf':
@@ -131,11 +222,35 @@ const renderedLabel = computed(() => {
   }
 })
 
+/**
+ * 用途：执行canLoadRenderedPreview相关业务逻辑。
+ * 参数：无显式业务参数。
+ * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+ */
 const canLoadRenderedPreview = computed(() => ['pdf', 'word', 'presentation'].includes(previewKind.value))
+/**
+ * 用途：执行canLoadOriginalText相关业务逻辑。
+ * 参数：无显式业务参数。
+ * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+ */
 const canLoadOriginalText = computed(() => ['markdown', 'text'].includes(previewKind.value))
-const hasOfficeFallback = computed(() => ['word', 'presentation'].includes(previewKind.value))
+/**
+ * 用途：执行isBusy相关业务逻辑。
+ * 参数：无显式业务参数。
+ * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+ */
 const isBusy = computed(() => props.loading || fileLoading.value)
-const blockingError = computed(() => props.error || (previewKind.value === 'pdf' ? fileError.value : ''))
+/**
+ * 用途：执行blockingError相关业务逻辑。
+ * 参数：无显式业务参数。
+ * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+ */
+const blockingError = computed(() => props.error)
+/**
+ * 用途：执行previewFrameSrc相关业务逻辑。
+ * 参数：无显式业务参数。
+ * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+ */
 const previewFrameSrc = computed(() => {
   if (!objectUrl.value) {
     return ''
@@ -143,38 +258,105 @@ const previewFrameSrc = computed(() => {
   const isPdfPreview = previewKind.value === 'pdf' || previewMimeType.value.toLowerCase().includes('application/pdf')
   return isPdfPreview ? `${objectUrl.value}${PDF_VIEWER_PARAMS}` : objectUrl.value
 })
-
-const plainTextContent = computed(() => originalText.value || props.detail?.content || '')
-
-function splitDisplayLines(content: string) {
-  return content.split(/\r?\n/).map((line) => line.trim()).filter(Boolean)
-}
-
-const officeSections = computed(() => {
-  const sourceChunks = chunks.value.length
-    ? chunks.value
-    : props.detail?.content
-      ? [{ chunk_id: 'content', index: 0, content: props.detail.content, page: 0, images: [] } satisfies KnowledgeChunk]
-      : []
-
-  return sourceChunks.map((chunk, index) => {
-    const lines = splitDisplayLines(chunk.content)
-    const fallbackTitle = previewKind.value === 'presentation' ? `幻灯片 ${index + 1}` : `片段 ${index + 1}`
-    return {
-      id: chunk.chunk_id || `${index}`,
-      index,
-      page: chunk.page,
-      title: lines[0] || fallbackTitle,
-      body: lines.length > 1 ? lines.slice(1) : lines,
-    }
-  })
+/**
+ * 用途：执行isMissingSourceFile相关业务逻辑。
+ * 参数：无显式业务参数。
+ * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+ */
+const isMissingSourceFile = computed(() => /源文件.*丢失|原文件不存在/.test(fileError.value))
+/**
+ * 用途：执行renderedErrorMessage相关业务逻辑。
+ * 参数：无显式业务参数。
+ * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+ */
+const renderedErrorMessage = computed(() => {
+  if (!fileError.value) {
+    return ''
+  }
+  if (isMissingSourceFile.value) {
+    return fileError.value
+  }
+  if (canLoadOriginalText.value) {
+    return `原文件读取失败：${fileError.value}`
+  }
+  return `${renderedLabel.value} 原样预览不可用：${fileError.value}`
 })
 
+/**
+ * 用途：执行plainTextContent相关业务逻辑。
+ * 参数：无显式业务参数。
+ * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+ */
+const plainTextContent = computed(() => originalText.value)
+
+/**
+ * 用途：执行createObjectUrl相关业务逻辑。
+ * @param blob 调用方传入的blob参数，用于驱动当前前端逻辑。
+ * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+ */
 function createObjectUrl(blob: Blob) {
   revokeObjectUrl()
   objectUrl.value = URL.createObjectURL(blob)
 }
 
+/**
+ * 用途：执行readResponseMessage相关业务逻辑。
+ * @param data 调用方传入的data参数，用于驱动当前前端逻辑。
+ * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+ */
+function readResponseMessage(data: unknown): string {
+  if (!data || typeof data !== 'object') {
+    return typeof data === 'string' ? data : ''
+  }
+  const detail = (data as { detail?: unknown; message?: unknown }).detail
+  const message = (data as { detail?: unknown; message?: unknown }).message
+  if (typeof detail === 'string') {
+    return detail
+  }
+  if (typeof message === 'string') {
+    return message
+  }
+  return ''
+}
+
+/**
+ * 用途：执行resolveErrorMessage相关业务逻辑。
+ * @param error 调用方传入的error参数，用于驱动当前前端逻辑。
+ * @param fallback 调用方传入的fallback参数，用于驱动当前前端逻辑。
+ * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+ */
+async function resolveErrorMessage(error: unknown, fallback: string) {
+  const responseData = (error as { response?: { data?: unknown } })?.response?.data
+  if (responseData instanceof Blob) {
+    try {
+      const text = await responseData.text()
+      if (text.trim().startsWith('{')) {
+        const parsed = JSON.parse(text) as unknown
+        const message = readResponseMessage(parsed)
+        if (message) {
+          return message
+        }
+      }
+      if (text.trim()) {
+        return text.trim()
+      }
+    } catch {
+      // Fall through to the generic error message below.
+    }
+  }
+
+  const responseMessage = readResponseMessage(responseData)
+  if (responseMessage) {
+    return responseMessage
+  }
+  return error instanceof Error && error.message ? error.message : fallback
+}
+
+/**
+ * 用途：执行loadRenderedPreview相关业务逻辑。
+ * 参数：无显式业务参数。
+ * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+ */
 async function loadRenderedPreview() {
   if (!canLoadRenderedPreview.value) {
     return
@@ -195,7 +377,7 @@ async function loadRenderedPreview() {
     if (serial !== loadSerial) {
       return
     }
-    fileError.value = error instanceof Error ? error.message : '预览加载失败'
+    fileError.value = await resolveErrorMessage(error, '预览加载失败')
   } finally {
     if (serial === loadSerial) {
       fileLoading.value = false
@@ -203,6 +385,11 @@ async function loadRenderedPreview() {
   }
 }
 
+/**
+ * 用途：执行loadOriginalText相关业务逻辑。
+ * 参数：无显式业务参数。
+ * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+ */
 async function loadOriginalText() {
   if (!canLoadOriginalText.value) {
     return
@@ -223,7 +410,7 @@ async function loadOriginalText() {
     if (serial !== loadSerial) {
       return
     }
-    fileError.value = error instanceof Error ? error.message : '原文件加载失败'
+    fileError.value = await resolveErrorMessage(error, '原文件加载失败')
   } finally {
     if (serial === loadSerial) {
       fileLoading.value = false
@@ -231,6 +418,11 @@ async function loadOriginalText() {
   }
 }
 
+/**
+ * 用途：执行downloadOriginal相关业务逻辑。
+ * 参数：无显式业务参数。
+ * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+ */
 async function downloadOriginal() {
   downloading.value = true
   downloadError.value = ''
@@ -246,16 +438,22 @@ async function downloadOriginal() {
     anchor.remove()
     window.setTimeout(() => URL.revokeObjectURL(url), 1000)
   } catch (error) {
-    downloadError.value = error instanceof Error ? error.message : '原文件下载失败'
+    downloadError.value = await resolveErrorMessage(error, '原文件下载失败')
   } finally {
     downloading.value = false
   }
 }
 
+/**
+ * 用途：执行close相关业务逻辑。
+ * 参数：无显式业务参数。
+ * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+ */
 function close() {
   emit('close')
 }
 
+// 状态监听：在关键输入变化后同步副作用或刷新页面数据。
 watch(
   () => props.document.id,
   () => {
@@ -347,8 +545,13 @@ onBeforeUnmount(() => {
       <p v-else-if="blockingError" class="knowledge-preview__error">{{ blockingError }}</p>
 
       <template v-else-if="activeTab === 'rendered'">
+        <div v-if="fileError" class="knowledge-preview__rendered-error" role="alert">
+          <p>{{ renderedErrorMessage }}</p>
+          <p>可切换到“切片”查看已解析内容。</p>
+        </div>
+
         <iframe
-          v-if="canLoadRenderedPreview && previewFrameSrc"
+          v-else-if="canLoadRenderedPreview && previewFrameSrc"
           class="knowledge-preview__frame"
           :src="previewFrameSrc"
           :title="title"
@@ -364,29 +567,6 @@ onBeforeUnmount(() => {
           <pre v-if="plainTextContent">{{ plainTextContent }}</pre>
           <p v-else class="knowledge-preview__empty">暂无可预览内容</p>
         </article>
-
-        <div v-else-if="previewKind === 'presentation'" class="knowledge-preview__slides">
-          <article v-for="section in officeSections" :key="section.id" class="knowledge-preview__slide">
-            <div class="knowledge-preview__slide-label">幻灯片 {{ section.index + 1 }}</div>
-            <h4>{{ section.title }}</h4>
-            <ul v-if="section.body.length > 1">
-              <li v-for="(line, index) in section.body" :key="index">{{ line }}</li>
-            </ul>
-            <p v-else-if="section.body.length === 1">{{ section.body[0] }}</p>
-          </article>
-          <p v-if="!officeSections.length" class="knowledge-preview__empty">暂无可预览内容</p>
-        </div>
-
-        <div v-else-if="previewKind === 'word'" class="knowledge-preview__pages">
-          <article v-for="section in officeSections" :key="section.id" class="knowledge-preview__page">
-            <div class="knowledge-preview__page-meta">
-              片段 {{ section.index + 1 }}<span v-if="section.page"> | 第 {{ section.page }} 页</span>
-            </div>
-            <h4>{{ section.title }}</h4>
-            <p v-for="(line, index) in section.body" :key="index">{{ line }}</p>
-          </article>
-          <p v-if="!officeSections.length" class="knowledge-preview__empty">暂无可预览内容</p>
-        </div>
 
         <div v-else class="knowledge-preview__fallback">
           <p>当前格式暂无专用预览器。</p>
@@ -404,12 +584,6 @@ onBeforeUnmount(() => {
 
       <p v-else class="knowledge-preview__empty">暂无可预览内容</p>
 
-      <p v-if="fileError && activeTab === 'rendered' && hasOfficeFallback" class="knowledge-preview__warning">
-        Office 原样预览不可用，当前使用解析后的文本预览。
-      </p>
-      <p v-else-if="fileError && activeTab === 'rendered' && previewKind !== 'pdf'" class="knowledge-preview__warning">
-        原文件读取失败，当前使用解析后的内容预览。
-      </p>
       <p v-if="downloadError" class="knowledge-preview__error knowledge-preview__download-error">{{ downloadError }}</p>
     </div>
   </section>
@@ -572,6 +746,26 @@ onBeforeUnmount(() => {
   margin-top: 12px;
 }
 
+.knowledge-preview__rendered-error {
+  margin: 0 auto;
+  max-width: 760px;
+  border: 1px solid color-mix(in srgb, var(--color-warning) 42%, var(--color-border));
+  border-radius: var(--radius-sm);
+  background: color-mix(in srgb, var(--color-warning) 10%, var(--color-card));
+  padding: 18px 20px;
+  color: var(--color-warning);
+  font-size: 14px;
+  line-height: 1.7;
+}
+
+.knowledge-preview__rendered-error p {
+  margin: 0;
+}
+
+.knowledge-preview__rendered-error p + p {
+  margin-top: 6px;
+}
+
 .knowledge-preview__frame {
   height: min(72vh, 760px);
   width: 100%;
@@ -586,8 +780,7 @@ onBeforeUnmount(() => {
 }
 
 .knowledge-preview__markdown,
-.knowledge-preview__text,
-.knowledge-preview__page {
+.knowledge-preview__text {
   margin: 0 auto;
   max-width: 820px;
   border: 1px solid var(--color-border);
@@ -606,70 +799,10 @@ onBeforeUnmount(() => {
   word-break: break-word;
 }
 
-.knowledge-preview__pages {
-  display: grid;
-  gap: 18px;
-}
-
-.knowledge-preview__page {
-  min-height: 360px;
-}
-
-.knowledge-preview__page-meta,
-.knowledge-preview__chunk-meta,
-.knowledge-preview__slide-label {
+.knowledge-preview__chunk-meta {
   margin-bottom: 12px;
   color: var(--color-text-tertiary);
   font-size: 12px;
-}
-
-.knowledge-preview__page h4 {
-  margin: 0 0 16px;
-  font-family: var(--font-heading);
-  font-size: 1.2rem;
-  line-height: 1.35;
-}
-
-.knowledge-preview__page p {
-  margin: 0 0 0.8em;
-  color: var(--color-text);
-  font-size: 15px;
-  line-height: 1.8;
-}
-
-.knowledge-preview__slides {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
-  gap: 18px;
-}
-
-.knowledge-preview__slide {
-  aspect-ratio: 16 / 9;
-  min-height: 260px;
-  overflow: hidden;
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-sm);
-  background: var(--color-card);
-  padding: 28px;
-}
-
-.knowledge-preview__slide h4 {
-  margin: 0 0 18px;
-  font-family: var(--font-heading);
-  font-size: clamp(1.15rem, 2vw, 1.55rem);
-  line-height: 1.3;
-}
-
-.knowledge-preview__slide p,
-.knowledge-preview__slide li {
-  color: var(--color-text);
-  font-size: 15px;
-  line-height: 1.65;
-}
-
-.knowledge-preview__slide ul {
-  margin: 0;
-  padding-left: 1.2em;
 }
 
 .knowledge-preview__chunks {
@@ -720,13 +853,5 @@ onBeforeUnmount(() => {
     padding: 12px;
   }
 
-  .knowledge-preview__slides {
-    grid-template-columns: 1fr;
-  }
-
-  .knowledge-preview__slide {
-    min-height: 220px;
-    padding: 20px;
-  }
 }
 </style>

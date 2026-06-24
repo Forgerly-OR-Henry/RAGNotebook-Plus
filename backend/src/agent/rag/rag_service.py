@@ -1,3 +1,9 @@
+"""
+模块职责：RAG 检索增强服务，负责问题改写、召回、重排和上下文拼装。
+
+主要协作：本文件只声明当前模块的职责边界，运行时行为由下方函数、类和依赖对象共同完成。
+"""
+
 import asyncio
 from collections.abc import Awaitable, Callable
 
@@ -12,7 +18,31 @@ SourceSearch = Callable[[str, str, str, int], Awaitable[list]]
 
 
 class RagService:
+    """
+    用途：业务服务类，用于封装用例流程、依赖协作和事务边界。
+
+    属性：
+    - retriever（实例属性，由构造函数注入或初始化）：保存retriever相关状态、配置或数据字段。
+    - user_id（实例属性，由构造函数注入或初始化）：保存user_id相关状态、配置或数据字段。
+    - source_search（实例属性，由构造函数注入或初始化）：保存source_search相关状态、配置或数据字段。
+    - prompt_text（实例属性，由构造函数注入或初始化）：保存prompt_text相关状态、配置或数据字段。
+    - prompt_template（实例属性，由构造函数注入或初始化）：保存prompt_template相关状态、配置或数据字段。
+    - chat_model（实例属性，由构造函数注入或初始化）：保存chat_model相关状态、配置或数据字段。
+    - chain（实例属性，由构造函数注入或初始化）：保存chain相关状态、配置或数据字段。
+    - hyde_prompt_template（实例属性，由构造函数注入或初始化）：保存hyde_prompt_template相关状态、配置或数据字段。
+    - thinking_callback（实例属性，由构造函数注入或初始化）：保存thinking_callback相关状态、配置或数据字段。
+    """
     def __init__(self, user_id: str = None, thinking_callback=None, source_search: SourceSearch | None = None):
+        """
+        用途：执行init相关业务逻辑。
+
+        参数：
+        - user_id（str）：调用方传入的user_id数据或控制参数，用于驱动本函数处理流程。
+        - thinking_callback（未显式标注）：调用方传入的thinking_callback数据或控制参数，用于驱动本函数处理流程。
+        - source_search（SourceSearch | None）：调用方传入的source_search数据或控制参数，用于驱动本函数处理流程。
+
+        返回：未显式标注；返回值供调用方继续编排业务流程或生成接口响应。
+        """
         self.retriever = None
         self.user_id = user_id
         self.source_search = source_search
@@ -212,6 +242,14 @@ class RagService:
 
             # 提取文档内容列表，附上来源标记供 LLM 引用
             def _format_doc(chunk):
+                """
+                用途：格式化format doc相关的数据或流程。
+
+                参数：
+                - chunk（未显式标注）：调用方传入的chunk数据或控制参数，用于驱动本函数处理流程。
+
+                返回：未显式标注；返回值供调用方继续编排业务流程或生成接口响应。
+                """
                 source_label = "笔记" if chunk.source_type == "note" else "知识库"
                 return f"[来源：{source_label}《{chunk.title}》]\n{chunk.content}"
 
@@ -249,6 +287,17 @@ class RagService:
 
                 # 定义单个文档总结函数
                 async def summarize_document(i, doc):
+                    """
+                    用途：异步执行summarize document相关业务流程。
+
+                    参数：
+                    - i（未显式标注）：调用方传入的i数据或控制参数，用于驱动本函数处理流程。
+                    - doc（未显式标注）：调用方传入的doc数据或控制参数，用于驱动本函数处理流程。
+
+                    返回：未显式标注；返回值供调用方继续编排业务流程或生成接口响应。
+
+                    副作用：可能访问数据库、文件、模型服务或流式事件通道，异常会沿调用链抛出。
+                    """
                     logger.info(f"【RAG】正在总结第{i}个文档")
                     if self.thinking_callback:
                         await self.thinking_callback({
@@ -332,6 +381,14 @@ class RagService:
         documents = await self.retrieve_document(query, use_hyde=use_hyde)
 
         def _format_doc(chunk):
+            """
+            用途：格式化format doc相关的数据或流程。
+
+            参数：
+            - chunk（未显式标注）：调用方传入的chunk数据或控制参数，用于驱动本函数处理流程。
+
+            返回：未显式标注；返回值供调用方继续编排业务流程或生成接口响应。
+            """
             source_label = "笔记" if chunk.source_type == "note" else "知识库"
             return f"[来源：{source_label}《{chunk.title}》]\n{chunk.content}"
 
@@ -348,6 +405,15 @@ if __name__ == '__main__':
     import asyncio
 
     async def main():
+        """
+        用途：作为命令行或模块入口执行main相关的数据或流程。
+
+        参数：无显式业务参数。
+
+        返回：未显式标注；返回值供调用方继续编排业务流程或生成接口响应。
+
+        副作用：可能访问数据库、文件、模型服务或流式事件通道，异常会沿调用链抛出。
+        """
         service = RagService()
         await service.initialize_retriever()
         result = await service.rag_summary("小户型适合什么扫地机器人")

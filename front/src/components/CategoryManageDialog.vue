@@ -1,3 +1,7 @@
+<!--
+模块职责：Vue 可复用组件，负责封装局部界面、交互状态和事件输出。
+主要协作：通过组合 API、状态、组件和路由来支撑当前页面或功能。
+-->
 <script setup lang="ts">
 import { ref, watch } from 'vue'
 import { FolderTree, GripVertical, Plus, Trash2, X } from '@lucide/vue'
@@ -5,6 +9,10 @@ import ConfirmDialog from './ConfirmDialog.vue'
 import { notesApi } from '../api/notes'
 import { writeJsonPref } from '../api/localPrefs'
 
+/**
+ * 接口：`CategoryItem` 描述当前业务域中的数据结构。
+ * 字段含义应与后端接口、组件入参或本地状态保持一致。
+ */
 interface CategoryItem {
   category: string
   count: number
@@ -22,6 +30,7 @@ const props = withDefaults(defineProps<{
   deleteCategory: undefined,
 })
 
+// 组件事件：向父组件报告关闭、保存、选择等交互结果。
 const emit = defineEmits<{
   'update:open': [open: boolean]
   refresh: []
@@ -38,11 +47,13 @@ const CATEGORY_LABEL_MAP: Record<string, string> = {
 }
 
 const items = ref<CategoryItem[]>([])
+// 响应式状态：保存当前组件内部的临时 UI 或业务处理状态。
 const newCategory = ref('')
 const deleteTarget = ref<CategoryItem | null>(null)
 const dragItem = ref<number | null>(null)
 const dragOverIndex = ref<number | null>(null)
 
+// 状态监听：在关键输入变化后同步副作用或刷新页面数据。
 watch(
   () => [props.open, props.categories] as const,
   () => {
@@ -51,18 +62,38 @@ watch(
   { immediate: true },
 )
 
+/**
+ * 用途：执行label相关业务逻辑。
+ * @param category 调用方传入的category参数，用于驱动当前前端逻辑。
+ * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+ */
 function label(category: string) {
   return CATEGORY_LABEL_MAP[category] || category
 }
 
+/**
+ * 用途：执行close相关业务逻辑。
+ * 参数：无显式业务参数。
+ * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+ */
 function close() {
   emit('update:open', false)
 }
 
+/**
+ * 用途：执行saveOrder相关业务逻辑。
+ * @param nextItems 调用方传入的nextItems参数，用于驱动当前前端逻辑。
+ * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+ */
 function saveOrder(nextItems: CategoryItem[]) {
   writeJsonPref(props.storageKey, nextItems.map((item) => item.category))
 }
 
+/**
+ * 用途：执行createCategory相关业务逻辑。
+ * 参数：无显式业务参数。
+ * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+ */
 function createCategory() {
   const name = newCategory.value.trim()
   if (!name || items.value.some((item) => item.category === name)) return
@@ -71,10 +102,20 @@ function createCategory() {
   emit('create-category', name)
 }
 
+/**
+ * 用途：执行handleDragStart相关业务逻辑。
+ * @param index 调用方传入的index参数，用于驱动当前前端逻辑。
+ * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+ */
 function handleDragStart(index: number) {
   dragItem.value = index
 }
 
+/**
+ * 用途：执行handleDrop相关业务逻辑。
+ * @param index 调用方传入的index参数，用于驱动当前前端逻辑。
+ * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+ */
 function handleDrop(index: number) {
   const from = dragItem.value
   dragItem.value = null
@@ -89,6 +130,11 @@ function handleDrop(index: number) {
   emit('refresh')
 }
 
+/**
+ * 用途：执行confirmDelete相关业务逻辑。
+ * 参数：无显式业务参数。
+ * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+ */
 async function confirmDelete() {
   const target = deleteTarget.value
   if (!target) return

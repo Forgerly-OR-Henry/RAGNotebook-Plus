@@ -1,3 +1,9 @@
+"""
+模块职责：FastAPI 路由控制器模块，负责请求参数绑定、权限依赖和服务层调用。
+
+主要协作：本文件只声明当前模块的职责边界，运行时行为由下方函数、类和依赖对象共同完成。
+"""
+
 import re
 from urllib.parse import quote
 
@@ -22,7 +28,7 @@ from mvc.schemas import (
     KnowledgeListResponse,
 )
 from mvc.services.document_preview_service import DocumentPreviewUnavailable
-from mvc.services.knowledge_service import KnowledgeService, get_knowledge_service
+from mvc.services.knowledge_service import KnowledgeDocumentFileMissing, KnowledgeService, get_knowledge_service
 from mvc.services.knowledge_service import KnowledgeFolderError
 from utils.auth_utils import get_current_user_id
 
@@ -38,6 +44,21 @@ async def upload_documents(
     knowledge_service: KnowledgeService = Depends(get_knowledge_service),
     _: None = Depends(rate_limit(limit=3, window=60)),
 ):
+    """
+    用途：上传upload documents相关的数据或流程。
+
+    参数：
+    - files（list[UploadFile]）：调用方传入的files数据或控制参数，用于驱动本函数处理流程。
+    - user_id（str）：调用方传入的user_id数据或控制参数，用于驱动本函数处理流程。
+    - folder_id（str）：调用方传入的folder_id数据或控制参数，用于驱动本函数处理流程。
+    - category（str）：调用方传入的category数据或控制参数，用于驱动本函数处理流程。
+    - knowledge_service（KnowledgeService）：调用方传入的knowledge_service数据或控制参数，用于驱动本函数处理流程。
+    - _（None）：调用方传入的_数据或控制参数，用于驱动本函数处理流程。
+
+    返回：未显式标注；返回值供调用方继续编排业务流程或生成接口响应。
+
+    副作用：可能访问数据库、文件、模型服务或流式事件通道，异常会沿调用链抛出。
+    """
     return StreamingResponse(
         knowledge_service.upload_stream(files, user_id, folder_id=folder_id, category=category),
         media_type="text/event-stream",
@@ -55,6 +76,22 @@ async def list_documents(
     knowledge_service: KnowledgeService = Depends(get_knowledge_service),
     _: None = Depends(rate_limit(limit=10, window=60)),
 ):
+    """
+    用途：列出list documents相关的数据或流程。
+
+    参数：
+    - db（未显式标注）：调用方传入的db数据或控制参数，用于驱动本函数处理流程。
+    - user_id（str）：调用方传入的user_id数据或控制参数，用于驱动本函数处理流程。
+    - folder_id（str）：调用方传入的folder_id数据或控制参数，用于驱动本函数处理流程。
+    - unfiled（bool）：调用方传入的unfiled数据或控制参数，用于驱动本函数处理流程。
+    - category（str）：调用方传入的category数据或控制参数，用于驱动本函数处理流程。
+    - knowledge_service（KnowledgeService）：调用方传入的knowledge_service数据或控制参数，用于驱动本函数处理流程。
+    - _（None）：调用方传入的_数据或控制参数，用于驱动本函数处理流程。
+
+    返回：未显式标注；返回值供调用方继续编排业务流程或生成接口响应。
+
+    副作用：可能访问数据库、文件、模型服务或流式事件通道，异常会沿调用链抛出。
+    """
     try:
         documents = await knowledge_service.list_documents(
             db=db,
@@ -76,6 +113,20 @@ async def get_document_detail(
     knowledge_service: KnowledgeService = Depends(get_knowledge_service),
     _: None = Depends(rate_limit(limit=10, window=60)),
 ):
+    """
+    用途：读取或查询get document detail相关的数据或流程。
+
+    参数：
+    - document_id（str）：调用方传入的document_id数据或控制参数，用于驱动本函数处理流程。
+    - db（未显式标注）：调用方传入的db数据或控制参数，用于驱动本函数处理流程。
+    - user_id（str）：调用方传入的user_id数据或控制参数，用于驱动本函数处理流程。
+    - knowledge_service（KnowledgeService）：调用方传入的knowledge_service数据或控制参数，用于驱动本函数处理流程。
+    - _（None）：调用方传入的_数据或控制参数，用于驱动本函数处理流程。
+
+    返回：未显式标注；返回值供调用方继续编排业务流程或生成接口响应。
+
+    副作用：可能访问数据库、文件、模型服务或流式事件通道，异常会沿调用链抛出。
+    """
     document = await knowledge_service.get_document_detail(db, user_id, document_id)
     if not document:
         raise HTTPException(status_code=404, detail="文档不存在")
@@ -90,7 +141,24 @@ async def get_document_file(
     knowledge_service: KnowledgeService = Depends(get_knowledge_service),
     _: None = Depends(rate_limit(limit=10, window=60)),
 ):
-    payload = await knowledge_service.get_document_file(db, user_id, document_id)
+    """
+    用途：读取或查询get document file相关的数据或流程。
+
+    参数：
+    - document_id（str）：调用方传入的document_id数据或控制参数，用于驱动本函数处理流程。
+    - db（未显式标注）：调用方传入的db数据或控制参数，用于驱动本函数处理流程。
+    - user_id（str）：调用方传入的user_id数据或控制参数，用于驱动本函数处理流程。
+    - knowledge_service（KnowledgeService）：调用方传入的knowledge_service数据或控制参数，用于驱动本函数处理流程。
+    - _（None）：调用方传入的_数据或控制参数，用于驱动本函数处理流程。
+
+    返回：未显式标注；返回值供调用方继续编排业务流程或生成接口响应。
+
+    副作用：可能访问数据库、文件、模型服务或流式事件通道，异常会沿调用链抛出。
+    """
+    try:
+        payload = await knowledge_service.get_document_file(db, user_id, document_id)
+    except KnowledgeDocumentFileMissing as exc:
+        raise HTTPException(status_code=410, detail=str(exc)) from exc
     if not payload:
         raise HTTPException(status_code=404, detail="文档不存在")
 
@@ -116,8 +184,24 @@ async def get_document_preview(
     knowledge_service: KnowledgeService = Depends(get_knowledge_service),
     _: None = Depends(rate_limit(limit=10, window=60)),
 ):
+    """
+    用途：读取或查询get document preview相关的数据或流程。
+
+    参数：
+    - document_id（str）：调用方传入的document_id数据或控制参数，用于驱动本函数处理流程。
+    - db（未显式标注）：调用方传入的db数据或控制参数，用于驱动本函数处理流程。
+    - user_id（str）：调用方传入的user_id数据或控制参数，用于驱动本函数处理流程。
+    - knowledge_service（KnowledgeService）：调用方传入的knowledge_service数据或控制参数，用于驱动本函数处理流程。
+    - _（None）：调用方传入的_数据或控制参数，用于驱动本函数处理流程。
+
+    返回：未显式标注；返回值供调用方继续编排业务流程或生成接口响应。
+
+    副作用：可能访问数据库、文件、模型服务或流式事件通道，异常会沿调用链抛出。
+    """
     try:
         payload = await knowledge_service.get_document_preview(db, user_id, document_id)
+    except KnowledgeDocumentFileMissing as exc:
+        raise HTTPException(status_code=410, detail=str(exc)) from exc
     except DocumentPreviewUnavailable as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
     if not payload:
@@ -146,6 +230,20 @@ async def get_document_chunks(
     knowledge_service: KnowledgeService = Depends(get_knowledge_service),
     _: None = Depends(rate_limit(limit=10, window=60)),
 ):
+    """
+    用途：读取或查询get document chunks相关的数据或流程。
+
+    参数：
+    - document_id（str）：调用方传入的document_id数据或控制参数，用于驱动本函数处理流程。
+    - db（未显式标注）：调用方传入的db数据或控制参数，用于驱动本函数处理流程。
+    - user_id（str）：调用方传入的user_id数据或控制参数，用于驱动本函数处理流程。
+    - knowledge_service（KnowledgeService）：调用方传入的knowledge_service数据或控制参数，用于驱动本函数处理流程。
+    - _（None）：调用方传入的_数据或控制参数，用于驱动本函数处理流程。
+
+    返回：未显式标注；返回值供调用方继续编排业务流程或生成接口响应。
+
+    副作用：可能访问数据库、文件、模型服务或流式事件通道，异常会沿调用链抛出。
+    """
     chunks = await knowledge_service.get_document_chunks(db, user_id, document_id)
     if not chunks:
         raise HTTPException(status_code=404, detail="文档不存在")
@@ -160,6 +258,20 @@ async def update_document_metadata(
     user_id: str = Depends(get_current_user_id),
     knowledge_service: KnowledgeService = Depends(get_knowledge_service),
 ):
+    """
+    用途：更新update document metadata相关的数据或流程。
+
+    参数：
+    - document_id（str）：调用方传入的document_id数据或控制参数，用于驱动本函数处理流程。
+    - payload（KnowledgeDocumentMetadataUpdate）：调用方传入的payload数据或控制参数，用于驱动本函数处理流程。
+    - db（未显式标注）：调用方传入的db数据或控制参数，用于驱动本函数处理流程。
+    - user_id（str）：调用方传入的user_id数据或控制参数，用于驱动本函数处理流程。
+    - knowledge_service（KnowledgeService）：调用方传入的knowledge_service数据或控制参数，用于驱动本函数处理流程。
+
+    返回：未显式标注；返回值供调用方继续编排业务流程或生成接口响应。
+
+    副作用：可能访问数据库、文件、模型服务或流式事件通道，异常会沿调用链抛出。
+    """
     document = await knowledge_service.update_document_metadata(db, user_id, document_id, payload)
     if not document:
         raise HTTPException(status_code=404, detail="文档不存在")
@@ -173,6 +285,19 @@ async def auto_tag_document(
     user_id: str = Depends(get_current_user_id),
     knowledge_service: KnowledgeService = Depends(get_knowledge_service),
 ):
+    """
+    用途：异步执行auto tag document相关业务流程。
+
+    参数：
+    - document_id（str）：调用方传入的document_id数据或控制参数，用于驱动本函数处理流程。
+    - db（未显式标注）：调用方传入的db数据或控制参数，用于驱动本函数处理流程。
+    - user_id（str）：调用方传入的user_id数据或控制参数，用于驱动本函数处理流程。
+    - knowledge_service（KnowledgeService）：调用方传入的knowledge_service数据或控制参数，用于驱动本函数处理流程。
+
+    返回：未显式标注；返回值供调用方继续编排业务流程或生成接口响应。
+
+    副作用：可能访问数据库、文件、模型服务或流式事件通道，异常会沿调用链抛出。
+    """
     document = await knowledge_service.auto_tag_document(db, user_id, document_id)
     if not document:
         raise HTTPException(status_code=404, detail="文档不存在")
@@ -186,6 +311,19 @@ async def toggle_document_pin(
     user_id: str = Depends(get_current_user_id),
     knowledge_service: KnowledgeService = Depends(get_knowledge_service),
 ):
+    """
+    用途：异步执行toggle document pin相关业务流程。
+
+    参数：
+    - document_id（str）：调用方传入的document_id数据或控制参数，用于驱动本函数处理流程。
+    - db（未显式标注）：调用方传入的db数据或控制参数，用于驱动本函数处理流程。
+    - user_id（str）：调用方传入的user_id数据或控制参数，用于驱动本函数处理流程。
+    - knowledge_service（KnowledgeService）：调用方传入的knowledge_service数据或控制参数，用于驱动本函数处理流程。
+
+    返回：未显式标注；返回值供调用方继续编排业务流程或生成接口响应。
+
+    副作用：可能访问数据库、文件、模型服务或流式事件通道，异常会沿调用链抛出。
+    """
     document = await knowledge_service.toggle_document_pin(db, user_id, document_id)
     if not document:
         raise HTTPException(status_code=404, detail="文档不存在")
@@ -199,6 +337,19 @@ async def delete_document(
     user_id: str = Depends(get_current_user_id),
     knowledge_service: KnowledgeService = Depends(get_knowledge_service),
 ):
+    """
+    用途：删除delete document相关的数据或流程。
+
+    参数：
+    - document_id（str）：调用方传入的document_id数据或控制参数，用于驱动本函数处理流程。
+    - db（未显式标注）：调用方传入的db数据或控制参数，用于驱动本函数处理流程。
+    - user_id（str）：调用方传入的user_id数据或控制参数，用于驱动本函数处理流程。
+    - knowledge_service（KnowledgeService）：调用方传入的knowledge_service数据或控制参数，用于驱动本函数处理流程。
+
+    返回：未显式标注；返回值供调用方继续编排业务流程或生成接口响应。
+
+    副作用：可能访问数据库、文件、模型服务或流式事件通道，异常会沿调用链抛出。
+    """
     deleted = await knowledge_service.delete_document(db, user_id, document_id)
     if not deleted:
         raise HTTPException(status_code=404, detail="文档不存在")
@@ -211,6 +362,18 @@ async def clean_documents(
     user_id: str = Depends(get_current_user_id),
     knowledge_service: KnowledgeService = Depends(get_knowledge_service),
 ):
+    """
+    用途：异步执行clean documents相关业务流程。
+
+    参数：
+    - db（未显式标注）：调用方传入的db数据或控制参数，用于驱动本函数处理流程。
+    - user_id（str）：调用方传入的user_id数据或控制参数，用于驱动本函数处理流程。
+    - knowledge_service（KnowledgeService）：调用方传入的knowledge_service数据或控制参数，用于驱动本函数处理流程。
+
+    返回：未显式标注；返回值供调用方继续编排业务流程或生成接口响应。
+
+    副作用：可能访问数据库、文件、模型服务或流式事件通道，异常会沿调用链抛出。
+    """
     await knowledge_service.clean_user_documents(db, user_id)
     return success_response(data=None, message="知识库已清空")
 
@@ -221,6 +384,18 @@ async def get_knowledge_stats(
     user_id: str = Depends(get_current_user_id),
     knowledge_service: KnowledgeService = Depends(get_knowledge_service),
 ):
+    """
+    用途：读取或查询get knowledge stats相关的数据或流程。
+
+    参数：
+    - db（未显式标注）：调用方传入的db数据或控制参数，用于驱动本函数处理流程。
+    - user_id（str）：调用方传入的user_id数据或控制参数，用于驱动本函数处理流程。
+    - knowledge_service（KnowledgeService）：调用方传入的knowledge_service数据或控制参数，用于驱动本函数处理流程。
+
+    返回：未显式标注；返回值供调用方继续编排业务流程或生成接口响应。
+
+    副作用：可能访问数据库、文件、模型服务或流式事件通道，异常会沿调用链抛出。
+    """
     data = await knowledge_service.get_category_stats(db, user_id)
     return success_response(data=data)
 
@@ -232,6 +407,19 @@ async def delete_knowledge_category(
     user_id: str = Depends(get_current_user_id),
     knowledge_service: KnowledgeService = Depends(get_knowledge_service),
 ):
+    """
+    用途：删除delete knowledge category相关的数据或流程。
+
+    参数：
+    - category（str）：调用方传入的category数据或控制参数，用于驱动本函数处理流程。
+    - db（未显式标注）：调用方传入的db数据或控制参数，用于驱动本函数处理流程。
+    - user_id（str）：调用方传入的user_id数据或控制参数，用于驱动本函数处理流程。
+    - knowledge_service（KnowledgeService）：调用方传入的knowledge_service数据或控制参数，用于驱动本函数处理流程。
+
+    返回：未显式标注；返回值供调用方继续编排业务流程或生成接口响应。
+
+    副作用：可能访问数据库、文件、模型服务或流式事件通道，异常会沿调用链抛出。
+    """
     deleted = await knowledge_service.delete_category(db, user_id, category)
     return success_response(data={"deleted_count": deleted}, message=f"成功删除分类「{category}」及其 {deleted} 篇文档")
 
@@ -242,6 +430,18 @@ async def list_knowledge_folders(
     user_id: str = Depends(get_current_user_id),
     knowledge_service: KnowledgeService = Depends(get_knowledge_service),
 ):
+    """
+    用途：列出list knowledge folders相关的数据或流程。
+
+    参数：
+    - db（未显式标注）：调用方传入的db数据或控制参数，用于驱动本函数处理流程。
+    - user_id（str）：调用方传入的user_id数据或控制参数，用于驱动本函数处理流程。
+    - knowledge_service（KnowledgeService）：调用方传入的knowledge_service数据或控制参数，用于驱动本函数处理流程。
+
+    返回：未显式标注；返回值供调用方继续编排业务流程或生成接口响应。
+
+    副作用：可能访问数据库、文件、模型服务或流式事件通道，异常会沿调用链抛出。
+    """
     data = await knowledge_service.list_folders(db, user_id)
     return success_response(data=data)
 
@@ -253,6 +453,19 @@ async def create_knowledge_folder(
     db=Depends(get_db),
     knowledge_service: KnowledgeService = Depends(get_knowledge_service),
 ):
+    """
+    用途：创建create knowledge folder相关的数据或流程。
+
+    参数：
+    - payload（KnowledgeFolderCreate）：调用方传入的payload数据或控制参数，用于驱动本函数处理流程。
+    - user_id（str）：调用方传入的user_id数据或控制参数，用于驱动本函数处理流程。
+    - db（未显式标注）：调用方传入的db数据或控制参数，用于驱动本函数处理流程。
+    - knowledge_service（KnowledgeService）：调用方传入的knowledge_service数据或控制参数，用于驱动本函数处理流程。
+
+    返回：未显式标注；返回值供调用方继续编排业务流程或生成接口响应。
+
+    副作用：可能访问数据库、文件、模型服务或流式事件通道，异常会沿调用链抛出。
+    """
     try:
         folder = await knowledge_service.create_folder(db, user_id, payload)
     except KnowledgeFolderError as exc:
@@ -268,6 +481,20 @@ async def update_knowledge_folder(
     db=Depends(get_db),
     knowledge_service: KnowledgeService = Depends(get_knowledge_service),
 ):
+    """
+    用途：更新update knowledge folder相关的数据或流程。
+
+    参数：
+    - folder_id（str）：调用方传入的folder_id数据或控制参数，用于驱动本函数处理流程。
+    - payload（KnowledgeFolderUpdate）：调用方传入的payload数据或控制参数，用于驱动本函数处理流程。
+    - user_id（str）：调用方传入的user_id数据或控制参数，用于驱动本函数处理流程。
+    - db（未显式标注）：调用方传入的db数据或控制参数，用于驱动本函数处理流程。
+    - knowledge_service（KnowledgeService）：调用方传入的knowledge_service数据或控制参数，用于驱动本函数处理流程。
+
+    返回：未显式标注；返回值供调用方继续编排业务流程或生成接口响应。
+
+    副作用：可能访问数据库、文件、模型服务或流式事件通道，异常会沿调用链抛出。
+    """
     try:
         folder = await knowledge_service.update_folder(db, user_id, folder_id, payload)
     except KnowledgeFolderError as exc:
@@ -285,6 +512,20 @@ async def delete_knowledge_folder(
     db=Depends(get_db),
     knowledge_service: KnowledgeService = Depends(get_knowledge_service),
 ):
+    """
+    用途：删除delete knowledge folder相关的数据或流程。
+
+    参数：
+    - folder_id（str）：调用方传入的folder_id数据或控制参数，用于驱动本函数处理流程。
+    - mode（str）：调用方传入的mode数据或控制参数，用于驱动本函数处理流程。
+    - user_id（str）：调用方传入的user_id数据或控制参数，用于驱动本函数处理流程。
+    - db（未显式标注）：调用方传入的db数据或控制参数，用于驱动本函数处理流程。
+    - knowledge_service（KnowledgeService）：调用方传入的knowledge_service数据或控制参数，用于驱动本函数处理流程。
+
+    返回：未显式标注；返回值供调用方继续编排业务流程或生成接口响应。
+
+    副作用：可能访问数据库、文件、模型服务或流式事件通道，异常会沿调用链抛出。
+    """
     try:
         deleted = await knowledge_service.delete_folder(db, user_id, folder_id, mode)
     except KnowledgeFolderError as exc:
@@ -303,6 +544,19 @@ async def batch_update_knowledge_folder(
     db=Depends(get_db),
     knowledge_service: KnowledgeService = Depends(get_knowledge_service),
 ):
+    """
+    用途：异步执行batch update knowledge folder相关业务流程。
+
+    参数：
+    - payload（KnowledgeBatchFolderRequest）：调用方传入的payload数据或控制参数，用于驱动本函数处理流程。
+    - user_id（str）：调用方传入的user_id数据或控制参数，用于驱动本函数处理流程。
+    - db（未显式标注）：调用方传入的db数据或控制参数，用于驱动本函数处理流程。
+    - knowledge_service（KnowledgeService）：调用方传入的knowledge_service数据或控制参数，用于驱动本函数处理流程。
+
+    返回：未显式标注；返回值供调用方继续编排业务流程或生成接口响应。
+
+    副作用：可能访问数据库、文件、模型服务或流式事件通道，异常会沿调用链抛出。
+    """
     try:
         updated = await knowledge_service.batch_update_folder(db, user_id, payload)
     except KnowledgeFolderError as exc:
@@ -317,5 +571,18 @@ async def batch_update_knowledge_category(
     db=Depends(get_db),
     knowledge_service: KnowledgeService = Depends(get_knowledge_service),
 ):
+    """
+    用途：异步执行batch update knowledge category相关业务流程。
+
+    参数：
+    - payload（KnowledgeBatchCategoryRequest）：调用方传入的payload数据或控制参数，用于驱动本函数处理流程。
+    - user_id（str）：调用方传入的user_id数据或控制参数，用于驱动本函数处理流程。
+    - db（未显式标注）：调用方传入的db数据或控制参数，用于驱动本函数处理流程。
+    - knowledge_service（KnowledgeService）：调用方传入的knowledge_service数据或控制参数，用于驱动本函数处理流程。
+
+    返回：未显式标注；返回值供调用方继续编排业务流程或生成接口响应。
+
+    副作用：可能访问数据库、文件、模型服务或流式事件通道，异常会沿调用链抛出。
+    """
     updated = await knowledge_service.batch_update_category(db, user_id, payload)
     return success_response(message=f"成功更新 {updated} 篇文档的分类")

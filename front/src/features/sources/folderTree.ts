@@ -1,9 +1,17 @@
+/**
+ * 模块职责：前端 feature 模块，负责按业务域封装 API、类型或局部工具。
+ * 主要协作：通过导出的类型、函数或组件配置供其他前端模块复用。
+ */
 export interface FolderTreeFolder {
   id: string
   name: string
   children?: FolderTreeFolder[]
 }
 
+/**
+ * 接口：`FolderTreeFile` 描述当前业务域中的数据结构。
+ * 字段含义应与后端接口、组件入参或本地状态保持一致。
+ */
 export interface FolderTreeFile {
   id: string
   folderId?: string | null
@@ -12,6 +20,10 @@ export interface FolderTreeFile {
   searchText?: string
 }
 
+/**
+ * 类型：`FolderTreeRow` 描述当前业务域中的数据结构。
+ * 字段含义应与后端接口、组件入参或本地状态保持一致。
+ */
 export type FolderTreeRow = {
   key: string
   kind: 'folder' | 'file' | 'empty'
@@ -23,6 +35,11 @@ export type FolderTreeRow = {
   collapsed?: boolean
 }
 
+/**
+ * 用途：执行buildFolderTreeRows相关业务逻辑。
+ * 参数：无显式业务参数。
+ * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+ */
 export function buildFolderTreeRows(
   folders: FolderTreeFolder[],
   files: FolderTreeFile[],
@@ -50,11 +67,22 @@ export function buildFolderTreeRows(
     filesByFolder.set(folderKey, group)
   }
 
+  /**
+   * 用途：执行folderFileCount相关业务逻辑。
+   * @param folder 调用方传入的folder参数，用于驱动当前前端逻辑。
+   * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+   */
   const folderFileCount = (folder: FolderTreeFolder): number => {
     const directCount = filesByFolder.get(folder.id)?.length || 0
     return directCount + (folder.children || []).reduce((sum, child) => sum + folderFileCount(child), 0)
   }
 
+  /**
+   * 用途：执行pushFileRows相关业务逻辑。
+   * @param group 调用方传入的group参数，用于驱动当前前端逻辑。
+   * @param depth 调用方传入的depth参数，用于驱动当前前端逻辑。
+   * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+   */
   const pushFileRows = (group: FolderTreeFile[] | undefined, depth: number) => {
     for (const file of group || []) {
       rows.push({
@@ -68,6 +96,12 @@ export function buildFolderTreeRows(
     }
   }
 
+  /**
+   * 用途：执行walk相关业务逻辑。
+   * @param items 调用方传入的items参数，用于驱动当前前端逻辑。
+   * @param depth 调用方传入的depth参数，用于驱动当前前端逻辑。
+   * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+   */
   const walk = (items: FolderTreeFolder[], depth: number) => {
     for (const folder of items) {
       const count = folderFileCount(folder)
@@ -114,8 +148,18 @@ export function buildFolderTreeRows(
   return rows
 }
 
+/**
+ * 用途：执行collectFolderIds相关业务逻辑。
+ * @param folders 调用方传入的folders参数，用于驱动当前前端逻辑。
+ * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+ */
 function collectFolderIds(folders: FolderTreeFolder[]) {
   const ids = new Set<string>()
+  /**
+   * 用途：执行walk相关业务逻辑。
+   * @param items 调用方传入的items参数，用于驱动当前前端逻辑。
+   * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+   */
   const walk = (items: FolderTreeFolder[]) => {
     for (const folder of items) {
       ids.add(folder.id)

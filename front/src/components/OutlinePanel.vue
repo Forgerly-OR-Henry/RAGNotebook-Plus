@@ -1,22 +1,37 @@
+<!--
+模块职责：Vue 可复用组件，负责封装局部界面、交互状态和事件输出。
+主要协作：通过组合 API、状态、组件和路由来支撑当前页面或功能。
+-->
 <script setup lang="ts">
 import { computed } from 'vue'
 import { Heading1, Heading2, Heading3, X } from '@lucide/vue'
 
+/**
+ * 接口：`HeadingItem` 描述当前业务域中的数据结构。
+ * 字段含义应与后端接口、组件入参或本地状态保持一致。
+ */
 interface HeadingItem {
   level: number
   text: string
 }
 
+// 组件入参：由父组件传入业务对象、加载态和展示模式。
 const props = defineProps<{
   content: string
   open: boolean
 }>()
 
+// 组件事件：向父组件报告关闭、保存、选择等交互结果。
 const emit = defineEmits<{
   close: []
   'heading-click': [text: string, level: number]
 }>()
 
+/**
+ * 用途：执行stripInlineFormatting相关业务逻辑。
+ * @param text 调用方传入的text参数，用于驱动当前前端逻辑。
+ * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+ */
 function stripInlineFormatting(text: string) {
   return text
     .replace(/!\[([^\]]*)\]\([^)]*\)/g, '$1')
@@ -31,6 +46,11 @@ function stripInlineFormatting(text: string) {
     .trim()
 }
 
+/**
+ * 用途：执行parseHeadings相关业务逻辑。
+ * @param markdown 调用方传入的markdown参数，用于驱动当前前端逻辑。
+ * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+ */
 function parseHeadings(markdown: string): HeadingItem[] {
   const noCode = markdown.replace(/```[\s\S]*?```/g, '').replace(/`{1,3}[^`]*`{1,3}/g, '')
   const regex = /^(#{1,6})\s+(.+)$/gm
@@ -43,6 +63,11 @@ function parseHeadings(markdown: string): HeadingItem[] {
   return items
 }
 
+/**
+ * 用途：执行headings相关业务逻辑。
+ * 参数：无显式业务参数。
+ * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+ */
 const headings = computed(() => parseHeadings(props.content))
 </script>
 

@@ -1,3 +1,7 @@
+<!--
+模块职责：Vue 可复用组件，负责封装局部界面、交互状态和事件输出。
+主要协作：通过组合 API、状态、组件和路由来支撑当前页面或功能。
+-->
 <script setup lang="ts">
 import { Brain, Download, FolderInput, FolderTree, Pin, Trash2, X } from '@lucide/vue'
 
@@ -5,6 +9,7 @@ defineProps<{
   selectedCount: number
 }>()
 
+// 组件事件：向父组件报告关闭、保存、选择等交互结果。
 const emit = defineEmits<{
   cancel: []
   delete: []

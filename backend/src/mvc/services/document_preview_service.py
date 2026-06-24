@@ -1,3 +1,9 @@
+"""
+模块职责：业务服务模块，负责组织领域用例、数据访问和外部能力协作。
+
+主要协作：本文件只声明当前模块的职责边界，运行时行为由下方函数、类和依赖对象共同完成。
+"""
+
 from __future__ import annotations
 
 import asyncio
@@ -14,6 +20,7 @@ from io import BytesIO
 from pathlib import Path
 
 from core.logger_handler import logger
+from utils.env_loader import optional_env_value
 from utils.path_tool import get_data_path
 
 
@@ -29,6 +36,15 @@ class DocumentPreviewUnavailable(RuntimeError):
 
 @dataclass(frozen=True)
 class RenderedDocumentPreview:
+    """
+    用途：领域对象或协作组件，用于承载本模块内的核心状态和行为。
+
+    属性：
+    - content（bytes）：保存content相关状态、配置或数据字段。
+    - media_type（str）：保存media_type相关状态、配置或数据字段。
+    - filename（str）：保存filename相关状态、配置或数据字段。
+    - renderer（str）：保存renderer相关状态、配置或数据字段。
+    """
     content: bytes
     media_type: str
     filename: str
@@ -44,6 +60,14 @@ class DocumentPreviewService:
     """
 
     def __init__(self, cache_dir: Path | None = None):
+        """
+        用途：执行init相关业务逻辑。
+
+        参数：
+        - cache_dir（Path | None）：调用方传入的cache_dir数据或控制参数，用于驱动本函数处理流程。
+
+        返回：未显式标注；返回值供调用方继续编排业务流程或生成接口响应。
+        """
         self.cache_dir = cache_dir or Path(get_data_path()) / "preview_cache"
 
     async def render(
@@ -55,6 +79,20 @@ class DocumentPreviewService:
         content: bytes,
         content_hash: str | None,
     ) -> RenderedDocumentPreview:
+        """
+        用途：异步执行render相关业务流程。
+
+        参数：
+        - filename（str | None）：调用方传入的filename数据或控制参数，用于驱动本函数处理流程。
+        - file_ext（str | None）：调用方传入的file_ext数据或控制参数，用于驱动本函数处理流程。
+        - mime_type（str | None）：调用方传入的mime_type数据或控制参数，用于驱动本函数处理流程。
+        - content（bytes）：调用方传入的content数据或控制参数，用于驱动本函数处理流程。
+        - content_hash（str | None）：调用方传入的content_hash数据或控制参数，用于驱动本函数处理流程。
+
+        返回：RenderedDocumentPreview；返回值供调用方继续编排业务流程或生成接口响应。
+
+        副作用：可能访问数据库、文件、模型服务或流式事件通道，异常会沿调用链抛出。
+        """
         return await asyncio.to_thread(
             self.render_sync,
             filename=filename,
@@ -73,6 +111,18 @@ class DocumentPreviewService:
         content: bytes,
         content_hash: str | None,
     ) -> RenderedDocumentPreview:
+        """
+        用途：渲染render sync相关的数据或流程。
+
+        参数：
+        - filename（str | None）：调用方传入的filename数据或控制参数，用于驱动本函数处理流程。
+        - file_ext（str | None）：调用方传入的file_ext数据或控制参数，用于驱动本函数处理流程。
+        - mime_type（str | None）：调用方传入的mime_type数据或控制参数，用于驱动本函数处理流程。
+        - content（bytes）：调用方传入的content数据或控制参数，用于驱动本函数处理流程。
+        - content_hash（str | None）：调用方传入的content_hash数据或控制参数，用于驱动本函数处理流程。
+
+        返回：RenderedDocumentPreview；返回值供调用方继续编排业务流程或生成接口响应。
+        """
         ext = _normalize_extension(file_ext, filename, mime_type)
         preview_name = _preview_filename(filename, ext)
 
@@ -123,6 +173,17 @@ class DocumentPreviewService:
         source_ext: str,
         preview_name: str,
     ) -> RenderedDocumentPreview | None:
+        """
+        用途：执行convert office to pdf相关业务逻辑。
+
+        参数：
+        - content（bytes）：调用方传入的content数据或控制参数，用于驱动本函数处理流程。
+        - content_hash（str | None）：调用方传入的content_hash数据或控制参数，用于驱动本函数处理流程。
+        - source_ext（str）：调用方传入的source_ext数据或控制参数，用于驱动本函数处理流程。
+        - preview_name（str）：调用方传入的preview_name数据或控制参数，用于驱动本函数处理流程。
+
+        返回：RenderedDocumentPreview | None；返回值供调用方继续编排业务流程或生成接口响应。
+        """
         converter = _find_soffice()
         if not converter:
             return None
@@ -197,6 +258,16 @@ class DocumentPreviewService:
 
 
 def _normalize_extension(file_ext: str | None, filename: str | None, mime_type: str | None) -> str:
+    """
+    用途：执行normalize extension相关业务逻辑。
+
+    参数：
+    - file_ext（str | None）：调用方传入的file_ext数据或控制参数，用于驱动本函数处理流程。
+    - filename（str | None）：调用方传入的filename数据或控制参数，用于驱动本函数处理流程。
+    - mime_type（str | None）：调用方传入的mime_type数据或控制参数，用于驱动本函数处理流程。
+
+    返回：str；返回值供调用方继续编排业务流程或生成接口响应。
+    """
     ext = (file_ext or Path(filename or "").suffix or "").strip().lower()
     if ext and not ext.startswith("."):
         ext = f".{ext}"
@@ -208,15 +279,31 @@ def _normalize_extension(file_ext: str | None, filename: str | None, mime_type: 
 
 
 def _preview_filename(filename: str | None, ext: str) -> str:
+    """
+    用途：执行preview filename相关业务逻辑。
+
+    参数：
+    - filename（str | None）：调用方传入的filename数据或控制参数，用于驱动本函数处理流程。
+    - ext（str）：调用方传入的ext数据或控制参数，用于驱动本函数处理流程。
+
+    返回：str；返回值供调用方继续编排业务流程或生成接口响应。
+    """
     stem = Path(filename or "document").stem or "document"
     safe_stem = re.sub(r'[\\/:*?"<>|]+', "_", stem).strip() or "document"
     return f"{safe_stem}{ext or ''}"
 
 
 def _find_soffice() -> str | None:
+    """
+    用途：执行find soffice相关业务逻辑。
+
+    参数：无显式业务参数。
+
+    返回：str | None；返回值供调用方继续编排业务流程或生成接口响应。
+    """
     candidates = [
-        os.getenv("SOFFICE_PATH"),
-        os.getenv("LIBREOFFICE_PATH"),
+        optional_env_value("SOFFICE_PATH"),
+        optional_env_value("LIBREOFFICE_PATH"),
         "soffice",
         "libreoffice",
     ]
@@ -243,6 +330,15 @@ def _find_soffice() -> str | None:
 
 
 def render_docx_html(content: bytes, filename: str) -> bytes:
+    """
+    用途：渲染render docx html相关的数据或流程。
+
+    参数：
+    - content（bytes）：调用方传入的content数据或控制参数，用于驱动本函数处理流程。
+    - filename（str）：调用方传入的filename数据或控制参数，用于驱动本函数处理流程。
+
+    返回：bytes；返回值供调用方继续编排业务流程或生成接口响应。
+    """
     from docx import Document as DocxDocument
     from docx.oxml.table import CT_Tbl
     from docx.oxml.text.paragraph import CT_P
@@ -270,6 +366,15 @@ def render_docx_html(content: bytes, filename: str) -> bytes:
 
 
 def _render_docx_paragraph(paragraph, compact: bool = False) -> str:
+    """
+    用途：渲染render docx paragraph相关的数据或流程。
+
+    参数：
+    - paragraph（未显式标注）：调用方传入的paragraph数据或控制参数，用于驱动本函数处理流程。
+    - compact（bool）：调用方传入的compact数据或控制参数，用于驱动本函数处理流程。
+
+    返回：str；返回值供调用方继续编排业务流程或生成接口响应。
+    """
     content = "".join(_render_docx_run(run, paragraph) for run in paragraph.runs)
     if not content and paragraph.text:
         content = _escape_inline_text(paragraph.text)
@@ -309,6 +414,15 @@ def _render_docx_paragraph(paragraph, compact: bool = False) -> str:
 
 
 def _render_docx_run(run, paragraph) -> str:
+    """
+    用途：渲染render docx run相关的数据或流程。
+
+    参数：
+    - run（未显式标注）：调用方传入的run数据或控制参数，用于驱动本函数处理流程。
+    - paragraph（未显式标注）：调用方传入的paragraph数据或控制参数，用于驱动本函数处理流程。
+
+    返回：str；返回值供调用方继续编排业务流程或生成接口响应。
+    """
     fragments: list[str] = []
     if run.text:
         fragments.append(_escape_inline_text(run.text))
@@ -335,6 +449,14 @@ def _render_docx_run(run, paragraph) -> str:
 
 
 def _docx_run_images(run) -> list[str]:
+    """
+    用途：执行docx run images相关业务逻辑。
+
+    参数：
+    - run（未显式标注）：调用方传入的run数据或控制参数，用于驱动本函数处理流程。
+
+    返回：list[str]；返回值供调用方继续编排业务流程或生成接口响应。
+    """
     from docx.oxml.ns import qn
 
     images: list[str] = []
@@ -361,6 +483,14 @@ def _docx_run_images(run) -> list[str]:
 
 
 def _render_docx_table(table) -> str:
+    """
+    用途：渲染render docx table相关的数据或流程。
+
+    参数：
+    - table（未显式标注）：调用方传入的table数据或控制参数，用于驱动本函数处理流程。
+
+    返回：str；返回值供调用方继续编排业务流程或生成接口响应。
+    """
     rows: list[str] = []
     for row in table.rows:
         cells: list[str] = []
@@ -375,6 +505,14 @@ def _render_docx_table(table) -> str:
 
 
 def _docx_cell_style(cell) -> str:
+    """
+    用途：执行docx cell style相关业务逻辑。
+
+    参数：
+    - cell（未显式标注）：调用方传入的cell数据或控制参数，用于驱动本函数处理流程。
+
+    返回：str；返回值供调用方继续编排业务流程或生成接口响应。
+    """
     from docx.oxml.ns import qn
 
     styles: list[str] = []
@@ -387,11 +525,28 @@ def _docx_cell_style(cell) -> str:
 
 
 def _docx_is_numbered_or_bulleted(paragraph) -> bool:
+    """
+    用途：执行docx is numbered or bulleted相关业务逻辑。
+
+    参数：
+    - paragraph（未显式标注）：调用方传入的paragraph数据或控制参数，用于驱动本函数处理流程。
+
+    返回：bool；返回值供调用方继续编排业务流程或生成接口响应。
+    """
     p_pr = paragraph._p.pPr
     return bool(p_pr is not None and p_pr.numPr is not None)
 
 
 def render_pptx_html(content: bytes, filename: str) -> bytes:
+    """
+    用途：渲染render pptx html相关的数据或流程。
+
+    参数：
+    - content（bytes）：调用方传入的content数据或控制参数，用于驱动本函数处理流程。
+    - filename（str）：调用方传入的filename数据或控制参数，用于驱动本函数处理流程。
+
+    返回：bytes；返回值供调用方继续编排业务流程或生成接口响应。
+    """
     from pptx import Presentation
 
     presentation = Presentation(BytesIO(content))
@@ -419,6 +574,16 @@ def render_pptx_html(content: bytes, filename: str) -> bytes:
 
 
 def _render_pptx_shape(shape, slide_width: int, slide_height: int) -> str:
+    """
+    用途：渲染render pptx shape相关的数据或流程。
+
+    参数：
+    - shape（未显式标注）：调用方传入的shape数据或控制参数，用于驱动本函数处理流程。
+    - slide_width（int）：调用方传入的slide_width数据或控制参数，用于驱动本函数处理流程。
+    - slide_height（int）：调用方传入的slide_height数据或控制参数，用于驱动本函数处理流程。
+
+    返回：str；返回值供调用方继续编排业务流程或生成接口响应。
+    """
     if hasattr(shape, "shapes"):
         return "".join(_render_pptx_shape(child, slide_width, slide_height) for child in shape.shapes)
 
@@ -447,6 +612,16 @@ def _render_pptx_shape(shape, slide_width: int, slide_height: int) -> str:
 
 
 def _pptx_box_style(shape, slide_width: int, slide_height: int) -> str:
+    """
+    用途：执行pptx box style相关业务逻辑。
+
+    参数：
+    - shape（未显式标注）：调用方传入的shape数据或控制参数，用于驱动本函数处理流程。
+    - slide_width（int）：调用方传入的slide_width数据或控制参数，用于驱动本函数处理流程。
+    - slide_height（int）：调用方传入的slide_height数据或控制参数，用于驱动本函数处理流程。
+
+    返回：str；返回值供调用方继续编排业务流程或生成接口响应。
+    """
     styles = [
         "position: absolute",
         f"left: {_ratio_pct(shape.left, slide_width)}",
@@ -462,6 +637,14 @@ def _pptx_box_style(shape, slide_width: int, slide_height: int) -> str:
 
 
 def _render_pptx_text_frame(text_frame) -> str:
+    """
+    用途：渲染render pptx text frame相关的数据或流程。
+
+    参数：
+    - text_frame（未显式标注）：调用方传入的text_frame数据或控制参数，用于驱动本函数处理流程。
+
+    返回：str；返回值供调用方继续编排业务流程或生成接口响应。
+    """
     paragraphs: list[str] = []
     for paragraph in text_frame.paragraphs:
         runs = "".join(_render_pptx_run(run) for run in paragraph.runs)
@@ -483,6 +666,14 @@ def _render_pptx_text_frame(text_frame) -> str:
 
 
 def _render_pptx_run(run) -> str:
+    """
+    用途：渲染render pptx run相关的数据或流程。
+
+    参数：
+    - run（未显式标注）：调用方传入的run数据或控制参数，用于驱动本函数处理流程。
+
+    返回：str；返回值供调用方继续编排业务流程或生成接口响应。
+    """
     text = _escape_inline_text(run.text)
     if not text:
         return ""
@@ -504,6 +695,14 @@ def _render_pptx_run(run) -> str:
 
 
 def _render_pptx_table(table) -> str:
+    """
+    用途：渲染render pptx table相关的数据或流程。
+
+    参数：
+    - table（未显式标注）：调用方传入的table数据或控制参数，用于驱动本函数处理流程。
+
+    返回：str；返回值供调用方继续编排业务流程或生成接口响应。
+    """
     rows: list[str] = []
     for row in table.rows:
         cells: list[str] = []
@@ -522,6 +721,14 @@ def _render_pptx_table(table) -> str:
 
 
 def _pptx_shape_has_image(shape) -> bool:
+    """
+    用途：执行pptx shape has image相关业务逻辑。
+
+    参数：
+    - shape（未显式标注）：调用方传入的shape数据或控制参数，用于驱动本函数处理流程。
+
+    返回：bool；返回值供调用方继续编排业务流程或生成接口响应。
+    """
     try:
         _ = shape.image
         return True
@@ -530,6 +737,14 @@ def _pptx_shape_has_image(shape) -> bool:
 
 
 def _pptx_slide_background(slide) -> str:
+    """
+    用途：执行pptx slide background相关业务逻辑。
+
+    参数：
+    - slide（未显式标注）：调用方传入的slide数据或控制参数，用于驱动本函数处理流程。
+
+    返回：str；返回值供调用方继续编排业务流程或生成接口响应。
+    """
     try:
         color = _pptx_color(slide.background.fill.fore_color)
         if color:
@@ -540,6 +755,14 @@ def _pptx_slide_background(slide) -> str:
 
 
 def _pptx_fill_style(shape) -> str:
+    """
+    用途：执行pptx fill style相关业务逻辑。
+
+    参数：
+    - shape（未显式标注）：调用方传入的shape数据或控制参数，用于驱动本函数处理流程。
+
+    返回：str；返回值供调用方继续编排业务流程或生成接口响应。
+    """
     try:
         color = _pptx_color(shape.fill.fore_color)
         if color:
@@ -550,6 +773,14 @@ def _pptx_fill_style(shape) -> str:
 
 
 def _pptx_line_style(shape) -> str:
+    """
+    用途：执行pptx line style相关业务逻辑。
+
+    参数：
+    - shape（未显式标注）：调用方传入的shape数据或控制参数，用于驱动本函数处理流程。
+
+    返回：str；返回值供调用方继续编排业务流程或生成接口响应。
+    """
     try:
         color = _pptx_color(shape.line.color)
         width = getattr(shape.line, "width", None)
@@ -562,6 +793,14 @@ def _pptx_line_style(shape) -> str:
 
 
 def _pptx_color(color_format) -> str | None:
+    """
+    用途：执行pptx color相关业务逻辑。
+
+    参数：
+    - color_format（未显式标注）：调用方传入的color_format数据或控制参数，用于驱动本函数处理流程。
+
+    返回：str | None；返回值供调用方继续编排业务流程或生成接口响应。
+    """
     if color_format is None:
         return None
     try:
@@ -572,6 +811,14 @@ def _pptx_color(color_format) -> str | None:
 
 
 def _docx_color(color_format) -> str | None:
+    """
+    用途：执行docx color相关业务逻辑。
+
+    参数：
+    - color_format（未显式标注）：调用方传入的color_format数据或控制参数，用于驱动本函数处理流程。
+
+    返回：str | None；返回值供调用方继续编排业务流程或生成接口响应。
+    """
     if color_format is None:
         return None
     try:
@@ -582,6 +829,14 @@ def _docx_color(color_format) -> str | None:
 
 
 def _alignment_css(value) -> str | None:
+    """
+    用途：执行alignment css相关业务逻辑。
+
+    参数：
+    - value（未显式标注）：调用方传入的value数据或控制参数，用于驱动本函数处理流程。
+
+    返回：str | None；返回值供调用方继续编排业务流程或生成接口响应。
+    """
     name = (getattr(value, "name", "") or "").lower()
     if "center" in name:
         return "center"
@@ -595,10 +850,26 @@ def _alignment_css(value) -> str | None:
 
 
 def _escape_inline_text(value: str) -> str:
+    """
+    用途：执行escape inline text相关业务逻辑。
+
+    参数：
+    - value（str）：调用方传入的value数据或控制参数，用于驱动本函数处理流程。
+
+    返回：str；返回值供调用方继续编排业务流程或生成接口响应。
+    """
     return html.escape(value).replace("\t", "&emsp;").replace("\n", "<br>")
 
 
 def _html_attrs(values: dict[str, str | None]) -> str:
+    """
+    用途：执行html attrs相关业务逻辑。
+
+    参数：
+    - values（dict[str, str | None]）：调用方传入的values数据或控制参数，用于驱动本函数处理流程。
+
+    返回：str；返回值供调用方继续编排业务流程或生成接口响应。
+    """
     attrs = []
     for key, value in values.items():
         if value:
@@ -607,12 +878,29 @@ def _html_attrs(values: dict[str, str | None]) -> str:
 
 
 def _data_url(content: bytes, content_type: str | None) -> str:
+    """
+    用途：执行data url相关业务逻辑。
+
+    参数：
+    - content（bytes）：调用方传入的content数据或控制参数，用于驱动本函数处理流程。
+    - content_type（str | None）：调用方传入的content_type数据或控制参数，用于驱动本函数处理流程。
+
+    返回：str；返回值供调用方继续编排业务流程或生成接口响应。
+    """
     media_type = content_type or "application/octet-stream"
     encoded = base64.b64encode(content).decode("ascii")
     return f"data:{media_type};base64,{encoded}"
 
 
 def _length_to_pt(value) -> float:
+    """
+    用途：执行length to pt相关业务逻辑。
+
+    参数：
+    - value（未显式标注）：调用方传入的value数据或控制参数，用于驱动本函数处理流程。
+
+    返回：float；返回值供调用方继续编排业务流程或生成接口响应。
+    """
     try:
         return float(value.pt)
     except Exception:
@@ -620,16 +908,41 @@ def _length_to_pt(value) -> float:
 
 
 def _emu_to_px(value: int) -> float:
+    """
+    用途：执行emu to px相关业务逻辑。
+
+    参数：
+    - value（int）：调用方传入的value数据或控制参数，用于驱动本函数处理流程。
+
+    返回：float；返回值供调用方继续编排业务流程或生成接口响应。
+    """
     return value / EMU_PER_INCH * PX_PER_INCH
 
 
 def _ratio_pct(value: int, total: int) -> str:
+    """
+    用途：执行ratio pct相关业务逻辑。
+
+    参数：
+    - value（int）：调用方传入的value数据或控制参数，用于驱动本函数处理流程。
+    - total（int）：调用方传入的total数据或控制参数，用于驱动本函数处理流程。
+
+    返回：str；返回值供调用方继续编排业务流程或生成接口响应。
+    """
     if not total:
         return "0%"
     return f"{value / total * 100:.5f}%"
 
 
 def _int_attr(value: str | None) -> int | None:
+    """
+    用途：执行int attr相关业务逻辑。
+
+    参数：
+    - value（str | None）：调用方传入的value数据或控制参数，用于驱动本函数处理流程。
+
+    返回：int | None；返回值供调用方继续编排业务流程或生成接口响应。
+    """
     try:
         return int(value) if value is not None else None
     except ValueError:
@@ -637,6 +950,16 @@ def _int_attr(value: str | None) -> int | None:
 
 
 def _wrap_preview_html(*, title: str, css: str, body: str) -> bytes:
+    """
+    用途：执行wrap preview html相关业务逻辑。
+
+    参数：
+    - title（str）：调用方传入的title数据或控制参数，用于驱动本函数处理流程。
+    - css（str）：调用方传入的css数据或控制参数，用于驱动本函数处理流程。
+    - body（str）：调用方传入的body数据或控制参数，用于驱动本函数处理流程。
+
+    返回：bytes；返回值供调用方继续编排业务流程或生成接口响应。
+    """
     document = f"""<!doctype html>
 <html lang="zh-CN">
 <head>

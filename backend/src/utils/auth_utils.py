@@ -1,3 +1,9 @@
+"""
+模块职责：认证工具模块，负责 JWT、密码哈希和用户令牌校验等安全基础能力。
+
+主要协作：本文件只声明当前模块的职责边界，运行时行为由下方函数、类和依赖对象共同完成。
+"""
+
 import time
 import uuid
 from datetime import datetime, timezone
@@ -25,6 +31,13 @@ security = HTTPBearer()
 
 
 def _ensure_bcrypt_about_metadata() -> None:
+    """
+    用途：校验并确保ensure bcrypt about metadata相关的数据或流程。
+
+    参数：无显式业务参数。
+
+    返回：None；返回值供调用方继续编排业务流程或生成接口响应。
+    """
     if hasattr(_bcrypt, "__about__"):
         return
 
@@ -42,6 +55,13 @@ pwd_context = CryptContext(schemes=["bcrypt", "django_pbkdf2_sha256"], deprecate
 
 
 def _blacklist_cache_ttl_seconds() -> float:
+    """
+    用途：执行blacklist cache ttl seconds相关业务逻辑。
+
+    参数：无显式业务参数。
+
+    返回：float；返回值供调用方继续编排业务流程或生成接口响应。
+    """
     value = require_env_value("TOKEN_BLACKLIST_CACHE_TTL_SECONDS", "5")
     try:
         return float(value)
@@ -55,6 +75,14 @@ _blacklist_cache: dict[str, tuple[bool, float]] = {}
 
 
 def _get_cached_blacklist_status(jti: str) -> bool | None:
+    """
+    用途：读取或查询get cached blacklist status相关的数据或流程。
+
+    参数：
+    - jti（str）：调用方传入的jti数据或控制参数，用于驱动本函数处理流程。
+
+    返回：bool | None；返回值供调用方继续编排业务流程或生成接口响应。
+    """
     cached = _blacklist_cache.get(jti)
     if not cached:
         return None
@@ -67,6 +95,16 @@ def _get_cached_blacklist_status(jti: str) -> bool | None:
 
 
 def _cache_blacklist_status(jti: str, revoked: bool, ttl_seconds: float | None = None) -> None:
+    """
+    用途：执行cache blacklist status相关业务逻辑。
+
+    参数：
+    - jti（str）：调用方传入的jti数据或控制参数，用于驱动本函数处理流程。
+    - revoked（bool）：调用方传入的revoked数据或控制参数，用于驱动本函数处理流程。
+    - ttl_seconds（float | None）：调用方传入的ttl_seconds数据或控制参数，用于驱动本函数处理流程。
+
+    返回：None；返回值供调用方继续编排业务流程或生成接口响应。
+    """
     if len(_blacklist_cache) >= _BLACKLIST_CACHE_MAX_SIZE:
         _blacklist_cache.clear()
 
@@ -75,14 +113,41 @@ def _cache_blacklist_status(jti: str, revoked: bool, ttl_seconds: float | None =
 
 
 def hash_password(password: str) -> str:
+    """
+    用途：执行hash password相关业务逻辑。
+
+    参数：
+    - password（str）：调用方传入的password数据或控制参数，用于驱动本函数处理流程。
+
+    返回：str；返回值供调用方继续编排业务流程或生成接口响应。
+    """
     return pwd_context.hash(password)
 
 
 def verify_password(plain_password: str, hashed_password: str) -> bool:
+    """
+    用途：执行verify password相关业务逻辑。
+
+    参数：
+    - plain_password（str）：调用方传入的plain_password数据或控制参数，用于驱动本函数处理流程。
+    - hashed_password（str）：调用方传入的hashed_password数据或控制参数，用于驱动本函数处理流程。
+
+    返回：bool；返回值供调用方继续编排业务流程或生成接口响应。
+    """
     return pwd_context.verify(plain_password, hashed_password)
 
 
 def generate_token(user_id: str, username: str, email: str) -> tuple[str, int]:
+    """
+    用途：生成generate token相关的数据或流程。
+
+    参数：
+    - user_id（str）：调用方传入的user_id数据或控制参数，用于驱动本函数处理流程。
+    - username（str）：调用方传入的username数据或控制参数，用于驱动本函数处理流程。
+    - email（str）：调用方传入的email数据或控制参数，用于驱动本函数处理流程。
+
+    返回：tuple[str, int]；返回值供调用方继续编排业务流程或生成接口响应。
+    """
     expire_time = int(time.time()) + 60 * 60 * 24
     payload = {
         "user_id": user_id,
@@ -97,6 +162,14 @@ def generate_token(user_id: str, username: str, email: str) -> tuple[str, int]:
 
 
 def decode_django_jwt(token: str) -> dict[str, Any] | None:
+    """
+    用途：执行decode django jwt相关业务逻辑。
+
+    参数：
+    - token（str）：调用方传入的token数据或控制参数，用于驱动本函数处理流程。
+
+    返回：dict[str, Any] | None；返回值供调用方继续编排业务流程或生成接口响应。
+    """
     try:
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
         return payload
@@ -105,6 +178,16 @@ def decode_django_jwt(token: str) -> dict[str, Any] | None:
 
 
 async def blacklist_token(token: str):
+    """
+    用途：异步执行blacklist token相关业务流程。
+
+    参数：
+    - token（str）：调用方传入的token数据或控制参数，用于驱动本函数处理流程。
+
+    返回：未显式标注；返回值供调用方继续编排业务流程或生成接口响应。
+
+    副作用：可能访问数据库、文件、模型服务或流式事件通道，异常会沿调用链抛出。
+    """
     payload = decode_django_jwt(token)
     if not payload:
         return
@@ -119,6 +202,16 @@ async def blacklist_token(token: str):
 
 
 async def get_current_user_id(credentials: HTTPAuthorizationCredentials = Depends(security)) -> str:
+    """
+    用途：读取或查询get current user id相关的数据或流程。
+
+    参数：
+    - credentials（HTTPAuthorizationCredentials）：调用方传入的credentials数据或控制参数，用于驱动本函数处理流程。
+
+    返回：str；返回值供调用方继续编排业务流程或生成接口响应。
+
+    副作用：可能访问数据库、文件、模型服务或流式事件通道，异常会沿调用链抛出。
+    """
     token = credentials.credentials
     payload = decode_django_jwt(token)
 
@@ -168,6 +261,16 @@ async def get_current_user_id(credentials: HTTPAuthorizationCredentials = Depend
 
 
 async def get_user_info_from_db(user_id: str) -> dict[str, Any] | None:
+    """
+    用途：读取或查询get user info from db相关的数据或流程。
+
+    参数：
+    - user_id（str）：调用方传入的user_id数据或控制参数，用于驱动本函数处理流程。
+
+    返回：dict[str, Any] | None；返回值供调用方继续编排业务流程或生成接口响应。
+
+    副作用：可能访问数据库、文件、模型服务或流式事件通道，异常会沿调用链抛出。
+    """
     from mvc.models.user_model import User
 
     async with AsyncSessionLocal() as session:
@@ -193,6 +296,17 @@ async def get_user_info_from_db(user_id: str) -> dict[str, Any] | None:
 
 
 async def get_user_info_cached(user_id: str, credentials: HTTPAuthorizationCredentials | None = None):
+    """
+    用途：读取或查询get user info cached相关的数据或流程。
+
+    参数：
+    - user_id（str）：调用方传入的user_id数据或控制参数，用于驱动本函数处理流程。
+    - credentials（HTTPAuthorizationCredentials | None）：调用方传入的credentials数据或控制参数，用于驱动本函数处理流程。
+
+    返回：未显式标注；返回值供调用方继续编排业务流程或生成接口响应。
+
+    副作用：可能访问数据库、文件、模型服务或流式事件通道，异常会沿调用链抛出。
+    """
     key = f"user:{user_id}"
 
     try:

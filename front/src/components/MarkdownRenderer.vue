@@ -1,3 +1,7 @@
+<!--
+模块职责：Vue 可复用组件，负责封装局部界面、交互状态和事件输出。
+主要协作：通过组合 API、状态、组件和路由来支撑当前页面或功能。
+-->
 <script setup lang="ts">
 import { computed } from 'vue'
 import { renderMarkdownHtml } from '../utils/markdown'
@@ -9,6 +13,11 @@ const props = withDefaults(defineProps<{
   compact: false,
 })
 
+/**
+ * 用途：执行renderedHtml相关业务逻辑。
+ * 参数：无显式业务参数。
+ * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+ */
 const renderedHtml = computed(() => renderMarkdownHtml(props.content || ''))
 </script>
 

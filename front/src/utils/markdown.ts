@@ -1,3 +1,7 @@
+/**
+ * 模块职责：前端源码模块，封装 RAGNotebook 客户端的可维护逻辑。
+ * 主要协作：通过导出的类型、函数或组件配置供其他前端模块复用。
+ */
 import DOMPurify from 'dompurify'
 import katex from 'katex'
 import 'katex/dist/katex.min.css'
@@ -5,6 +9,10 @@ import { Marked, type TokenizerAndRendererExtension, type Tokens } from 'marked'
 import { common, createLowlight } from 'lowlight'
 import type { Element, Root, RootContent } from 'hast'
 
+/**
+ * 类型：`MathToken` 描述当前业务域中的数据结构。
+ * 字段含义应与后端接口、组件入参或本地状态保持一致。
+ */
 type MathToken = Tokens.Generic & {
   text: string
 }
@@ -36,6 +44,11 @@ const sanitizeAttrs = [
   'target',
 ]
 
+/**
+ * 用途：执行escapeHtml相关业务逻辑。
+ * @param value 调用方传入的value参数，用于驱动当前前端逻辑。
+ * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+ */
 function escapeHtml(value: string) {
   return value
     .replace(/&/g, '&amp;')
@@ -45,6 +58,11 @@ function escapeHtml(value: string) {
     .replace(/'/g, '&#39;')
 }
 
+/**
+ * 用途：执行normalizeLanguage相关业务逻辑。
+ * 参数：无显式业务参数。
+ * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+ */
 function normalizeLanguage(value?: string) {
   const raw = (value || '').match(/^\S+/)?.[0].toLowerCase() || ''
   if (!raw) return ''
@@ -52,6 +70,12 @@ function normalizeLanguage(value?: string) {
   return supportedLanguages.has(normalized) ? normalized : ''
 }
 
+/**
+ * 用途：执行renderProperty相关业务逻辑。
+ * @param name 调用方传入的name参数，用于驱动当前前端逻辑。
+ * @param value 调用方传入的value参数，用于驱动当前前端逻辑。
+ * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+ */
 function renderProperty(name: string, value: unknown) {
   if (value === null || value === undefined || value === false) return ''
   const attrName = name === 'className' ? 'class' : name
@@ -60,6 +84,11 @@ function renderProperty(name: string, value: unknown) {
   return ` ${escapeHtml(attrName)}="${escapeHtml(attrValue)}"`
 }
 
+/**
+ * 用途：执行hastToHtml相关业务逻辑。
+ * @param node 调用方传入的node参数，用于驱动当前前端逻辑。
+ * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+ */
 function hastToHtml(node: Root | RootContent): string {
   if (node.type === 'root') {
     return node.children.map((child) => hastToHtml(child)).join('')
@@ -75,10 +104,20 @@ function hastToHtml(node: Root | RootContent): string {
   const attrs = Object.entries(element.properties || {})
     .map(([name, value]) => renderProperty(name, value))
     .join('')
+  /**
+   * 用途：执行children相关业务逻辑。
+   * 参数：无显式业务参数。
+   * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+   */
   const children = element.children.map((child) => hastToHtml(child)).join('')
   return `<${element.tagName}${attrs}>${children}</${element.tagName}>`
 }
 
+/**
+ * 用途：执行renderCodeBlock相关业务逻辑。
+ * @param text 调用方传入的text参数，用于驱动当前前端逻辑。
+ * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+ */
 function renderCodeBlock(text: string, lang?: string) {
   const language = normalizeLanguage(lang)
 
@@ -93,6 +132,12 @@ function renderCodeBlock(text: string, lang?: string) {
   }
 }
 
+/**
+ * 用途：执行renderMath相关业务逻辑。
+ * @param text 调用方传入的text参数，用于驱动当前前端逻辑。
+ * @param displayMode 调用方传入的displayMode参数，用于驱动当前前端逻辑。
+ * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+ */
 function renderMath(text: string, displayMode: boolean) {
   return katex.renderToString(text.trim(), {
     displayMode,
@@ -103,11 +148,26 @@ function renderMath(text: string, displayMode: boolean) {
   })
 }
 
+/**
+ * 用途：执行firstExistingIndex相关业务逻辑。
+ * @param items 调用方传入的items参数，用于驱动当前前端逻辑。
+ * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+ */
 function firstExistingIndex(...items: number[]) {
+  /**
+   * 用途：执行positive相关业务逻辑。
+   * 参数：无显式业务参数。
+   * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+   */
   const positive = items.filter((item) => item >= 0)
   return positive.length ? Math.min(...positive) : undefined
 }
 
+/**
+ * 用途：执行findClosingDollar相关业务逻辑。
+ * @param src 调用方传入的src参数，用于驱动当前前端逻辑。
+ * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+ */
 function findClosingDollar(src: string) {
   for (let index = 1; index < src.length; index += 1) {
     if (src[index] === '$' && src[index - 1] !== '\\') {
@@ -202,6 +262,11 @@ const markdown = new Marked({
   },
 })
 
+/**
+ * 用途：执行renderMarkdownHtml相关业务逻辑。
+ * @param content 调用方传入的content参数，用于驱动当前前端逻辑。
+ * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+ */
 export function renderMarkdownHtml(content: string) {
   const rawHtml = markdown.parse(content || '', { async: false }) as string
   return DOMPurify.sanitize(rawHtml, {

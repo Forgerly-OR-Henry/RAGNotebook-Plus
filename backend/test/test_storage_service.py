@@ -1,3 +1,9 @@
+"""
+模块职责：测试模块，使用单元测试和回归用例验证当前业务契约。
+
+主要协作：本文件只声明当前模块的职责边界，运行时行为由下方函数、类和依赖对象共同完成。
+"""
+
 from pathlib import Path
 
 import pytest
@@ -18,6 +24,15 @@ FILE_STORAGE_KEYS = {
 
 
 def _set_storage_env(monkeypatch, **overrides):
+    """
+    用途：执行set storage env相关业务逻辑。
+
+    参数：
+    - monkeypatch（未显式标注）：调用方传入的monkeypatch数据或控制参数，用于驱动本函数处理流程。
+    - overrides（未显式标注）：调用方传入的overrides数据或控制参数，用于驱动本函数处理流程。
+
+    返回：未显式标注；返回值供调用方继续编排业务流程或生成接口响应。
+    """
     values = {
         "FILE_STORAGE_HOST": "localhost",
         "FILE_STORAGE_PROTOCOL": "sftp",
@@ -33,6 +48,14 @@ def _set_storage_env(monkeypatch, **overrides):
 
 
 def _env_keys(path: Path) -> set[str]:
+    """
+    用途：执行env keys相关业务逻辑。
+
+    参数：
+    - path（Path）：调用方传入的path数据或控制参数，用于驱动本函数处理流程。
+
+    返回：set[str]；返回值供调用方继续编排业务流程或生成接口响应。
+    """
     keys = set()
     for raw_line in path.read_text(encoding="utf-8").splitlines():
         line = raw_line.strip()
@@ -47,10 +70,26 @@ def _env_keys(path: Path) -> set[str]:
     ["config/.env.example", "backend/.env.example"],
 )
 def test_file_storage_keys_are_declared_in_env_templates(relative_path):
+    """
+    用途：执行test file storage keys are declared in env templates相关业务逻辑。
+
+    参数：
+    - relative_path（未显式标注）：调用方传入的relative_path数据或控制参数，用于驱动本函数处理流程。
+
+    返回：未显式标注；返回值供调用方继续编排业务流程或生成接口响应。
+    """
     assert FILE_STORAGE_KEYS <= _env_keys(REPO_ROOT / relative_path)
 
 
 def test_localhost_uses_local_adapter_and_default_backend_data(monkeypatch):
+    """
+    用途：执行test localhost uses local adapter and default backend data相关业务逻辑。
+
+    参数：
+    - monkeypatch（未显式标注）：调用方传入的monkeypatch数据或控制参数，用于驱动本函数处理流程。
+
+    返回：未显式标注；返回值供调用方继续编排业务流程或生成接口响应。
+    """
     _set_storage_env(
         monkeypatch,
         FILE_STORAGE_HOST="localhost",
@@ -73,6 +112,15 @@ def test_localhost_uses_local_adapter_and_default_backend_data(monkeypatch):
 
 
 def test_loopback_uses_configured_local_directory(monkeypatch, tmp_path):
+    """
+    用途：执行test loopback uses configured local directory相关业务逻辑。
+
+    参数：
+    - monkeypatch（未显式标注）：调用方传入的monkeypatch数据或控制参数，用于驱动本函数处理流程。
+    - tmp_path（未显式标注）：调用方传入的tmp_path数据或控制参数，用于驱动本函数处理流程。
+
+    返回：未显式标注；返回值供调用方继续编排业务流程或生成接口响应。
+    """
     _set_storage_env(monkeypatch, FILE_STORAGE_HOST="127.0.0.1", FILE_STORAGE_BASE_DIR=str(tmp_path))
 
     settings = load_storage_settings()
@@ -82,6 +130,15 @@ def test_loopback_uses_configured_local_directory(monkeypatch, tmp_path):
 
 
 def test_local_storage_rejects_prefix_path_escape(monkeypatch, tmp_path):
+    """
+    用途：执行test local storage rejects prefix path escape相关业务逻辑。
+
+    参数：
+    - monkeypatch（未显式标注）：调用方传入的monkeypatch数据或控制参数，用于驱动本函数处理流程。
+    - tmp_path（未显式标注）：调用方传入的tmp_path数据或控制参数，用于驱动本函数处理流程。
+
+    返回：未显式标注；返回值供调用方继续编排业务流程或生成接口响应。
+    """
     _set_storage_env(monkeypatch)
     settings = load_storage_settings()
     settings = storage_module.StorageSettings(
@@ -101,6 +158,14 @@ def test_local_storage_rejects_prefix_path_escape(monkeypatch, tmp_path):
 
 
 def test_remote_sftp_uses_sftp_adapter(monkeypatch):
+    """
+    用途：执行test remote sftp uses sftp adapter相关业务逻辑。
+
+    参数：
+    - monkeypatch（未显式标注）：调用方传入的monkeypatch数据或控制参数，用于驱动本函数处理流程。
+
+    返回：未显式标注；返回值供调用方继续编排业务流程或生成接口响应。
+    """
     _set_storage_env(
         monkeypatch,
         FILE_STORAGE_HOST="db.example.internal",
@@ -119,6 +184,14 @@ def test_remote_sftp_uses_sftp_adapter(monkeypatch):
 
 
 def test_remote_storage_requires_base_dir(monkeypatch):
+    """
+    用途：执行test remote storage requires base dir相关业务逻辑。
+
+    参数：
+    - monkeypatch（未显式标注）：调用方传入的monkeypatch数据或控制参数，用于驱动本函数处理流程。
+
+    返回：未显式标注；返回值供调用方继续编排业务流程或生成接口响应。
+    """
     _set_storage_env(
         monkeypatch,
         FILE_STORAGE_HOST="db.example.internal",
@@ -132,6 +205,14 @@ def test_remote_storage_requires_base_dir(monkeypatch):
 
 
 def test_storage_settings_requires_declared_fields(monkeypatch):
+    """
+    用途：执行test storage settings requires declared fields相关业务逻辑。
+
+    参数：
+    - monkeypatch（未显式标注）：调用方传入的monkeypatch数据或控制参数，用于驱动本函数处理流程。
+
+    返回：未显式标注；返回值供调用方继续编排业务流程或生成接口响应。
+    """
     _set_storage_env(monkeypatch)
     monkeypatch.delenv("FILE_STORAGE_HOST", raising=False)
 

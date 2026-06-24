@@ -1,3 +1,9 @@
+"""
+模块职责：Agent 能力模块，负责检索增强、模型调用、工具编排或文档处理。
+
+主要协作：本文件只声明当前模块的职责边界，运行时行为由下方函数、类和依赖对象共同完成。
+"""
+
 import os
 
 from langchain_core.documents import Document
@@ -22,6 +28,14 @@ class DocumentProcessor:
     """文档处理器"""
 
     def __init__(self, embed_model=None):
+        """
+        用途：执行init相关业务逻辑。
+
+        参数：
+        - embed_model（未显式标注）：调用方传入的embed_model数据或控制参数，用于驱动本函数处理流程。
+
+        返回：未显式标注；返回值供调用方继续编排业务流程或生成接口响应。
+        """
         self.spliter = AsyncTextSplitter(
             chunk_size=DEFAULT_CHUNK_SIZE,
             chunk_overlap=DEFAULT_CHUNK_OVERLAP,

@@ -1,3 +1,7 @@
+<!--
+模块职责：Vue 页面组件，负责组合业务 API、页面状态和用户交互。
+主要协作：通过组合 API、状态、组件和路由来支撑当前页面或功能。
+-->
 <script setup lang="ts">
 import { GitFork } from '@lucide/vue'
 </script>

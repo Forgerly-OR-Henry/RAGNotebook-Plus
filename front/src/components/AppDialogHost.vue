@@ -1,3 +1,7 @@
+<!--
+模块职责：Vue 可复用组件，负责封装局部界面、交互状态和事件输出。
+主要协作：通过组合 API、状态、组件和路由来支撑当前页面或功能。
+-->
 <script setup lang="ts">
 import { computed, nextTick, ref, watch } from 'vue'
 import { AlertTriangle, Info, X } from '@lucide/vue'
@@ -5,14 +9,31 @@ import { useAppDialogState } from '../composables/useAppDialog'
 
 const { activeDialog, cancelDialog, confirmActiveDialog } = useAppDialogState()
 
+// 响应式状态：保存当前组件内部的临时 UI 或业务处理状态。
 const inputValue = ref('')
 const confirmButton = ref<HTMLButtonElement | null>(null)
 const inputRef = ref<HTMLInputElement | null>(null)
 
+/**
+ * 用途：执行isOpen相关业务逻辑。
+ * 参数：无显式业务参数。
+ * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+ */
 const isOpen = computed(() => Boolean(activeDialog.value))
+/**
+ * 用途：执行isPrompt相关业务逻辑。
+ * 参数：无显式业务参数。
+ * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+ */
 const isPrompt = computed(() => activeDialog.value?.type === 'prompt')
+/**
+ * 用途：执行icon相关业务逻辑。
+ * 参数：无显式业务参数。
+ * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+ */
 const icon = computed(() => activeDialog.value?.variant === 'danger' ? AlertTriangle : Info)
 
+// 状态监听：在关键输入变化后同步副作用或刷新页面数据。
 watch(
   activeDialog,
   async (dialog) => {
@@ -28,6 +49,11 @@ watch(
   },
 )
 
+/**
+ * 用途：执行submit相关业务逻辑。
+ * 参数：无显式业务参数。
+ * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+ */
 function submit() {
   if (isPrompt.value) {
     confirmActiveDialog(inputValue.value)

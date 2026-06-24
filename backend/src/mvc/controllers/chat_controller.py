@@ -1,3 +1,9 @@
+"""
+模块职责：FastAPI 路由控制器模块，负责请求参数绑定、权限依赖和服务层调用。
+
+主要协作：本文件只声明当前模块的职责边界，运行时行为由下方函数、类和依赖对象共同完成。
+"""
+
 import uuid
 
 from fastapi import Depends, HTTPException, Query

@@ -1,3 +1,9 @@
+"""
+模块职责：仓储模块，负责封装持久化或运行时状态读写逻辑。
+
+主要协作：本文件只声明当前模块的职责边界，运行时行为由下方函数、类和依赖对象共同完成。
+"""
+
 from collections.abc import Callable
 from functools import wraps
 from typing import Generic, TypeVar
@@ -33,7 +39,7 @@ class PostgresCache(Generic[T]):
         :return: 函数执行结果
         """
         # 尝试从缓存获取
-        # 无论key是什么类型，都统一转换为字符串
+        # 将缓存键统一标准化为字符串，确保 PostgreSQL 查询条件类型稳定。
         cache_key = str(key)
         cached_data = await get_cache(cache_key)
 
@@ -144,9 +150,30 @@ def cache_with_postgres(prefix: str, expire: int = 3600):
     :return: 装饰器函数
     """
     def decorator(func: Callable[..., T]) -> Callable[..., T]:
+        """
+        用途：执行decorator相关业务逻辑。
+
+        参数：
+        - func（Callable[..., T]）：调用方传入的func数据或控制参数，用于驱动本函数处理流程。
+
+        返回：Callable[..., T]；返回值供调用方继续编排业务流程或生成接口响应。
+
+        副作用：可能访问数据库、文件、模型服务或流式事件通道，异常会沿调用链抛出。
+        """
         @wraps(func)
         async def wrapper(*args, **kwargs):
             # 生成缓存键
+            """
+            用途：异步执行wrapper相关业务流程。
+
+            参数：
+            - args（未显式标注）：调用方传入的args数据或控制参数，用于驱动本函数处理流程。
+            - kwargs（未显式标注）：调用方传入的kwargs数据或控制参数，用于驱动本函数处理流程。
+
+            返回：未显式标注；返回值供调用方继续编排业务流程或生成接口响应。
+
+            副作用：可能访问数据库、文件、模型服务或流式事件通道，异常会沿调用链抛出。
+            """
             key = PostgresCache.cache_key(prefix, *args, **kwargs)
 
             return await PostgresCache.get_or_set(key, func, *args, expire=expire, **kwargs)

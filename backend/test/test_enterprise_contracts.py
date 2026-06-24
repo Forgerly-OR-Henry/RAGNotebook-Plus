@@ -1,3 +1,9 @@
+"""
+模块职责：测试模块，使用单元测试和回归用例验证当前业务契约。
+
+主要协作：本文件只声明当前模块的职责边界，运行时行为由下方函数、类和依赖对象共同完成。
+"""
+
 import pytest
 from pydantic import ValidationError
 
@@ -11,6 +17,13 @@ from mvc.schemas import (
 
 
 def test_quick_test_create_request_contract():
+    """
+    用途：执行test quick test create request contract相关业务逻辑。
+
+    参数：无显式业务参数。
+
+    返回：未显式标注；返回值供调用方继续编排业务流程或生成接口响应。
+    """
     payload = QuickTestCreateRequest(
         source_type="mixed",
         source_ids=["note-1", "doc-1.pdf"],
@@ -25,6 +38,13 @@ def test_quick_test_create_request_contract():
 
 
 def test_mindmap_generate_request_contract():
+    """
+    用途：执行test mindmap generate request contract相关业务逻辑。
+
+    参数：无显式业务参数。
+
+    返回：未显式标注；返回值供调用方继续编排业务流程或生成接口响应。
+    """
     payload = MindMapGenerateRequest(
         source_type="note",
         source_ids=["note-1", "note-2"],
@@ -47,11 +67,26 @@ def test_mindmap_generate_request_contract():
     ],
 )
 def test_mindmap_generate_request_rejects_invalid_source_scope(payload):
+    """
+    用途：执行test mindmap generate request rejects invalid source scope相关业务逻辑。
+
+    参数：
+    - payload（未显式标注）：调用方传入的payload数据或控制参数，用于驱动本函数处理流程。
+
+    返回：未显式标注；返回值供调用方继续编排业务流程或生成接口响应。
+    """
     with pytest.raises(ValidationError):
         MindMapGenerateRequest(**payload)
 
 
 def test_mindmap_response_contract():
+    """
+    用途：执行test mindmap response contract相关业务逻辑。
+
+    参数：无显式业务参数。
+
+    返回：未显式标注；返回值供调用方继续编排业务流程或生成接口响应。
+    """
     citation = SourceCitation(
         source_type="note",
         source_id="note-1",

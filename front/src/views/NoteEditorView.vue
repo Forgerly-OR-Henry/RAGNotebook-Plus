@@ -1,3 +1,7 @@
+<!--
+模块职责：笔记编辑页，负责笔记内容编辑、模板、自动补全、关联片段和保存状态。
+主要协作：通过组合 API、状态、组件和路由来支撑当前页面或功能。
+-->
 <script setup lang="ts">
 import { computed, defineAsyncComponent, onBeforeUnmount, ref, watch, type Component } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
@@ -28,6 +32,10 @@ import { noteTemplatesApi } from '../api/noteTemplates'
 import { notesApi } from '../api/notes'
 import type { Note, NoteFolder, NoteTemplate } from '../types/api'
 
+/**
+ * 类型：`ApiError` 描述当前业务域中的数据结构。
+ * 字段含义应与后端接口、组件入参或本地状态保持一致。
+ */
 type ApiError = {
   message?: string
   response?: {
@@ -38,6 +46,10 @@ type ApiError = {
   }
 }
 
+/**
+ * 接口：`TemplateForm` 描述当前业务域中的数据结构。
+ * 字段含义应与后端接口、组件入参或本地状态保持一致。
+ */
 interface TemplateForm {
   name: string
   title: string
@@ -46,10 +58,18 @@ interface TemplateForm {
   tags: string
 }
 
+/**
+ * 接口：`RichEditorExpose` 描述当前业务域中的数据结构。
+ * 字段含义应与后端接口、组件入参或本地状态保持一致。
+ */
 interface RichEditorExpose {
   scrollToHeading: (text: string, level: number) => void
 }
 
+/**
+ * 接口：`FolderOption` 描述当前业务域中的数据结构。
+ * 字段含义应与后端接口、组件入参或本地状态保持一致。
+ */
 interface FolderOption {
   id: string
   name: string
@@ -58,6 +78,11 @@ interface FolderOption {
 
 const route = useRoute()
 const router = useRouter()
+/**
+ * 用途：执行RichEditor相关业务逻辑。
+ * 参数：无显式业务参数。
+ * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+ */
 const RichEditor = defineAsyncComponent(() => import('../components/RichEditor.vue'))
 const DRAFT_KEY = 'note_draft'
 const TEMPLATE_ORDER_KEY = 'template_order'
@@ -87,29 +112,47 @@ const ICON_MAP: Record<string, Component> = {
   BookMarked,
 }
 
+// 响应式状态：保存当前组件内部的临时 UI 或业务处理状态。
 const currentNoteId = ref('')
+// 响应式状态：保存当前组件内部的临时 UI 或业务处理状态。
 const title = ref('')
+// 响应式状态：保存当前组件内部的临时 UI 或业务处理状态。
 const content = ref('')
+// 响应式状态：保存当前组件内部的临时 UI 或业务处理状态。
 const category = ref('')
 const tags = ref<string[]>([])
 const folderId = ref<string | null>(null)
 const folders = ref<NoteFolder[]>([])
+// 响应式状态：保存当前组件内部的临时 UI 或业务处理状态。
 const loading = ref(false)
+// 响应式状态：保存当前组件内部的临时 UI 或业务处理状态。
 const saving = ref(false)
+// 响应式状态：保存当前组件内部的临时 UI 或业务处理状态。
 const deleting = ref(false)
+// 响应式状态：保存当前组件内部的临时 UI 或业务处理状态。
 const aiTagging = ref(false)
+// 响应式状态：保存当前组件内部的临时 UI 或业务处理状态。
 const message = ref('')
+// 响应式状态：保存当前组件内部的临时 UI 或业务处理状态。
 const errorMessage = ref('')
 const saveStatus = ref<'unsaved' | 'saved'>('unsaved')
+// 响应式状态：保存当前组件内部的临时 UI 或业务处理状态。
 const showDelete = ref(false)
+// 响应式状态：保存当前组件内部的临时 UI 或业务处理状态。
 const showRelated = ref(false)
+// 响应式状态：保存当前组件内部的临时 UI 或业务处理状态。
 const showOutline = ref(false)
+// 响应式状态：保存当前组件内部的临时 UI 或业务处理状态。
 const showTemplatePicker = ref(false)
+// 响应式状态：保存当前组件内部的临时 UI 或业务处理状态。
 const showTemplateManager = ref(false)
+// 响应式状态：保存当前组件内部的临时 UI 或业务处理状态。
 const showSaveAsTemplate = ref(false)
+// 响应式状态：保存当前组件内部的临时 UI 或业务处理状态。
 const showNewTemplateForm = ref(false)
 const templates = ref<NoteTemplate[]>([])
 const templateItems = ref<NoteTemplate[]>([])
+// 响应式状态：保存当前组件内部的临时 UI 或业务处理状态。
 const templateName = ref('')
 const editingTemplate = ref<NoteTemplate | null>(null)
 const editForm = ref<TemplateForm>({ name: '', title: '', content: '', category: '', tags: '' })
@@ -119,9 +162,24 @@ const dragOverIndex = ref<number | null>(null)
 const editorRef = ref<RichEditorExpose | null>(null)
 let autosaveTimer: number | undefined
 
+/**
+ * 用途：执行isNew相关业务逻辑。
+ * 参数：无显式业务参数。
+ * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+ */
 const isNew = computed(() => !currentNoteId.value)
+/**
+ * 用途：执行folderOptions相关业务逻辑。
+ * 参数：无显式业务参数。
+ * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+ */
 const folderOptions = computed(() => flattenFolders(folders.value))
 
+/**
+ * 用途：执行routeNoteId相关业务逻辑。
+ * 参数：无显式业务参数。
+ * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+ */
 function routeNoteId() {
   const raw = route.params.id
   if (Array.isArray(raw)) return raw[0] || ''
@@ -132,6 +190,11 @@ function draftField<T>(key: string, fallback: T): T {
   return (readJsonPref<Record<string, unknown>>(DRAFT_KEY, {})[key] ?? fallback) as T
 }
 
+/**
+ * 用途：执行loadDraft相关业务逻辑。
+ * 参数：无显式业务参数。
+ * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+ */
 function loadDraft() {
   title.value = draftField('title', '')
   content.value = draftField('content', '')
@@ -141,6 +204,12 @@ function loadDraft() {
   saveStatus.value = 'saved'
 }
 
+/**
+ * 用途：执行getApiErrorMessage相关业务逻辑。
+ * @param error 调用方传入的error参数，用于驱动当前前端逻辑。
+ * @param fallbackMessage 调用方传入的fallbackMessage参数，用于驱动当前前端逻辑。
+ * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+ */
 function getApiErrorMessage(error: unknown, fallbackMessage: string) {
   const apiError = error as ApiError
   const detail = apiError.response?.data?.detail
@@ -151,22 +220,48 @@ function getApiErrorMessage(error: unknown, fallbackMessage: string) {
   return apiError.response?.data?.message || apiError.message || fallbackMessage
 }
 
+/**
+ * 用途：执行templateIcon相关业务逻辑。
+ * @param icon 调用方传入的icon参数，用于驱动当前前端逻辑。
+ * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+ */
 function templateIcon(icon: string) {
   return ICON_MAP[icon] || FileText
 }
 
+/**
+ * 用途：执行categoryLabel相关业务逻辑。
+ * @param value 调用方传入的value参数，用于驱动当前前端逻辑。
+ * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+ */
 function categoryLabel(value: string | null | undefined) {
   return value ? CATEGORY_LABEL_MAP[value] || value : ''
 }
 
+/**
+ * 用途：执行tagsFromInput相关业务逻辑。
+ * @param value 调用方传入的value参数，用于驱动当前前端逻辑。
+ * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+ */
 function tagsFromInput(value: string) {
   return value.split(/[，,]/).map((item) => item.trim()).filter(Boolean)
 }
 
+/**
+ * 用途：执行templateTags相关业务逻辑。
+ * @param template 调用方传入的template参数，用于驱动当前前端逻辑。
+ * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+ */
 function templateTags(template: NoteTemplate) {
   return template.tags || []
 }
 
+/**
+ * 用途：执行flattenFolders相关业务逻辑。
+ * @param items 调用方传入的items参数，用于驱动当前前端逻辑。
+ * @param depth 调用方传入的depth参数，用于驱动当前前端逻辑。
+ * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+ */
 function flattenFolders(items: NoteFolder[], depth = 0): FolderOption[] {
   const options: FolderOption[] = []
   for (const folder of items) {
@@ -176,24 +271,49 @@ function flattenFolders(items: NoteFolder[], depth = 0): FolderOption[] {
   return options
 }
 
+/**
+ * 用途：执行queryFolderId相关业务逻辑。
+ * 参数：无显式业务参数。
+ * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+ */
 function queryFolderId() {
   const raw = route.query.folder_id
   if (Array.isArray(raw)) return raw[0] || null
   return raw || null
 }
 
+/**
+ * 用途：执行folderOptionLabel相关业务逻辑。
+ * @param item 调用方传入的item参数，用于驱动当前前端逻辑。
+ * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+ */
 function folderOptionLabel(item: FolderOption) {
   return `${'-- '.repeat(item.depth)}${item.name}`
 }
 
+/**
+ * 用途：执行loadTemplateOrder相关业务逻辑。
+ * 参数：无显式业务参数。
+ * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+ */
 function loadTemplateOrder(): string[] {
   return readJsonPref<string[]>(TEMPLATE_ORDER_KEY, [])
 }
 
+/**
+ * 用途：执行saveTemplateOrder相关业务逻辑。
+ * @param ids 调用方传入的ids参数，用于驱动当前前端逻辑。
+ * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+ */
 function saveTemplateOrder(ids: string[]) {
   writeJsonPref(TEMPLATE_ORDER_KEY, ids)
 }
 
+/**
+ * 用途：执行refreshTemplates相关业务逻辑。
+ * 参数：无显式业务参数。
+ * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+ */
 async function refreshTemplates() {
   try {
     const res = await noteTemplatesApi.list()
@@ -204,8 +324,23 @@ async function refreshTemplates() {
       templateItems.value = list
       return
     }
+    /**
+     * 用途：执行map相关业务逻辑。
+     * 参数：无显式业务参数。
+     * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+     */
     const map = new Map(list.map((template) => [template.id, template]))
+    /**
+     * 用途：执行ordered相关业务逻辑。
+     * 参数：无显式业务参数。
+     * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+     */
     const ordered = order.map((id) => map.get(id)).filter((template): template is NoteTemplate => Boolean(template))
+    /**
+     * 用途：执行rest相关业务逻辑。
+     * 参数：无显式业务参数。
+     * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+     */
     const rest = list.filter((template) => !order.includes(template.id))
     templateItems.value = [...ordered, ...rest]
   } catch (error) {
@@ -213,10 +348,20 @@ async function refreshTemplates() {
   }
 }
 
+/**
+ * 用途：执行refreshFolders相关业务逻辑。
+ * 参数：无显式业务参数。
+ * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+ */
 async function refreshFolders() {
   try {
     const res = await notesApi.listFolders()
     folders.value = res.data.folders || []
+    /**
+     * 用途：执行known相关业务逻辑。
+     * 参数：无显式业务参数。
+     * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+     */
     const known = new Set(folderOptions.value.map((item) => item.id))
     if (folderId.value && !known.has(folderId.value)) {
       folderId.value = null
@@ -226,6 +371,11 @@ async function refreshFolders() {
   }
 }
 
+/**
+ * 用途：执行loadNote相关业务逻辑。
+ * @param id 调用方传入的id参数，用于驱动当前前端逻辑。
+ * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+ */
 async function loadNote(id: string) {
   loading.value = true
   message.value = ''
@@ -245,6 +395,11 @@ async function loadNote(id: string) {
   }
 }
 
+/**
+ * 用途：执行applyTemplate相关业务逻辑。
+ * @param template 调用方传入的template参数，用于驱动当前前端逻辑。
+ * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+ */
 function applyTemplate(template: NoteTemplate) {
   title.value = template.title || ''
   content.value = template.content || ''
@@ -254,6 +409,11 @@ function applyTemplate(template: NoteTemplate) {
   saveStatus.value = 'unsaved'
 }
 
+/**
+ * 用途：执行save相关业务逻辑。
+ * 参数：无显式业务参数。
+ * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+ */
 async function save() {
   if (saving.value || deleting.value) return currentNoteId.value || null
   if (!title.value.trim() && !content.value.trim()) return null
@@ -290,6 +450,11 @@ async function save() {
   }
 }
 
+/**
+ * 用途：执行recognizeTagsWithAi相关业务逻辑。
+ * 参数：无显式业务参数。
+ * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+ */
 async function recognizeTagsWithAi() {
   if (aiTagging.value || deleting.value) return
   if (!title.value.trim() && !content.value.trim()) {
@@ -315,6 +480,11 @@ async function recognizeTagsWithAi() {
   }
 }
 
+/**
+ * 用途：执行deleteCurrentNote相关业务逻辑。
+ * 参数：无显式业务参数。
+ * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+ */
 async function deleteCurrentNote() {
   if (!currentNoteId.value || deleting.value || saving.value) return
   deleting.value = true
@@ -330,6 +500,11 @@ async function deleteCurrentNote() {
   }
 }
 
+/**
+ * 用途：执行downloadCurrentNote相关业务逻辑。
+ * 参数：无显式业务参数。
+ * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+ */
 async function downloadCurrentNote() {
   if (!currentNoteId.value) return
   try {
@@ -347,6 +522,11 @@ async function downloadCurrentNote() {
   }
 }
 
+/**
+ * 用途：执行completeText相关业务逻辑。
+ * @param context 调用方传入的context参数，用于驱动当前前端逻辑。
+ * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+ */
 async function completeText(context: string) {
   try {
     const res = await notesApi.autocomplete(context)
@@ -356,6 +536,11 @@ async function completeText(context: string) {
   }
 }
 
+/**
+ * 用途：执行saveAsTemplate相关业务逻辑。
+ * 参数：无显式业务参数。
+ * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+ */
 async function saveAsTemplate() {
   const name = templateName.value.trim()
   if (!name) return
@@ -376,6 +561,11 @@ async function saveAsTemplate() {
   }
 }
 
+/**
+ * 用途：执行startEditTemplate相关业务逻辑。
+ * @param template 调用方传入的template参数，用于驱动当前前端逻辑。
+ * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+ */
 function startEditTemplate(template: NoteTemplate) {
   editingTemplate.value = template
   showNewTemplateForm.value = false
@@ -388,6 +578,11 @@ function startEditTemplate(template: NoteTemplate) {
   }
 }
 
+/**
+ * 用途：执行updateTemplate相关业务逻辑。
+ * 参数：无显式业务参数。
+ * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+ */
 async function updateTemplate() {
   if (!editingTemplate.value) return
   try {
@@ -405,6 +600,11 @@ async function updateTemplate() {
   }
 }
 
+/**
+ * 用途：执行createTemplate相关业务逻辑。
+ * 参数：无显式业务参数。
+ * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+ */
 async function createTemplate() {
   if (!newTemplateForm.value.name.trim()) return
   try {
@@ -423,6 +623,11 @@ async function createTemplate() {
   }
 }
 
+/**
+ * 用途：执行deleteTemplate相关业务逻辑。
+ * @param template 调用方传入的template参数，用于驱动当前前端逻辑。
+ * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+ */
 async function deleteTemplate(template: NoteTemplate) {
   if (template.is_default) return
   try {
@@ -433,10 +638,20 @@ async function deleteTemplate(template: NoteTemplate) {
   }
 }
 
+/**
+ * 用途：执行handleTemplateDragStart相关业务逻辑。
+ * @param index 调用方传入的index参数，用于驱动当前前端逻辑。
+ * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+ */
 function handleTemplateDragStart(index: number) {
   dragItem.value = index
 }
 
+/**
+ * 用途：执行handleTemplateDrop相关业务逻辑。
+ * @param index 调用方传入的index参数，用于驱动当前前端逻辑。
+ * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+ */
 async function handleTemplateDrop(index: number) {
   const from = dragItem.value
   dragItem.value = null
@@ -447,6 +662,11 @@ async function handleTemplateDrop(index: number) {
   if (!moved) return
   next.splice(index, 0, moved)
   templateItems.value = next
+  /**
+   * 用途：执行ids相关业务逻辑。
+   * 参数：无显式业务参数。
+   * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+   */
   const ids = next.map((template) => template.id)
   saveTemplateOrder(ids)
   try {
@@ -456,22 +676,38 @@ async function handleTemplateDrop(index: number) {
   }
 }
 
+/**
+ * 用途：执行openTemplateManager相关业务逻辑。
+ * 参数：无显式业务参数。
+ * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+ */
 function openTemplateManager() {
   editingTemplate.value = null
   showNewTemplateForm.value = false
   showTemplateManager.value = true
 }
 
+/**
+ * 用途：执行closeTemplateManager相关业务逻辑。
+ * 参数：无显式业务参数。
+ * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+ */
 function closeTemplateManager() {
   editingTemplate.value = null
   showNewTemplateForm.value = false
   showTemplateManager.value = false
 }
 
+/**
+ * 用途：执行toggleCategory相关业务逻辑。
+ * @param value 调用方传入的value参数，用于驱动当前前端逻辑。
+ * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+ */
 function toggleCategory(value: string) {
   category.value = category.value === value ? '' : value
 }
 
+// 状态监听：在关键输入变化后同步副作用或刷新页面数据。
 watch(
   () => route.fullPath,
   async () => {
@@ -494,6 +730,7 @@ watch(
   { immediate: true },
 )
 
+// 状态监听：在关键输入变化后同步副作用或刷新页面数据。
 watch(
   [title, content, category, tags, folderId],
   () => {
@@ -514,10 +751,16 @@ watch(
   { deep: true },
 )
 
+// 状态监听：在关键输入变化后同步副作用或刷新页面数据。
 watch(showTemplatePicker, (open) => {
   if (open) void refreshTemplates()
 })
 
+/**
+ * 用途：执行handleGlobalKeydown相关业务逻辑。
+ * @param event 调用方传入的event参数，用于驱动当前前端逻辑。
+ * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+ */
 function handleGlobalKeydown(event: KeyboardEvent) {
   if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 's') {
     event.preventDefault()

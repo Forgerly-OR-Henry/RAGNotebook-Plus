@@ -1,16 +1,50 @@
+<!--
+模块职责：Vue 页面组件，负责组合业务 API、页面状态和用户交互。
+主要协作：通过组合 API、状态、组件和路由来支撑当前页面或功能。
+-->
 <script setup lang="ts">
 import { ref } from 'vue'
 import { RouterLink, useRouter } from 'vue-router'
 import { authApi } from '../api/auth'
 import { useUserStore } from '../stores/useUserStore'
 
-const username = ref('admin')
-const password = ref('admin1234')
+/**
+ * 用途：执行envBool相关业务逻辑。
+ * @param name 调用方传入的name参数，用于驱动当前前端逻辑。
+ * @param defaultValue 调用方传入的defaultValue参数，用于驱动当前前端逻辑。
+ * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+ */
+function envBool(name: string, defaultValue: boolean) {
+  const value = String(import.meta.env[name] ?? '').trim().toLowerCase()
+  if (!value) {
+    return defaultValue
+  }
+  if (['1', 'true', 'yes', 'on'].includes(value)) {
+    return true
+  }
+  if (['0', 'false', 'no', 'off'].includes(value)) {
+    return false
+  }
+  throw new Error(`${name} must be a boolean value`)
+}
+
+const loginPrefillEnabled = envBool('VITE_LOGIN_PREFILL_ENABLED', false)
+// 响应式状态：保存当前组件内部的临时 UI 或业务处理状态。
+const username = ref(loginPrefillEnabled ? 'admin' : '')
+// 响应式状态：保存当前组件内部的临时 UI 或业务处理状态。
+const password = ref(loginPrefillEnabled ? 'admin1234' : '')
+// 响应式状态：保存当前组件内部的临时 UI 或业务处理状态。
 const error = ref('')
+// 响应式状态：保存当前组件内部的临时 UI 或业务处理状态。
 const loading = ref(false)
 const router = useRouter()
 const userStore = useUserStore()
 
+/**
+ * 用途：执行submit相关业务逻辑。
+ * 参数：无显式业务参数。
+ * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+ */
 async function submit() {
   loading.value = true
   error.value = ''

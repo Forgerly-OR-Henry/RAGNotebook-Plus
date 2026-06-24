@@ -1,3 +1,7 @@
+/**
+ * 模块职责：前端业务 API 封装，负责把视图层调用转换为后端 HTTP 或 SSE 请求。
+ * 主要协作：通过导出的类型、函数或组件配置供其他前端模块复用。
+ */
 import client from '../../api/client'
 import { endpoints } from '../../api/endpoints'
 import type { ApiResponse, DeleteCategoryResponse, Note, NoteFolder, NoteFolderTreeResponse, NoteListResponse, NoteStats, RelatedFragment } from '../../types/api'

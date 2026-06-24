@@ -1,3 +1,9 @@
+"""
+模块职责：项目源码模块，封装 RAGNotebook 的可维护业务逻辑。
+
+主要协作：本文件只声明当前模块的职责边界，运行时行为由下方函数、类和依赖对象共同完成。
+"""
+
 import logging
 import re
 import sys
@@ -73,6 +79,15 @@ class BusinessException(Exception):
             raise BusinessException(code=4001, message="错误")
     """
     def __init__(self, code: int = 400, message: str = "出现错误"):
+        """
+        用途：执行init相关业务逻辑。
+
+        参数：
+        - code（int）：调用方传入的code数据或控制参数，用于驱动本函数处理流程。
+        - message（str）：调用方传入的message数据或控制参数，用于驱动本函数处理流程。
+
+        返回：未显式标注；返回值供调用方继续编排业务流程或生成接口响应。
+        """
         self.code = code
         self.message = message
         super().__init__(message)
@@ -80,8 +95,9 @@ class BusinessException(Exception):
 
 def mask_sensitive_info(text: str) -> str:
     """
-    简单的敏感信息脱敏工具
-    过滤API密钥、密码、数据库地址等敏感内容
+    基础敏感信息脱敏工具。
+
+    过滤 API 密钥、密码、数据库地址等敏感内容，避免错误响应或日志泄露私密信息。
     """
     if not text:
         return text
@@ -257,7 +273,7 @@ async def general_exception_handler(request: Request, exc: Exception):
     logger.critical(
         "未捕获系统异常",
         extra={"path": str(request.url), "method": request.method},
-        exc_info=exc  # 这个参数会把完整堆栈打到日志里，生产环境排错全靠它
+        exc_info=exc  # 记录完整异常堆栈，便于生产环境问题定位。
     )
 
     return JSONResponse(

@@ -1,3 +1,7 @@
+<!--
+模块职责：Vue 页面组件，负责组合业务 API、页面状态和用户交互。
+主要协作：通过组合 API、状态、组件和路由来支撑当前页面或功能。
+-->
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
 import {
@@ -12,6 +16,10 @@ import { authApi } from '../api/auth'
 import { useUserStore } from '../stores/useUserStore'
 import type { UserInfo } from '../types/api'
 
+/**
+ * 接口：`ProfileForm` 描述当前业务域中的数据结构。
+ * 字段含义应与后端接口、组件入参或本地状态保持一致。
+ */
 interface ProfileForm {
   username: string
   email: string
@@ -24,10 +32,14 @@ interface ProfileForm {
 }
 
 const userStore = useUserStore()
+// 响应式状态：保存当前组件内部的临时 UI 或业务处理状态。
 const loading = ref(false)
+// 响应式状态：保存当前组件内部的临时 UI 或业务处理状态。
 const saving = ref(false)
+// 响应式状态：保存当前组件内部的临时 UI 或业务处理状态。
 const message = ref('')
 const messageType = ref<'success' | 'error'>('success')
+// 响应式状态：保存当前组件内部的临时 UI 或业务处理状态。
 const editing = ref(false)
 const profile = ref<UserInfo | null>(null)
 const form = ref<ProfileForm>({
@@ -41,15 +53,24 @@ const form = ref<ProfileForm>({
   avatar: '',
 })
 const avatarInput = ref<HTMLInputElement | null>(null)
+// 响应式状态：保存当前组件内部的临时 UI 或业务处理状态。
 const avatarUploading = ref(false)
+// 响应式状态：保存当前组件内部的临时 UI 或业务处理状态。
 const avatarLoadFailed = ref(false)
 
+// 响应式状态：保存当前组件内部的临时 UI 或业务处理状态。
 const pwdOpen = ref(false)
+// 响应式状态：保存当前组件内部的临时 UI 或业务处理状态。
 const pwdLoading = ref(false)
+// 响应式状态：保存当前组件内部的临时 UI 或业务处理状态。
 const pwdError = ref('')
+// 响应式状态：保存当前组件内部的临时 UI 或业务处理状态。
 const oldPassword = ref('')
+// 响应式状态：保存当前组件内部的临时 UI 或业务处理状态。
 const newPassword = ref('')
+// 响应式状态：保存当前组件内部的临时 UI 或业务处理状态。
 const confirmPassword = ref('')
+// 响应式状态：保存当前组件内部的临时 UI 或业务处理状态。
 const showPwd = ref({
   old: false,
   new: false,
@@ -58,6 +79,12 @@ const showPwd = ref({
 
 let messageTimer: ReturnType<typeof setTimeout> | null = null
 
+/**
+ * 用途：执行setMessage相关业务逻辑。
+ * @param text 调用方传入的text参数，用于驱动当前前端逻辑。
+ * @param type 调用方传入的type参数，用于驱动当前前端逻辑。
+ * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+ */
 function setMessage(text: string, type: 'success' | 'error' = 'success') {
   message.value = text
   messageType.value = type
@@ -69,16 +96,32 @@ function setMessage(text: string, type: 'success' | 'error' = 'success') {
   }, 2200)
 }
 
+/**
+ * 用途：执行avatarText相关业务逻辑。
+ * 参数：无显式业务参数。
+ * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+ */
 const avatarText = computed(() => {
   const name = (form.value.username || profile.value?.username || 'U').trim()
   return name ? name[0].toUpperCase() : 'U'
 })
 
+/**
+ * 用途：执行avatarUrl相关业务逻辑。
+ * 参数：无显式业务参数。
+ * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+ */
 const avatarUrl = computed(() => {
   if (avatarLoadFailed.value) return ''
   return form.value.avatar.trim()
 })
 
+/**
+ * 用途：执行getErrorMessage相关业务逻辑。
+ * @param err 调用方传入的err参数，用于驱动当前前端逻辑。
+ * @param fallback 调用方传入的fallback参数，用于驱动当前前端逻辑。
+ * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+ */
 function getErrorMessage(err: unknown, fallback: string) {
   const detail = (err as { response?: { data?: { detail?: string | { [key: string]: string } } } })?.response?.data?.detail
   if (typeof detail === 'string') return detail
@@ -89,6 +132,11 @@ function getErrorMessage(err: unknown, fallback: string) {
   return fallback
 }
 
+/**
+ * 用途：执行normalizeGender相关业务逻辑。
+ * @param value 调用方传入的value参数，用于驱动当前前端逻辑。
+ * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+ */
 function normalizeGender(value: UserInfo['gender']) {
   if (value === 1 || value === '1') return 'male'
   if (value === 2 || value === '2') return 'female'
@@ -100,11 +148,21 @@ function normalizeGender(value: UserInfo['gender']) {
   return normalized
 }
 
+/**
+ * 用途：执行genderOptionFor相关业务逻辑。
+ * @param value 调用方传入的value参数，用于驱动当前前端逻辑。
+ * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+ */
 function genderOptionFor(value: string) {
   if (value === 'male' || value === 'female') return value
   return value ? 'custom' : ''
 }
 
+/**
+ * 用途：执行syncForm相关业务逻辑。
+ * @param payload 调用方传入的payload参数，用于驱动当前前端逻辑。
+ * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+ */
 function syncForm(payload: UserInfo | null) {
   if (!payload) {
     return
@@ -123,12 +181,22 @@ function syncForm(payload: UserInfo | null) {
   }
 }
 
+/**
+ * 用途：执行genderText相关业务逻辑。
+ * @param value 调用方传入的value参数，用于驱动当前前端逻辑。
+ * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+ */
 function genderText(value: string) {
   if (value === 'male') return '男'
   if (value === 'female') return '女'
   return value.trim() || '-'
 }
 
+/**
+ * 用途：执行loadProfile相关业务逻辑。
+ * 参数：无显式业务参数。
+ * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+ */
 async function loadProfile() {
   loading.value = true
   try {
@@ -145,16 +213,31 @@ async function loadProfile() {
   }
 }
 
+/**
+ * 用途：执行enterEdit相关业务逻辑。
+ * 参数：无显式业务参数。
+ * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+ */
 function enterEdit() {
   syncForm(profile.value)
   editing.value = true
 }
 
+/**
+ * 用途：执行cancelEdit相关业务逻辑。
+ * 参数：无显式业务参数。
+ * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+ */
 function cancelEdit() {
   editing.value = false
   syncForm(profile.value)
 }
 
+/**
+ * 用途：执行saveProfile相关业务逻辑。
+ * 参数：无显式业务参数。
+ * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+ */
 async function saveProfile() {
   if (!form.value.username.trim()) {
     setMessage('用户名不能为空', 'error')
@@ -201,15 +284,30 @@ async function saveProfile() {
   }
 }
 
+/**
+ * 用途：执行openAvatarPicker相关业务逻辑。
+ * 参数：无显式业务参数。
+ * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+ */
 function openAvatarPicker() {
   if (!editing.value || avatarUploading.value) return
   avatarInput.value?.click()
 }
 
+/**
+ * 用途：执行handleAvatarError相关业务逻辑。
+ * 参数：无显式业务参数。
+ * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+ */
 function handleAvatarError() {
   avatarLoadFailed.value = true
 }
 
+/**
+ * 用途：执行handleAvatarChange相关业务逻辑。
+ * @param event 调用方传入的event参数，用于驱动当前前端逻辑。
+ * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+ */
 async function handleAvatarChange(event: Event) {
   const input = event.target as HTMLInputElement
   const file = input.files?.[0]
@@ -248,6 +346,11 @@ async function handleAvatarChange(event: Event) {
   }
 }
 
+/**
+ * 用途：执行openPasswordDialog相关业务逻辑。
+ * 参数：无显式业务参数。
+ * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+ */
 function openPasswordDialog() {
   pwdOpen.value = true
   pwdError.value = ''
@@ -257,10 +360,20 @@ function openPasswordDialog() {
   showPwd.value = { old: false, new: false, confirm: false }
 }
 
+/**
+ * 用途：执行closePasswordDialog相关业务逻辑。
+ * 参数：无显式业务参数。
+ * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+ */
 function closePasswordDialog() {
   pwdOpen.value = false
 }
 
+/**
+ * 用途：执行changePassword相关业务逻辑。
+ * 参数：无显式业务参数。
+ * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+ */
 async function changePassword() {
   if (!oldPassword.value || !newPassword.value || !confirmPassword.value) {
     pwdError.value = '请填写所有字段'

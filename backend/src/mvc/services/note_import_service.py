@@ -1,3 +1,9 @@
+"""
+模块职责：业务服务模块，负责组织领域用例、数据访问和外部能力协作。
+
+主要协作：本文件只声明当前模块的职责边界，运行时行为由下方函数、类和依赖对象共同完成。
+"""
+
 import html
 import io
 import os
@@ -14,6 +20,16 @@ class NoteImportError(ValueError):
 
 
 def _safe_import_title(filename: str | None, fallback_text: str = "", prefer_content_title: bool = False) -> str:
+    """
+    用途：执行safe import title相关业务逻辑。
+
+    参数：
+    - filename（str | None）：调用方传入的filename数据或控制参数，用于驱动本函数处理流程。
+    - fallback_text（str）：调用方传入的fallback_text数据或控制参数，用于驱动本函数处理流程。
+    - prefer_content_title（bool）：调用方传入的prefer_content_title数据或控制参数，用于驱动本函数处理流程。
+
+    返回：str；返回值供调用方继续编排业务流程或生成接口响应。
+    """
     base_name = os.path.basename(filename or "").strip()
     stem = os.path.splitext(base_name)[0].strip()
     title = stem
@@ -30,6 +46,14 @@ def _safe_import_title(filename: str | None, fallback_text: str = "", prefer_con
 
 
 def _decode_import_text(content: bytes) -> str:
+    """
+    用途：执行decode import text相关业务逻辑。
+
+    参数：
+    - content（bytes）：调用方传入的content数据或控制参数，用于驱动本函数处理流程。
+
+    返回：str；返回值供调用方继续编排业务流程或生成接口响应。
+    """
     for encoding in ("utf-8-sig", "utf-8", "gb18030", "gbk"):
         try:
             return content.decode(encoding)
@@ -39,19 +63,53 @@ def _decode_import_text(content: bytes) -> str:
 
 
 def _normalize_import_text(text: str) -> str:
+    """
+    用途：执行normalize import text相关业务逻辑。
+
+    参数：
+    - text（str）：调用方传入的text数据或控制参数，用于驱动本函数处理流程。
+
+    返回：str；返回值供调用方继续编排业务流程或生成接口响应。
+    """
     return text.replace("\r\n", "\n").replace("\r", "\n").strip()
 
 
 def _escape_markdown_html(text: str) -> str:
+    """
+    用途：执行escape markdown html相关业务逻辑。
+
+    参数：
+    - text（str）：调用方传入的text数据或控制参数，用于驱动本函数处理流程。
+
+    返回：str；返回值供调用方继续编排业务流程或生成接口响应。
+    """
     return html.escape(text.replace("\xa0", " "), quote=False)
 
 
 def _plain_text_to_markdown(text: str) -> str:
+    """
+    用途：执行plain text to markdown相关业务逻辑。
+
+    参数：
+    - text（str）：调用方传入的text数据或控制参数，用于驱动本函数处理流程。
+
+    返回：str；返回值供调用方继续编排业务流程或生成接口响应。
+    """
     normalized = _normalize_import_text(text)
     return "\n".join(_escape_markdown_html(line.rstrip()) for line in normalized.split("\n")).strip()
 
 
 def _docx_block_items(document):
+    """
+    用途：执行docx block items相关业务逻辑。
+
+    参数：
+    - document（未显式标注）：调用方传入的document数据或控制参数，用于驱动本函数处理流程。
+
+    返回：未显式标注；返回值供调用方继续编排业务流程或生成接口响应。
+
+    副作用：可能访问数据库、文件、模型服务或流式事件通道，异常会沿调用链抛出。
+    """
     from docx.oxml.table import CT_Tbl
     from docx.oxml.text.paragraph import CT_P
     from docx.table import Table
@@ -65,6 +123,14 @@ def _docx_block_items(document):
 
 
 def _docx_paragraph_to_markdown(paragraph) -> str:
+    """
+    用途：执行docx paragraph to markdown相关业务逻辑。
+
+    参数：
+    - paragraph（未显式标注）：调用方传入的paragraph数据或控制参数，用于驱动本函数处理流程。
+
+    返回：str；返回值供调用方继续编排业务流程或生成接口响应。
+    """
     text = _escape_markdown_html(paragraph.text.strip())
     if not text:
         return ""
@@ -86,10 +152,26 @@ def _docx_paragraph_to_markdown(paragraph) -> str:
 
 
 def _markdown_table_cell(text: str) -> str:
+    """
+    用途：执行markdown table cell相关业务逻辑。
+
+    参数：
+    - text（str）：调用方传入的text数据或控制参数，用于驱动本函数处理流程。
+
+    返回：str；返回值供调用方继续编排业务流程或生成接口响应。
+    """
     return _escape_markdown_html(text.strip()).replace("\n", "<br>").replace("|", "\\|")
 
 
 def _docx_table_to_markdown(table) -> str:
+    """
+    用途：执行docx table to markdown相关业务逻辑。
+
+    参数：
+    - table（未显式标注）：调用方传入的table数据或控制参数，用于驱动本函数处理流程。
+
+    返回：str；返回值供调用方继续编排业务流程或生成接口响应。
+    """
     rows = [[_markdown_table_cell(cell.text) for cell in row.cells] for row in table.rows]
     rows = [row for row in rows if any(cell for cell in row)]
     if not rows:
@@ -110,6 +192,14 @@ def _docx_table_to_markdown(table) -> str:
 
 
 def _extract_docx_markdown(content: bytes) -> str:
+    """
+    用途：执行extract docx markdown相关业务逻辑。
+
+    参数：
+    - content（bytes）：调用方传入的content数据或控制参数，用于驱动本函数处理流程。
+
+    返回：str；返回值供调用方继续编排业务流程或生成接口响应。
+    """
     try:
         from docx import Document as DocxDocument
     except Exception as e:
@@ -133,6 +223,14 @@ def _extract_docx_markdown(content: bytes) -> str:
 
 
 def _extract_doc_markdown(content: bytes) -> str:
+    """
+    用途：执行extract doc markdown相关业务逻辑。
+
+    参数：
+    - content（bytes）：调用方传入的content数据或控制参数，用于驱动本函数处理流程。
+
+    返回：str；返回值供调用方继续编排业务流程或生成接口响应。
+    """
     try:
         from unstructured.partition.doc import partition_doc
     except Exception as e:
@@ -173,6 +271,16 @@ def _extract_doc_markdown(content: bytes) -> str:
 
 
 def build_imported_note_payload(filename: str | None, content: bytes, category: str | None = None) -> NoteCreate:
+    """
+    用途：构建build imported note payload相关的数据或流程。
+
+    参数：
+    - filename（str | None）：调用方传入的filename数据或控制参数，用于驱动本函数处理流程。
+    - content（bytes）：调用方传入的content数据或控制参数，用于驱动本函数处理流程。
+    - category（str | None）：调用方传入的category数据或控制参数，用于驱动本函数处理流程。
+
+    返回：NoteCreate；返回值供调用方继续编排业务流程或生成接口响应。
+    """
     extension = os.path.splitext(filename or "")[1].lower()
     if extension not in NOTE_IMPORT_ALLOWED_EXTENSIONS:
         supported = "、".join(sorted(NOTE_IMPORT_ALLOWED_EXTENSIONS))

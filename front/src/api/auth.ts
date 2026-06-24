@@ -1,14 +1,26 @@
+/**
+ * 模块职责：前端 API 模块，负责封装 HTTP/SSE 请求并保持视图层调用简洁。
+ * 主要协作：通过导出的类型、函数或组件配置供其他前端模块复用。
+ */
 import client from './client'
 import { endpoints } from './endpoints'
 import type { UserInfo } from '../types/api'
 
 // Actual Django backend response shapes (not wrapped in ApiResponse)
+/**
+ * 接口：`LoginResponseData` 描述当前业务域中的数据结构。
+ * 字段含义应与后端接口、组件入参或本地状态保持一致。
+ */
 interface LoginResponseData {
   message: string
   user: UserInfo
   token: string
 }
 
+/**
+ * 接口：`RegisterResponseData` 描述当前业务域中的数据结构。
+ * 字段含义应与后端接口、组件入参或本地状态保持一致。
+ */
 interface RegisterResponseData {
   status: number
   message: string
@@ -16,18 +28,30 @@ interface RegisterResponseData {
   token: string
 }
 
+/**
+ * 接口：`ProfileResponseData` 描述当前业务域中的数据结构。
+ * 字段含义应与后端接口、组件入参或本地状态保持一致。
+ */
 interface ProfileResponseData {
   success: boolean
   message: string
   data: UserInfo
 }
 
+/**
+ * 接口：`ActionResponseData` 描述当前业务域中的数据结构。
+ * 字段含义应与后端接口、组件入参或本地状态保持一致。
+ */
 interface ActionResponseData {
   message: string
   user?: UserInfo
   token?: string
 }
 
+/**
+ * 接口：`AvatarUploadResponseData` 描述当前业务域中的数据结构。
+ * 字段含义应与后端接口、组件入参或本地状态保持一致。
+ */
 interface AvatarUploadResponseData {
   success: boolean
   data: {

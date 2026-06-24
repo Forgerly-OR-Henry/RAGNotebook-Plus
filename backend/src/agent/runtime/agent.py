@@ -1,3 +1,9 @@
+"""
+模块职责：Agent 运行时封装，负责模型调用、工具编排和流式事件输出。
+
+主要协作：本文件只声明当前模块的职责边界，运行时行为由下方函数、类和依赖对象共同完成。
+"""
+
 import asyncio
 import json
 from collections.abc import AsyncGenerator, Awaitable, Callable
@@ -203,10 +209,25 @@ RAG_CHAT_SYSTEM_PROMPT = (
 
 
 def _history_turn_limit() -> int:
+    """
+    用途：执行history turn limit相关业务逻辑。
+
+    参数：无显式业务参数。
+
+    返回：int；返回值供调用方继续编排业务流程或生成接口响应。
+    """
     return max(0, require_env_int_value("CHAT_HISTORY_TURNS", 6))
 
 
 def _content_to_text(content) -> str:
+    """
+    用途：执行content to text相关业务逻辑。
+
+    参数：
+    - content（未显式标注）：调用方传入的content数据或控制参数，用于驱动本函数处理流程。
+
+    返回：str；返回值供调用方继续编排业务流程或生成接口响应。
+    """
     if isinstance(content, str):
         return content
     if isinstance(content, list):
@@ -228,6 +249,17 @@ def _build_direct_chat_messages(
         context_documents: list[str] | None = None,
         rag_enabled: bool = False,
 ) -> list[BaseMessage]:
+    """
+    用途：构建build direct chat messages相关的数据或流程。
+
+    参数：
+    - query（str）：调用方传入的query数据或控制参数，用于驱动本函数处理流程。
+    - history（list[tuple] | None）：调用方传入的history数据或控制参数，用于驱动本函数处理流程。
+    - context_documents（list[str] | None）：调用方传入的context_documents数据或控制参数，用于驱动本函数处理流程。
+    - rag_enabled（bool）：调用方传入的rag_enabled数据或控制参数，用于驱动本函数处理流程。
+
+    返回：list[BaseMessage]；返回值供调用方继续编排业务流程或生成接口响应。
+    """
     system_prompt = RAG_CHAT_SYSTEM_PROMPT if rag_enabled and context_documents else DIRECT_CHAT_SYSTEM_PROMPT
     messages: list[BaseMessage] = [SystemMessage(content=system_prompt)]
 

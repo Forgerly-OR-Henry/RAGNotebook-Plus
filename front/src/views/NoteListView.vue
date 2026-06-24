@@ -1,3 +1,7 @@
+<!--
+模块职责：笔记列表页，负责搜索、筛选、文件夹、批量操作和快速新建入口。
+主要协作：通过组合 API、状态、组件和路由来支撑当前页面或功能。
+-->
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
@@ -29,6 +33,10 @@ import { notesApi } from '../api/notes'
 import { confirmDialog } from '../composables/useAppDialog'
 import type { Note, NoteFolder } from '../types/api'
 
+/**
+ * 类型：`ApiError` 描述当前业务域中的数据结构。
+ * 字段含义应与后端接口、组件入参或本地状态保持一致。
+ */
 type ApiError = {
   message?: string
   response?: {
@@ -39,19 +47,35 @@ type ApiError = {
   }
 }
 
+/**
+ * 类型：`FolderMode` 描述当前业务域中的数据结构。
+ * 字段含义应与后端接口、组件入参或本地状态保持一致。
+ */
 type FolderMode = 'all' | 'unfiled' | 'folder'
 
+/**
+ * 接口：`FolderRow` 描述当前业务域中的数据结构。
+ * 字段含义应与后端接口、组件入参或本地状态保持一致。
+ */
 interface FolderRow {
   folder: NoteFolder
   depth: number
 }
 
+/**
+ * 接口：`FolderOption` 描述当前业务域中的数据结构。
+ * 字段含义应与后端接口、组件入参或本地状态保持一致。
+ */
 interface FolderOption {
   id: string
   name: string
   depth: number
 }
 
+/**
+ * 接口：`FolderFlat` 描述当前业务域中的数据结构。
+ * 字段含义应与后端接口、组件入参或本地状态保持一致。
+ */
 interface FolderFlat extends FolderOption, FolderRow {}
 
 const router = useRouter()
@@ -75,42 +99,64 @@ const CATEGORY_ORDER_KEY = 'note_category_order'
 const UNFILED_SCOPE_VALUE = '__unfiled__'
 
 const notes = ref<Note[]>([])
+// 响应式状态：保存当前组件内部的临时 UI 或业务处理状态。
 const page = ref(1)
+// 响应式状态：保存当前组件内部的临时 UI 或业务处理状态。
 const category = ref('')
+// 响应式状态：保存当前组件内部的临时 UI 或业务处理状态。
 const searchQuery = ref('')
+// 响应式状态：保存当前组件内部的临时 UI 或业务处理状态。
 const loading = ref(false)
+// 响应式状态：保存当前组件内部的临时 UI 或业务处理状态。
 const hasMore = ref(false)
+// 响应式状态：保存当前组件内部的临时 UI 或业务处理状态。
 const importing = ref(false)
+// 响应式状态：保存当前组件内部的临时 UI 或业务处理状态。
 const deletingId = ref('')
+// 响应式状态：保存当前组件内部的临时 UI 或业务处理状态。
 const actionError = ref('')
+// 响应式状态：保存当前组件内部的临时 UI 或业务处理状态。
 const importError = ref('')
 const fileInput = ref<HTMLInputElement | null>(null)
 const sentinelRef = ref<HTMLElement | null>(null)
 const observer = ref<IntersectionObserver | null>(null)
 
 const folders = ref<NoteFolder[]>([])
+// 响应式状态：保存当前组件内部的临时 UI 或业务处理状态。
 const folderError = ref('')
+// 响应式状态：保存当前组件内部的临时 UI 或业务处理状态。
 const totalNoteCount = ref(0)
+// 响应式状态：保存当前组件内部的临时 UI 或业务处理状态。
 const currentTotalCount = ref(0)
+// 响应式状态：保存当前组件内部的临时 UI 或业务处理状态。
 const unfiledCount = ref(0)
 const activeFolderMode = ref<FolderMode>('all')
 const activeFolderId = ref<string | null>(null)
 const expandedFolderIds = ref<Set<string>>(new Set())
+// 响应式状态：保存当前组件内部的临时 UI 或业务处理状态。
 const folderDialogOpen = ref(false)
 const folderDialogMode = ref<'create' | 'edit'>('create')
+// 响应式状态：保存当前组件内部的临时 UI 或业务处理状态。
 const folderFormName = ref('')
 const folderFormParentId = ref<string | null>(null)
 const editingFolder = ref<NoteFolder | null>(null)
 const deleteFolderTarget = ref<NoteFolder | null>(null)
+// 响应式状态：保存当前组件内部的临时 UI 或业务处理状态。
 const movingFolder = ref(false)
 
+// 响应式状态：保存当前组件内部的临时 UI 或业务处理状态。
 const selectMode = ref(false)
 const selectedIds = ref<Set<string>>(new Set())
+// 响应式状态：保存当前组件内部的临时 UI 或业务处理状态。
 const mindMapModalOpen = ref(false)
+// 响应式状态：保存当前组件内部的临时 UI 或业务处理状态。
 const deleteConfirmOpen = ref(false)
+// 响应式状态：保存当前组件内部的临时 UI 或业务处理状态。
 const categoryModalOpen = ref(false)
+// 响应式状态：保存当前组件内部的临时 UI 或业务处理状态。
 const folderMoveOpen = ref(false)
 const folderMoveTargetId = ref<string | null>(null)
+// 响应式状态：保存当前组件内部的临时 UI 或业务处理状态。
 const moveDialogOpen = ref(false)
 const leftScopeId = ref<string | null>(null)
 const rightScopeId = ref<string | null>(null)
@@ -118,20 +164,38 @@ const leftNotes = ref<Note[]>([])
 const rightNotes = ref<Note[]>([])
 const leftSelectedIds = ref<Set<string>>(new Set())
 const rightSelectedIds = ref<Set<string>>(new Set())
+// 响应式状态：保存当前组件内部的临时 UI 或业务处理状态。
 const moveBusy = ref(false)
+// 响应式状态：保存当前组件内部的临时 UI 或业务处理状态。
 const moveError = ref('')
+// 响应式状态：保存当前组件内部的临时 UI 或业务处理状态。
 const manageOpen = ref(false)
+// 响应式状态：保存当前组件内部的临时 UI 或业务处理状态。
 const customCategory = ref('')
 const extraCategories = ref<string[]>([])
+// 响应式状态：保存当前组件内部的临时 UI 或业务处理状态。
 const allCategories = ref(PREDEFINED_CATEGORIES)
 const categoryCounts = ref<Record<string, number>>({})
 const longPressTimer = ref<number | undefined>()
+// 响应式状态：保存当前组件内部的临时 UI 或业务处理状态。
 const enteredViaLongPress = ref(false)
+// 响应式状态：保存当前组件内部的临时 UI 或业务处理状态。
 const pointerMoved = ref(false)
+// 响应式状态：保存当前组件内部的临时 UI 或业务处理状态。
 const pressStartPos = ref({ x: 0, y: 0 })
 
+/**
+ * 用途：执行folderNameById相关业务逻辑。
+ * 参数：无显式业务参数。
+ * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+ */
 const folderNameById = computed(() => {
   const map = new Map<string, string>()
+  /**
+   * 用途：执行walk相关业务逻辑。
+   * @param nodes 调用方传入的nodes参数，用于驱动当前前端逻辑。
+   * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+   */
   const walk = (nodes: NoteFolder[]) => {
     for (const node of nodes) {
       map.set(node.id, node.name)
@@ -142,22 +206,78 @@ const folderNameById = computed(() => {
   return map
 })
 
+/**
+ * 用途：执行selectedCount相关业务逻辑。
+ * 参数：无显式业务参数。
+ * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+ */
 const selectedCount = computed(() => selectedIds.value.size)
+/**
+ * 用途：执行mindMapNoteIds相关业务逻辑。
+ * 参数：无显式业务参数。
+ * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+ */
 const mindMapNoteIds = computed(() => Array.from(selectedIds.value))
+/**
+ * 用途：执行leftMoveAllSelected相关业务逻辑。
+ * 参数：无显式业务参数。
+ * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+ */
 const leftMoveAllSelected = computed(() => leftSelectedIds.value.size === leftNotes.value.length && leftNotes.value.length > 0)
+/**
+ * 用途：执行rightMoveAllSelected相关业务逻辑。
+ * 参数：无显式业务参数。
+ * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+ */
 const rightMoveAllSelected = computed(() => rightSelectedIds.value.size === rightNotes.value.length && rightNotes.value.length > 0)
+/**
+ * 用途：执行moveSameScope相关业务逻辑。
+ * 参数：无显式业务参数。
+ * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+ */
 const moveSameScope = computed(() => leftScopeId.value === rightScopeId.value)
+/**
+ * 用途：执行moveScopeWarning相关业务逻辑。
+ * 参数：无显式业务参数。
+ * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+ */
 const moveScopeWarning = computed(() => (moveSameScope.value ? '左右文件夹相同，请选择不同文件夹后再移动。' : ''))
+/**
+ * 用途：执行canMoveLeftToRight相关业务逻辑。
+ * 参数：无显式业务参数。
+ * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+ */
 const canMoveLeftToRight = computed(() => leftSelectedIds.value.size > 0 && !moveSameScope.value)
+/**
+ * 用途：执行canMoveRightToLeft相关业务逻辑。
+ * 参数：无显式业务参数。
+ * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+ */
 const canMoveRightToLeft = computed(() => rightSelectedIds.value.size > 0 && !moveSameScope.value)
 
+/**
+ * 用途：执行folderOptions相关业务逻辑。
+ * 参数：无显式业务参数。
+ * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+ */
 const folderOptions = computed<FolderOption[]>(() => flattenFolders(folders.value, false))
+/**
+ * 用途：执行visibleFolderRows相关业务逻辑。
+ * 参数：无显式业务参数。
+ * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+ */
 const visibleFolderRows = computed<FolderRow[]>(() => flattenFolders(folders.value, true))
+/**
+ * 用途：执行activeFolderTitle相关业务逻辑。
+ * 参数：无显式业务参数。
+ * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+ */
 const activeFolderTitle = computed(() => {
   if (activeFolderMode.value === 'unfiled') return '未归档'
   if (activeFolderMode.value === 'folder') return folderName(activeFolderId.value) || '文件夹'
   return '全部笔记'
 })
+// 派生状态：根据 props、store 或本地状态计算模板直接使用的数据。
 const activeFolderSelect = computed({
   get() {
     if (activeFolderMode.value === 'folder' && activeFolderId.value) return `folder:${activeFolderId.value}`
@@ -173,6 +293,11 @@ const activeFolderSelect = computed({
     }
   },
 })
+/**
+ * 用途：执行parentOptions相关业务逻辑。
+ * 参数：无显式业务参数。
+ * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+ */
 const parentOptions = computed(() => {
   if (!editingFolder.value) return folderOptions.value
   const blocked = new Set(descendantIds(editingFolder.value))
@@ -180,10 +305,20 @@ const parentOptions = computed(() => {
   return folderOptions.value.filter((item) => !blocked.has(item.id))
 })
 
+/**
+ * 用途：执行getSavedOrder相关业务逻辑。
+ * 参数：无显式业务参数。
+ * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+ */
 function getSavedOrder(): string[] {
   return readJsonPref<string[]>(CATEGORY_ORDER_KEY, [])
 }
 
+/**
+ * 用途：执行buildCategoryList相关业务逻辑。
+ * @param customCategories 调用方传入的customCategories参数，用于驱动当前前端逻辑。
+ * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+ */
 function buildCategoryList(customCategories: string[]) {
   const list = PREDEFINED_CATEGORIES.slice()
   for (const item of customCategories) {
@@ -194,6 +329,11 @@ function buildCategoryList(customCategories: string[]) {
 
   const order = getSavedOrder()
   if (order.length === 0) return list
+  /**
+   * 用途：执行orderIndex相关业务逻辑。
+   * 参数：无显式业务参数。
+   * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+   */
   const orderIndex = new Map(order.map((value, index) => [value, index]))
 
   return list.sort((a, b) => {
@@ -208,6 +348,13 @@ function buildCategoryList(customCategories: string[]) {
   })
 }
 
+/**
+ * 用途：执行flattenFolders相关业务逻辑。
+ * @param items 调用方传入的items参数，用于驱动当前前端逻辑。
+ * @param visibleOnly 调用方传入的visibleOnly参数，用于驱动当前前端逻辑。
+ * @param depth 调用方传入的depth参数，用于驱动当前前端逻辑。
+ * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+ */
 function flattenFolders(items: NoteFolder[], visibleOnly: boolean, depth = 0): FolderFlat[] {
   const rows: FolderFlat[] = []
   for (const folder of items) {
@@ -219,6 +366,11 @@ function flattenFolders(items: NoteFolder[], visibleOnly: boolean, depth = 0): F
   return rows
 }
 
+/**
+ * 用途：执行descendantIds相关业务逻辑。
+ * @param folder 调用方传入的folder参数，用于驱动当前前端逻辑。
+ * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+ */
 function descendantIds(folder: NoteFolder): string[] {
   const ids: string[] = []
   for (const child of folder.children || []) {
@@ -227,21 +379,41 @@ function descendantIds(folder: NoteFolder): string[] {
   return ids
 }
 
+/**
+ * 用途：执行categoryLabel相关业务逻辑。
+ * @param value 调用方传入的value参数，用于驱动当前前端逻辑。
+ * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+ */
 function categoryLabel(value: string | null | undefined) {
   return value ? CATEGORY_LABEL_MAP[value] || value : ''
 }
 
+/**
+ * 用途：执行folderName相关业务逻辑。
+ * @param value 调用方传入的value参数，用于驱动当前前端逻辑。
+ * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+ */
 function folderName(value: string | null | undefined) {
   if (!value) return ''
   return folderNameById.value.get(value) || folderOptions.value.find((item) => item.id === value)?.name || `文件夹（${value.slice(0, 6)}）`
 }
 
+/**
+ * 用途：执行folderOptionLabel相关业务逻辑。
+ * @param item 调用方传入的item参数，用于驱动当前前端逻辑。
+ * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+ */
 function folderOptionLabel(item: FolderOption) {
   const prefix = '-- '.repeat(item.depth)
   const name = item.name || `文件夹（${item.id.slice(0, 6)}）`
   return `${prefix}${name}`
 }
 
+/**
+ * 用途：执行formatDate相关业务逻辑。
+ * @param date 调用方传入的date参数，用于驱动当前前端逻辑。
+ * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+ */
 function formatDate(date: string | null | undefined) {
   if (!date) return ''
   const parsed = new Date(date)
@@ -249,6 +421,12 @@ function formatDate(date: string | null | undefined) {
   return parsed.toLocaleDateString('zh-CN', { month: 'short', day: 'numeric' })
 }
 
+/**
+ * 用途：执行getApiErrorMessage相关业务逻辑。
+ * @param error 调用方传入的error参数，用于驱动当前前端逻辑。
+ * @param fallbackMessage 调用方传入的fallbackMessage参数，用于驱动当前前端逻辑。
+ * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+ */
 function getApiErrorMessage(error: unknown, fallbackMessage: string) {
   const apiError = error as ApiError
   const detail = apiError.response?.data?.detail
@@ -259,6 +437,11 @@ function getApiErrorMessage(error: unknown, fallbackMessage: string) {
   return apiError.response?.data?.message || apiError.message || fallbackMessage
 }
 
+/**
+ * 用途：执行sortPinned相关业务逻辑。
+ * @param items 调用方传入的items参数，用于驱动当前前端逻辑。
+ * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+ */
 function sortPinned(items: Note[]) {
   return [...items].sort((a, b) => {
     if (a.is_pinned && !b.is_pinned) return -1
@@ -267,34 +450,74 @@ function sortPinned(items: Note[]) {
   })
 }
 
+/**
+ * 用途：执行scopeLabel相关业务逻辑。
+ * @param scopeId 调用方传入的scopeId参数，用于驱动当前前端逻辑。
+ * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+ */
 function scopeLabel(scopeId: string | null) {
   if (scopeId === null) return '未归档'
   return folderName(scopeId)
 }
 
+/**
+ * 用途：执行normalizeScopeId相关业务逻辑。
+ * @param scopeId 调用方传入的scopeId参数，用于驱动当前前端逻辑。
+ * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+ */
 function normalizeScopeId(scopeId: string | null) {
   if (!scopeId) return null
   return folderOptions.value.some((item) => item.id === scopeId) ? scopeId : null
 }
 
+/**
+ * 用途：执行parseScopeInput相关业务逻辑。
+ * @param scopeId 调用方传入的scopeId参数，用于驱动当前前端逻辑。
+ * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+ */
 function parseScopeInput(scopeId: string | null | undefined) {
   if (!scopeId || scopeId === UNFILED_SCOPE_VALUE || scopeId === 'null' || scopeId === 'undefined') return null
   return normalizeScopeId(scopeId) ? scopeId : null
 }
 
+/**
+ * 用途：执行isFolderScopeInput相关业务逻辑。
+ * @param scopeId 调用方传入的scopeId参数，用于驱动当前前端逻辑。
+ * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+ */
 function isFolderScopeInput(scopeId: string | null | undefined) {
   return Boolean(scopeId && scopeId !== UNFILED_SCOPE_VALUE && scopeId !== 'null' && scopeId !== 'undefined')
 }
 
+/**
+ * 用途：执行scopeSelectValue相关业务逻辑。
+ * @param scopeId 调用方传入的scopeId参数，用于驱动当前前端逻辑。
+ * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+ */
 function scopeSelectValue(scopeId: string | null) {
   return scopeId ?? UNFILED_SCOPE_VALUE
 }
 
+/**
+ * 用途：执行getDefaultRightScopeId相关业务逻辑。
+ * @param leftScope 调用方传入的leftScope参数，用于驱动当前前端逻辑。
+ * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+ */
 function getDefaultRightScopeId(leftScope: string | null) {
+  /**
+   * 用途：执行target相关业务逻辑。
+   * 参数：无显式业务参数。
+   * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+   */
   const target = folderOptions.value.find((item) => item.id !== leftScope)
   return target?.id || null
 }
 
+/**
+ * 用途：执行loadNotesByScopeWithRecovery相关业务逻辑。
+ * @param scopeId 调用方传入的scopeId参数，用于驱动当前前端逻辑。
+ * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+ */
 async function loadNotesByScopeWithRecovery(scopeId: string | null) {
   const targetScope = normalizeScopeId(scopeId)
   if (scopeId && !targetScope) {
@@ -303,18 +526,44 @@ async function loadNotesByScopeWithRecovery(scopeId: string | null) {
   return loadNotesByScope(targetScope)
 }
 
+/**
+ * 用途：执行ensureFoldersLoadedForMoveDialog相关业务逻辑。
+ * 参数：无显式业务参数。
+ * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+ */
 async function ensureFoldersLoadedForMoveDialog() {
   if (!folderOptions.value.length) {
     await refreshFolders()
   }
 }
 
+/**
+ * 用途：执行normalizeMoveSelection相关业务逻辑。
+ * @param selected 调用方传入的selected参数，用于驱动当前前端逻辑。
+ * @param notesOfSide 调用方传入的notesOfSide参数，用于驱动当前前端逻辑。
+ * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+ */
 function normalizeMoveSelection(selected: Set<string>, notesOfSide: Note[]) {
+  /**
+   * 用途：执行availableIds相关业务逻辑。
+   * 参数：无显式业务参数。
+   * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+   */
   const availableIds = new Set(notesOfSide.map((note) => note.id))
+  /**
+   * 用途：执行validIds相关业务逻辑。
+   * 参数：无显式业务参数。
+   * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+   */
   const validIds = [...selected].filter((noteId) => availableIds.has(noteId))
   return validIds
 }
 
+/**
+ * 用途：执行setScopePairFromCurrentView相关业务逻辑。
+ * 参数：无显式业务参数。
+ * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+ */
 function setScopePairFromCurrentView() {
   const currentFolderScope = activeFolderMode.value === 'folder' ? normalizeScopeId(activeFolderId.value) : null
   const right = currentFolderScope || getDefaultRightScopeId(null)
@@ -322,6 +571,11 @@ function setScopePairFromCurrentView() {
   rightScopeId.value = normalizeScopeId(right) ? normalizeScopeId(right) : null
 }
 
+/**
+ * 用途：执行folderFilterParams相关业务逻辑。
+ * 参数：无显式业务参数。
+ * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+ */
 function folderFilterParams() {
   if (activeFolderMode.value === 'folder' && activeFolderId.value) {
     const safeActiveFolder = normalizeScopeId(activeFolderId.value)
@@ -336,6 +590,11 @@ function folderFilterParams() {
   return {}
 }
 
+/**
+ * 用途：执行refreshFolders相关业务逻辑。
+ * 参数：无显式业务参数。
+ * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+ */
 async function refreshFolders() {
   folderError.value = ''
   try {
@@ -343,6 +602,11 @@ async function refreshFolders() {
     folders.value = res.data.folders || []
     totalNoteCount.value = res.data.total_count || 0
     unfiledCount.value = res.data.unfiled_count || 0
+    /**
+     * 用途：执行known相关业务逻辑。
+     * 参数：无显式业务参数。
+     * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+     */
     const known = new Set(folderOptions.value.map((item) => item.id))
     if (activeFolderMode.value === 'folder' && activeFolderId.value && !known.has(activeFolderId.value)) {
       selectFolder('all')
@@ -352,6 +616,12 @@ async function refreshFolders() {
   }
 }
 
+/**
+ * 用途：执行loadNotes相关业务逻辑。
+ * @param pageNum 调用方传入的pageNum参数，用于驱动当前前端逻辑。
+ * @param reset 调用方传入的reset参数，用于驱动当前前端逻辑。
+ * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+ */
 async function loadNotes(pageNum: number, reset = false) {
   if (loading.value) return
   loading.value = true
@@ -361,6 +631,11 @@ async function loadNotes(pageNum: number, reset = false) {
     const searchText = searchQuery.value.trim()
     if (searchText) {
       const res = await notesApi.search(searchText, 30, filters)
+      /**
+       * 用途：执行items相关业务逻辑。
+       * 参数：无显式业务参数。
+       * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+       */
       const items = category.value ? res.data.notes.filter((note) => note.category === category.value) : res.data.notes
       notes.value = sortPinned(items)
       currentTotalCount.value = notes.value.length
@@ -387,6 +662,11 @@ async function loadNotes(pageNum: number, reset = false) {
   }
 }
 
+/**
+ * 用途：执行loadNotesByScope相关业务逻辑。
+ * @param scopeId 调用方传入的scopeId参数，用于驱动当前前端逻辑。
+ * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+ */
 async function loadNotesByScope(scopeId: string | null) {
   const loaded: Note[] = []
   let pageNum = 1
@@ -406,6 +686,11 @@ async function loadNotesByScope(scopeId: string | null) {
   return sortPinned(loaded)
 }
 
+/**
+ * 用途：执行refreshCategories相关业务逻辑。
+ * @param extra 调用方传入的extra参数，用于驱动当前前端逻辑。
+ * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+ */
 async function refreshCategories(extra = extraCategories.value) {
   try {
     const res = await notesApi.stats()
@@ -415,6 +700,11 @@ async function refreshCategories(extra = extraCategories.value) {
       counts[item.category] = item.count
     }
     categoryCounts.value = counts
+    /**
+     * 用途：执行all相关业务逻辑。
+     * 参数：无显式业务参数。
+     * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+     */
     const all = [...new Set([...statsCats.map((item) => item.category), ...extra])]
     allCategories.value = buildCategoryList(all)
     if (category.value && !allCategories.value.some((item) => item.value === category.value)) {
@@ -425,11 +715,22 @@ async function refreshCategories(extra = extraCategories.value) {
   }
 }
 
+/**
+ * 用途：执行resetAndLoad相关业务逻辑。
+ * 参数：无显式业务参数。
+ * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+ */
 function resetAndLoad() {
   page.value = 1
   void loadNotes(1, true)
 }
 
+/**
+ * 用途：执行selectFolder相关业务逻辑。
+ * @param mode 调用方传入的mode参数，用于驱动当前前端逻辑。
+ * @param folderId 调用方传入的folderId参数，用于驱动当前前端逻辑。
+ * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+ */
 function selectFolder(mode: FolderMode, folderId: string | null = null) {
   activeFolderMode.value = mode
   activeFolderId.value = mode === 'folder' ? folderId : null
@@ -437,6 +738,11 @@ function selectFolder(mode: FolderMode, folderId: string | null = null) {
   resetAndLoad()
 }
 
+/**
+ * 用途：执行toggleFolder相关业务逻辑。
+ * @param folderId 调用方传入的folderId参数，用于驱动当前前端逻辑。
+ * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+ */
 function toggleFolder(folderId: string) {
   const next = new Set(expandedFolderIds.value)
   if (next.has(folderId)) next.delete(folderId)
@@ -444,6 +750,11 @@ function toggleFolder(folderId: string) {
   expandedFolderIds.value = next
 }
 
+/**
+ * 用途：执行openCreateFolder相关业务逻辑。
+ * @param parentId 调用方传入的parentId参数，用于驱动当前前端逻辑。
+ * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+ */
 function openCreateFolder(parentId: string | null = null) {
   folderDialogMode.value = 'create'
   editingFolder.value = null
@@ -452,6 +763,11 @@ function openCreateFolder(parentId: string | null = null) {
   folderDialogOpen.value = true
 }
 
+/**
+ * 用途：执行openEditFolder相关业务逻辑。
+ * @param folder 调用方传入的folder参数，用于驱动当前前端逻辑。
+ * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+ */
 function openEditFolder(folder: NoteFolder) {
   folderDialogMode.value = 'edit'
   editingFolder.value = folder
@@ -460,6 +776,11 @@ function openEditFolder(folder: NoteFolder) {
   folderDialogOpen.value = true
 }
 
+/**
+ * 用途：执行saveFolder相关业务逻辑。
+ * 参数：无显式业务参数。
+ * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+ */
 async function saveFolder() {
   const name = folderFormName.value.trim()
   if (!name || movingFolder.value) return
@@ -486,6 +807,11 @@ async function saveFolder() {
   }
 }
 
+/**
+ * 用途：执行deleteFolder相关业务逻辑。
+ * @param mode 调用方传入的mode参数，用于驱动当前前端逻辑。
+ * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+ */
 async function deleteFolder(mode: 'unfile' | 'delete_notes') {
   const target = deleteFolderTarget.value
   if (!target) return
@@ -505,15 +831,30 @@ async function deleteFolder(mode: 'unfile' | 'delete_notes') {
   }
 }
 
+/**
+ * 用途：执行openImportPicker相关业务逻辑。
+ * 参数：无显式业务参数。
+ * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+ */
 function openImportPicker() {
   if (!importing.value) fileInput.value?.click()
 }
 
+/**
+ * 用途：执行newNote相关业务逻辑。
+ * 参数：无显式业务参数。
+ * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+ */
 function newNote() {
   const query = activeFolderMode.value === 'folder' && activeFolderId.value ? { folder_id: activeFolderId.value } : {}
   void router.push({ path: '/notes/new', query })
 }
 
+/**
+ * 用途：执行importSelectedFile相关业务逻辑。
+ * @param event 调用方传入的event参数，用于驱动当前前端逻辑。
+ * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+ */
 async function importSelectedFile(event: Event) {
   const input = event.target as HTMLInputElement
   const file = input.files?.[0]
@@ -535,6 +876,11 @@ async function importSelectedFile(event: Event) {
   }
 }
 
+/**
+ * 用途：执行togglePin相关业务逻辑。
+ * @param noteId 调用方传入的noteId参数，用于驱动当前前端逻辑。
+ * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+ */
 async function togglePin(noteId: string) {
   try {
     await notesApi.pin(noteId)
@@ -544,6 +890,11 @@ async function togglePin(noteId: string) {
   }
 }
 
+/**
+ * 用途：执行deleteNote相关业务逻辑。
+ * @param note 调用方传入的note参数，用于驱动当前前端逻辑。
+ * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+ */
 async function deleteNote(note: Note) {
   if (deletingId.value) return
   const confirmed = await confirmDialog({
@@ -568,6 +919,11 @@ async function deleteNote(note: Note) {
   }
 }
 
+/**
+ * 用途：执行clearLongPress相关业务逻辑。
+ * 参数：无显式业务参数。
+ * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+ */
 function clearLongPress() {
   if (longPressTimer.value !== undefined) {
     window.clearTimeout(longPressTimer.value)
@@ -575,6 +931,12 @@ function clearLongPress() {
   }
 }
 
+/**
+ * 用途：执行handlePointerDown相关业务逻辑。
+ * @param noteId 调用方传入的noteId参数，用于驱动当前前端逻辑。
+ * @param event 调用方传入的event参数，用于驱动当前前端逻辑。
+ * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+ */
 function handlePointerDown(noteId: string, event: PointerEvent) {
   pressStartPos.value = { x: event.clientX, y: event.clientY }
   enteredViaLongPress.value = false
@@ -590,6 +952,11 @@ function handlePointerDown(noteId: string, event: PointerEvent) {
   }, 500)
 }
 
+/**
+ * 用途：执行handlePointerMove相关业务逻辑。
+ * @param event 调用方传入的event参数，用于驱动当前前端逻辑。
+ * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+ */
 function handlePointerMove(event: PointerEvent) {
   if (longPressTimer.value === undefined) return
   const dx = event.clientX - pressStartPos.value.x
@@ -600,6 +967,11 @@ function handlePointerMove(event: PointerEvent) {
   }
 }
 
+/**
+ * 用途：执行toggleNoteSelection相关业务逻辑。
+ * @param noteId 调用方传入的noteId参数，用于驱动当前前端逻辑。
+ * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+ */
 function toggleNoteSelection(noteId: string) {
   const next = new Set(selectedIds.value)
   if (next.has(noteId)) {
@@ -611,6 +983,11 @@ function toggleNoteSelection(noteId: string) {
   if (next.size === 0) selectMode.value = false
 }
 
+/**
+ * 用途：执行handlePointerUp相关业务逻辑。
+ * @param noteId 调用方传入的noteId参数，用于驱动当前前端逻辑。
+ * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+ */
 function handlePointerUp(noteId: string) {
   const timerWasSet = longPressTimer.value !== undefined
   const wasLongPress = enteredViaLongPress.value
@@ -625,18 +1002,43 @@ function handlePointerUp(noteId: string) {
   }
 }
 
+/**
+ * 用途：执行exitSelectMode相关业务逻辑。
+ * 参数：无显式业务参数。
+ * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+ */
 function exitSelectMode() {
   selectMode.value = false
   selectedIds.value = new Set()
 }
 
+/**
+ * 用途：执行openMindMapModal相关业务逻辑。
+ * 参数：无显式业务参数。
+ * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+ */
 function openMindMapModal() {
   if (selectedIds.value.size === 0) return
   mindMapModalOpen.value = true
 }
 
+/**
+ * 用途：执行handleBatchPin相关业务逻辑。
+ * 参数：无显式业务参数。
+ * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+ */
 async function handleBatchPin() {
+  /**
+   * 用途：执行selectedNotes相关业务逻辑。
+   * 参数：无显式业务参数。
+   * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+   */
   const selectedNotes = notes.value.filter((note) => selectedIds.value.has(note.id))
+  /**
+   * 用途：执行allPinned相关业务逻辑。
+   * 参数：无显式业务参数。
+   * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+   */
   const allPinned = selectedNotes.length > 0 && selectedNotes.every((note) => note.is_pinned)
   const nextPinned = !allPinned
   try {
@@ -648,6 +1050,11 @@ async function handleBatchPin() {
   }
 }
 
+/**
+ * 用途：执行handleBatchDelete相关业务逻辑。
+ * 参数：无显式业务参数。
+ * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+ */
 async function handleBatchDelete() {
   try {
     await notesApi.batchDelete(Array.from(selectedIds.value))
@@ -660,6 +1067,11 @@ async function handleBatchDelete() {
   }
 }
 
+/**
+ * 用途：执行handleBatchDownload相关业务逻辑。
+ * 参数：无显式业务参数。
+ * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+ */
 async function handleBatchDownload() {
   try {
     const blob = await notesApi.batchDownload(Array.from(selectedIds.value))
@@ -677,6 +1089,11 @@ async function handleBatchDownload() {
   }
 }
 
+/**
+ * 用途：执行handleBatchCategory相关业务逻辑。
+ * @param nextCategory 调用方传入的nextCategory参数，用于驱动当前前端逻辑。
+ * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+ */
 async function handleBatchCategory(nextCategory: string) {
   try {
     await notesApi.batchUpdateCategory(Array.from(selectedIds.value), nextCategory)
@@ -690,6 +1107,11 @@ async function handleBatchCategory(nextCategory: string) {
   }
 }
 
+/**
+ * 用途：执行handleBatchFolder相关业务逻辑。
+ * @param nextFolderId 调用方传入的nextFolderId参数，用于驱动当前前端逻辑。
+ * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+ */
 async function handleBatchFolder(nextFolderId: string | null) {
   try {
     await notesApi.batchUpdateFolder(Array.from(selectedIds.value), nextFolderId)
@@ -703,6 +1125,11 @@ async function handleBatchFolder(nextFolderId: string | null) {
   }
 }
 
+/**
+ * 用途：执行openMoveDialog相关业务逻辑。
+ * 参数：无显式业务参数。
+ * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+ */
 async function openMoveDialog() {
   await ensureFoldersLoadedForMoveDialog()
   setScopePairFromCurrentView()
@@ -725,6 +1152,11 @@ async function openMoveDialog() {
   }
 }
 
+/**
+ * 用途：执行closeMoveDialog相关业务逻辑。
+ * 参数：无显式业务参数。
+ * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+ */
 async function closeMoveDialog() {
   moveDialogOpen.value = false
   moveError.value = ''
@@ -734,6 +1166,13 @@ async function closeMoveDialog() {
   rightNotes.value = []
 }
 
+/**
+ * 用途：执行toggleMoveSelection相关业务逻辑。
+ * @param side 调用方传入的side参数，用于驱动当前前端逻辑。
+ * @param noteId 调用方传入的noteId参数，用于驱动当前前端逻辑。
+ * @param checked 调用方传入的checked参数，用于驱动当前前端逻辑。
+ * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+ */
 function toggleMoveSelection(side: 'left' | 'right', noteId: string, checked: boolean) {
   if (side === 'left') {
     const next = new Set(leftSelectedIds.value)
@@ -754,6 +1193,12 @@ function toggleMoveSelection(side: 'left' | 'right', noteId: string, checked: bo
   rightSelectedIds.value = next
 }
 
+/**
+ * 用途：执行toggleMoveAll相关业务逻辑。
+ * @param side 调用方传入的side参数，用于驱动当前前端逻辑。
+ * @param checked 调用方传入的checked参数，用于驱动当前前端逻辑。
+ * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+ */
 function toggleMoveAll(side: 'left' | 'right', checked: boolean) {
   if (side === 'left') {
     leftSelectedIds.value = checked ? new Set(leftNotes.value.map((note) => note.id)) : new Set()
@@ -762,6 +1207,12 @@ function toggleMoveAll(side: 'left' | 'right', checked: boolean) {
   rightSelectedIds.value = checked ? new Set(rightNotes.value.map((note) => note.id)) : new Set()
 }
 
+/**
+ * 用途：执行updateMoveScope相关业务逻辑。
+ * @param side 调用方传入的side参数，用于驱动当前前端逻辑。
+ * @param scopeId 调用方传入的scopeId参数，用于驱动当前前端逻辑。
+ * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+ */
 async function updateMoveScope(side: 'left' | 'right', scopeId: string | null) {
   const normalized = parseScopeInput(scopeId)
   if (side === 'left') {
@@ -788,6 +1239,11 @@ async function updateMoveScope(side: 'left' | 'right', scopeId: string | null) {
   }
 }
 
+/**
+ * 用途：执行moveSelectedNotes相关业务逻辑。
+ * @param source 调用方传入的source参数，用于驱动当前前端逻辑。
+ * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+ */
 async function moveSelectedNotes(source: 'left' | 'right') {
   if (moveBusy.value) return
 
@@ -870,6 +1326,11 @@ async function moveSelectedNotes(source: 'left' | 'right') {
   }
 }
 
+/**
+ * 用途：执行createCategory相关业务逻辑。
+ * @param name 调用方传入的name参数，用于驱动当前前端逻辑。
+ * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+ */
 function createCategory(name: string) {
   if (!extraCategories.value.includes(name)) {
     extraCategories.value = [...extraCategories.value, name]
@@ -893,10 +1354,12 @@ onBeforeUnmount(() => {
   clearLongPress()
 })
 
+// 状态监听：在关键输入变化后同步副作用或刷新页面数据。
 watch([category, searchQuery], () => {
   resetAndLoad()
 })
 
+// 状态监听：在关键输入变化后同步副作用或刷新页面数据。
 watch(extraCategories, () => {
   void refreshCategories()
 }, { deep: true })

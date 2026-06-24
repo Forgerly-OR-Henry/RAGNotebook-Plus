@@ -1,3 +1,9 @@
+"""
+模块职责：数据库连接与启动建表模块，负责 PostgreSQL 连接、当前 schema 初始化和兼容性校验。
+
+主要协作：本文件只声明当前模块的职责边界，运行时行为由下方函数、类和依赖对象共同完成。
+"""
+
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
@@ -39,6 +45,13 @@ RESET_DATABASE_HINT = (
 
 
 def _build_database_url() -> str:
+    """
+    用途：构建build database url相关的数据或流程。
+
+    参数：无显式业务参数。
+
+    返回：str；返回值供调用方继续编排业务流程或生成接口响应。
+    """
     configured_url = require_env_declared("DATABASE_URL")
     if configured_url:
         return configured_url
@@ -96,6 +109,13 @@ async def init_db():
 
 
 def _import_all_models() -> None:
+    """
+    用途：执行import all models相关业务逻辑。
+
+    参数：无显式业务参数。
+
+    返回：None；返回值供调用方继续编排业务流程或生成接口响应。
+    """
     from mvc.models import (
         chat_history,
         document,
@@ -114,6 +134,16 @@ def _import_all_models() -> None:
 
 
 async def _backfill_knowledge_documents(conn) -> None:
+    """
+    用途：异步执行backfill knowledge documents相关业务流程。
+
+    参数：
+    - conn（未显式标注）：调用方传入的conn数据或控制参数，用于驱动本函数处理流程。
+
+    返回：None；返回值供调用方继续编排业务流程或生成接口响应。
+
+    副作用：可能访问数据库、文件、模型服务或流式事件通道，异常会沿调用链抛出。
+    """
     await conn.execute(
         text(
             """
@@ -133,12 +163,32 @@ async def _backfill_knowledge_documents(conn) -> None:
 
 
 async def _ensure_knowledge_document_columns(conn) -> None:
+    """
+    用途：校验并确保ensure knowledge document columns相关的数据或流程。
+
+    参数：
+    - conn（未显式标注）：调用方传入的conn数据或控制参数，用于驱动本函数处理流程。
+
+    返回：None；返回值供调用方继续编排业务流程或生成接口响应。
+
+    副作用：可能访问数据库、文件、模型服务或流式事件通道，异常会沿调用链抛出。
+    """
     await conn.execute(text("ALTER TABLE IF EXISTS knowledge_documents ADD COLUMN IF NOT EXISTS category VARCHAR(50)"))
     await conn.execute(text("ALTER TABLE IF EXISTS knowledge_documents ADD COLUMN IF NOT EXISTS tags JSONB"))
     await conn.execute(text("ALTER TABLE IF EXISTS knowledge_documents ADD COLUMN IF NOT EXISTS is_pinned BOOLEAN NOT NULL DEFAULT FALSE"))
 
 
 async def _ensure_user_profile_columns(conn) -> None:
+    """
+    用途：校验并确保ensure user profile columns相关的数据或流程。
+
+    参数：
+    - conn（未显式标注）：调用方传入的conn数据或控制参数，用于驱动本函数处理流程。
+
+    返回：None；返回值供调用方继续编排业务流程或生成接口响应。
+
+    副作用：可能访问数据库、文件、模型服务或流式事件通道，异常会沿调用链抛出。
+    """
     await conn.execute(
         text(
             """
@@ -181,19 +231,52 @@ async def _ensure_user_profile_columns(conn) -> None:
 
 
 def _current_schema_tables() -> set[str]:
+    """
+    用途：执行current schema tables相关业务逻辑。
+
+    参数：无显式业务参数。
+
+    返回：set[str]；返回值供调用方继续编排业务流程或生成接口响应。
+    """
     _import_all_models()
     return set(Base.metadata.tables) | CURRENT_EXTRA_TABLES
 
 
 def _unsupported_schema_tables(existing_tables: set[str]) -> set[str]:
+    """
+    用途：执行unsupported schema tables相关业务逻辑。
+
+    参数：
+    - existing_tables（set[str]）：调用方传入的existing_tables数据或控制参数，用于驱动本函数处理流程。
+
+    返回：set[str]；返回值供调用方继续编排业务流程或生成接口响应。
+    """
     return existing_tables - _current_schema_tables()
 
 
 def _format_names(names: set[str]) -> str:
+    """
+    用途：格式化format names相关的数据或流程。
+
+    参数：
+    - names（set[str]）：调用方传入的names数据或控制参数，用于驱动本函数处理流程。
+
+    返回：str；返回值供调用方继续编排业务流程或生成接口响应。
+    """
     return ", ".join(sorted(names))
 
 
 async def _public_base_tables(conn) -> set[str]:
+    """
+    用途：异步执行public base tables相关业务流程。
+
+    参数：
+    - conn（未显式标注）：调用方传入的conn数据或控制参数，用于驱动本函数处理流程。
+
+    返回：set[str]；返回值供调用方继续编排业务流程或生成接口响应。
+
+    副作用：可能访问数据库、文件、模型服务或流式事件通道，异常会沿调用链抛出。
+    """
     result = await conn.execute(
         text(
             """
@@ -209,6 +292,13 @@ async def _public_base_tables(conn) -> set[str]:
 
 
 def _embedding_dim() -> int:
+    """
+    用途：执行embedding dim相关业务逻辑。
+
+    参数：无显式业务参数。
+
+    返回：int；返回值供调用方继续编排业务流程或生成接口响应。
+    """
     dim = require_env_int_value("EMBEDDING_DIM", 1024)
     if dim <= 0:
         raise RuntimeError(f"EMBEDDING_DIM 必须是正整数，当前值：{dim}")
@@ -216,6 +306,16 @@ def _embedding_dim() -> int:
 
 
 async def _create_index_chunks_table(conn) -> None:
+    """
+    用途：创建create index chunks table相关的数据或流程。
+
+    参数：
+    - conn（未显式标注）：调用方传入的conn数据或控制参数，用于驱动本函数处理流程。
+
+    返回：None；返回值供调用方继续编排业务流程或生成接口响应。
+
+    副作用：可能访问数据库、文件、模型服务或流式事件通道，异常会沿调用链抛出。
+    """
     embedding_dim = _embedding_dim()
     await conn.execute(
         text(
@@ -243,6 +343,13 @@ async def _create_index_chunks_table(conn) -> None:
 
 
 def _expected_schema_columns() -> dict[str, set[str]]:
+    """
+    用途：执行expected schema columns相关业务逻辑。
+
+    参数：无显式业务参数。
+
+    返回：dict[str, set[str]]；返回值供调用方继续编排业务流程或生成接口响应。
+    """
     _import_all_models()
     columns = {
         table_name: {column.name for column in table.columns}
@@ -253,6 +360,16 @@ def _expected_schema_columns() -> dict[str, set[str]]:
 
 
 async def _schema_columns(conn) -> dict[str, set[str]]:
+    """
+    用途：异步执行schema columns相关业务流程。
+
+    参数：
+    - conn（未显式标注）：调用方传入的conn数据或控制参数，用于驱动本函数处理流程。
+
+    返回：dict[str, set[str]]；返回值供调用方继续编排业务流程或生成接口响应。
+
+    副作用：可能访问数据库、文件、模型服务或流式事件通道，异常会沿调用链抛出。
+    """
     result = await conn.execute(
         text(
             """
@@ -270,6 +387,16 @@ async def _schema_columns(conn) -> dict[str, set[str]]:
 
 
 async def _validate_current_schema(conn) -> None:
+    """
+    用途：校验validate current schema相关的数据或流程。
+
+    参数：
+    - conn（未显式标注）：调用方传入的conn数据或控制参数，用于驱动本函数处理流程。
+
+    返回：None；返回值供调用方继续编排业务流程或生成接口响应。
+
+    副作用：可能访问数据库、文件、模型服务或流式事件通道，异常会沿调用链抛出。
+    """
     expected_columns = _expected_schema_columns()
     actual_columns = await _schema_columns(conn)
 
@@ -293,6 +420,15 @@ async def _validate_current_schema(conn) -> None:
 
 # 依赖项
 async def get_db():
+    """
+    用途：读取或查询get db相关的数据或流程。
+
+    参数：无显式业务参数。
+
+    返回：未显式标注；返回值供调用方继续编排业务流程或生成接口响应。
+
+    副作用：可能访问数据库、文件、模型服务或流式事件通道，异常会沿调用链抛出。
+    """
     async with AsyncSessionLocal() as session:
         try:
             yield session
@@ -309,6 +445,15 @@ async def get_db():
 
 
 async def seed_test_user():
+    """
+    用途：初始化种子数据seed test user相关的数据或流程。
+
+    参数：无显式业务参数。
+
+    返回：未显式标注；返回值供调用方继续编排业务流程或生成接口响应。
+
+    副作用：可能访问数据库、文件、模型服务或流式事件通道，异常会沿调用链抛出。
+    """
     from mvc.models.user_model import User, UserStatusChoice
     from utils.auth_utils import hash_password
     from sqlalchemy import select

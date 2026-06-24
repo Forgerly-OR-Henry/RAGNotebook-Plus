@@ -1,3 +1,7 @@
+<!--
+模块职责：Vue 页面组件，负责组合业务 API、页面状态和用户交互。
+主要协作：通过组合 API、状态、组件和路由来支撑当前页面或功能。
+-->
 <script setup lang="ts">
 import { nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
@@ -7,6 +11,10 @@ import TagInput from '../components/TagInput.vue'
 import { knowledgeApi } from '../api/knowledge'
 import type { KnowledgeDocument, KnowledgeDocumentDetail } from '../types/api'
 
+/**
+ * 类型：`ApiError` 描述当前业务域中的数据结构。
+ * 字段含义应与后端接口、组件入参或本地状态保持一致。
+ */
 type ApiError = {
   message?: string
   response?: {
@@ -21,13 +29,21 @@ const route = useRoute()
 const documentId = route.params.id as string | undefined
 const document = ref<KnowledgeDocument | null>(null)
 const detail = ref<KnowledgeDocumentDetail | null>(null)
+// 响应式状态：保存当前组件内部的临时 UI 或业务处理状态。
 const loading = ref(false)
+// 响应式状态：保存当前组件内部的临时 UI 或业务处理状态。
 const savingMetadata = ref(false)
+// 响应式状态：保存当前组件内部的临时 UI 或业务处理状态。
 const aiTagging = ref(false)
+// 响应式状态：保存当前组件内部的临时 UI 或业务处理状态。
 const metadataReady = ref(false)
+// 响应式状态：保存当前组件内部的临时 UI 或业务处理状态。
 const errorMessage = ref('')
+// 响应式状态：保存当前组件内部的临时 UI 或业务处理状态。
 const metadataError = ref('')
+// 响应式状态：保存当前组件内部的临时 UI 或业务处理状态。
 const message = ref('')
+// 响应式状态：保存当前组件内部的临时 UI 或业务处理状态。
 const category = ref('')
 const tags = ref<string[]>([])
 let metadataTimer: number | undefined
@@ -40,6 +56,11 @@ const CATEGORIES = [
   { label: '其他', value: 'other' },
 ]
 
+/**
+ * 用途：执行getErrorMessage相关业务逻辑。
+ * @param error 调用方传入的error参数，用于驱动当前前端逻辑。
+ * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+ */
 function getErrorMessage(error: unknown) {
   const apiError = error as ApiError
   const detailMessage = apiError.response?.data?.detail
@@ -52,6 +73,11 @@ function getErrorMessage(error: unknown) {
   return apiError.response?.data?.message || apiError.message || '加载知识库内容失败，请稍后重试'
 }
 
+/**
+ * 用途：执行load相关业务逻辑。
+ * 参数：无显式业务参数。
+ * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+ */
 async function load() {
   if (!documentId) {
     errorMessage.value = '文档不存在'
@@ -78,6 +104,11 @@ async function load() {
   }
 }
 
+/**
+ * 用途：执行applyMetadata相关业务逻辑。
+ * @param nextDocument 调用方传入的nextDocument参数，用于驱动当前前端逻辑。
+ * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+ */
 function applyMetadata(nextDocument: KnowledgeDocument) {
   document.value = { ...(document.value || nextDocument), ...nextDocument }
   if (detail.value) {
@@ -85,6 +116,11 @@ function applyMetadata(nextDocument: KnowledgeDocument) {
   }
 }
 
+/**
+ * 用途：执行saveMetadata相关业务逻辑。
+ * 参数：无显式业务参数。
+ * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+ */
 async function saveMetadata() {
   if (!documentId || !metadataReady.value || savingMetadata.value) return
   savingMetadata.value = true
@@ -104,6 +140,11 @@ async function saveMetadata() {
   }
 }
 
+/**
+ * 用途：执行scheduleMetadataSave相关业务逻辑。
+ * 参数：无显式业务参数。
+ * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+ */
 function scheduleMetadataSave() {
   if (!metadataReady.value) return
   window.clearTimeout(metadataTimer)
@@ -112,11 +153,21 @@ function scheduleMetadataSave() {
   }, 500)
 }
 
+/**
+ * 用途：执行toggleCategory相关业务逻辑。
+ * @param value 调用方传入的value参数，用于驱动当前前端逻辑。
+ * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+ */
 function toggleCategory(value: string) {
   category.value = category.value === value ? '' : value
   void saveMetadata()
 }
 
+/**
+ * 用途：执行recognizeTagsWithAi相关业务逻辑。
+ * 参数：无显式业务参数。
+ * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+ */
 async function recognizeTagsWithAi() {
   if (!documentId || aiTagging.value || savingMetadata.value) return
   aiTagging.value = true
@@ -140,6 +191,7 @@ async function recognizeTagsWithAi() {
 
 onMounted(load)
 
+// 状态监听：在关键输入变化后同步副作用或刷新页面数据。
 watch(tags, () => {
   scheduleMetadataSave()
 }, { deep: true })

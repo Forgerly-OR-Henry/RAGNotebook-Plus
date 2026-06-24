@@ -1,3 +1,9 @@
+"""
+模块职责：AI 网关模块，负责把业务服务与模型、索引或 Agent 能力解耦。
+
+主要协作：本文件只声明当前模块的职责边界，运行时行为由下方函数、类和依赖对象共同完成。
+"""
+
 from __future__ import annotations
 
 import asyncio
@@ -19,6 +25,14 @@ from mvc.services.sources.registry import get_source_registry
 
 
 def _source_ref_dict(ref: SourceReference) -> dict:
+    """
+    用途：执行source ref dict相关业务逻辑。
+
+    参数：
+    - ref（SourceReference）：调用方传入的ref数据或控制参数，用于驱动本函数处理流程。
+
+    返回：dict；返回值供调用方继续编排业务流程或生成接口响应。
+    """
     return {"source_type": ref.source_type, "source_id": ref.source_id}
 
 
@@ -29,6 +43,20 @@ async def _search_sources(
     top_k: int,
     source_refs: list[SourceReference] | None = None,
 ) -> list:
+    """
+    用途：搜索search sources相关的数据或流程。
+
+    参数：
+    - user_id（str）：调用方传入的user_id数据或控制参数，用于驱动本函数处理流程。
+    - query（str）：调用方传入的query数据或控制参数，用于驱动本函数处理流程。
+    - source_type（str）：调用方传入的source_type数据或控制参数，用于驱动本函数处理流程。
+    - top_k（int）：调用方传入的top_k数据或控制参数，用于驱动本函数处理流程。
+    - source_refs（list[SourceReference] | None）：调用方传入的source_refs数据或控制参数，用于驱动本函数处理流程。
+
+    返回：list；返回值供调用方继续编排业务流程或生成接口响应。
+
+    副作用：可能访问数据库、文件、模型服务或流式事件通道，异常会沿调用链抛出。
+    """
     async with AsyncSessionLocal() as db:
         registry = get_source_registry()
         if source_refs is None:
@@ -63,7 +91,30 @@ async def _search_sources(
 
 
 def _build_source_search(source_refs: list[SourceReference] | None = None):
+    """
+    用途：构建build source search相关的数据或流程。
+
+    参数：
+    - source_refs（list[SourceReference] | None）：调用方传入的source_refs数据或控制参数，用于驱动本函数处理流程。
+
+    返回：未显式标注；返回值供调用方继续编排业务流程或生成接口响应。
+
+    副作用：可能访问数据库、文件、模型服务或流式事件通道，异常会沿调用链抛出。
+    """
     async def search(user_id: str, query: str, source_type: str, top_k: int) -> list:
+        """
+        用途：异步执行search相关业务流程。
+
+        参数：
+        - user_id（str）：调用方传入的user_id数据或控制参数，用于驱动本函数处理流程。
+        - query（str）：调用方传入的query数据或控制参数，用于驱动本函数处理流程。
+        - source_type（str）：调用方传入的source_type数据或控制参数，用于驱动本函数处理流程。
+        - top_k（int）：调用方传入的top_k数据或控制参数，用于驱动本函数处理流程。
+
+        返回：list；返回值供调用方继续编排业务流程或生成接口响应。
+
+        副作用：可能访问数据库、文件、模型服务或流式事件通道，异常会沿调用链抛出。
+        """
         return await _search_sources(user_id, query, source_type, top_k, source_refs=source_refs)
 
     return search
@@ -75,11 +126,36 @@ async def get_documents_and_summary(
     thinking_callback=None,
     source_refs: list[SourceReference] | None = None,
 ) -> dict:
+    """
+    用途：读取或查询get documents and summary相关的数据或流程。
+
+    参数：
+    - query（str）：调用方传入的query数据或控制参数，用于驱动本函数处理流程。
+    - user_id（str）：调用方传入的user_id数据或控制参数，用于驱动本函数处理流程。
+    - thinking_callback（未显式标注）：调用方传入的thinking_callback数据或控制参数，用于驱动本函数处理流程。
+    - source_refs（list[SourceReference] | None）：调用方传入的source_refs数据或控制参数，用于驱动本函数处理流程。
+
+    返回：dict；返回值供调用方继续编排业务流程或生成接口响应。
+
+    副作用：可能访问数据库、文件、模型服务或流式事件通道，异常会沿调用链抛出。
+    """
     service = RagService(user_id, thinking_callback=thinking_callback, source_search=_build_source_search(source_refs))
     return await service.get_documents_and_summary(query)
 
 
 async def rag_summary(query: str, user_id: str, thinking_callback=None) -> str:
+    """
+    用途：异步执行rag summary相关业务流程。
+
+    参数：
+    - query（str）：调用方传入的query数据或控制参数，用于驱动本函数处理流程。
+    - user_id（str）：调用方传入的user_id数据或控制参数，用于驱动本函数处理流程。
+    - thinking_callback（未显式标注）：调用方传入的thinking_callback数据或控制参数，用于驱动本函数处理流程。
+
+    返回：str；返回值供调用方继续编排业务流程或生成接口响应。
+
+    副作用：可能访问数据库、文件、模型服务或流式事件通道，异常会沿调用链抛出。
+    """
     result = await get_documents_and_summary(query, user_id, thinking_callback=thinking_callback)
     return result.get("summary", "抱歉，处理您的请求时出现了错误。")
 
@@ -90,6 +166,19 @@ async def rag_summary_tool_result(
     thinking_callback=None,
     source_refs: list[SourceReference] | None = None,
 ) -> str:
+    """
+    用途：异步执行rag summary tool result相关业务流程。
+
+    参数：
+    - query（str）：调用方传入的query数据或控制参数，用于驱动本函数处理流程。
+    - user_id（str | None）：调用方传入的user_id数据或控制参数，用于驱动本函数处理流程。
+    - thinking_callback（未显式标注）：调用方传入的thinking_callback数据或控制参数，用于驱动本函数处理流程。
+    - source_refs（list[SourceReference] | None）：调用方传入的source_refs数据或控制参数，用于驱动本函数处理流程。
+
+    返回：str；返回值供调用方继续编排业务流程或生成接口响应。
+
+    副作用：可能访问数据库、文件、模型服务或流式事件通道，异常会沿调用链抛出。
+    """
     if not user_id:
         return "错误: 无法确定用户身份，请提供有效的user_id"
 
@@ -105,10 +194,33 @@ async def rag_summary_tool_result(
 
 
 async def reorder_documents(query: str, documents: list[str]) -> dict:
+    """
+    用途：异步执行reorder documents相关业务流程。
+
+    参数：
+    - query（str）：调用方传入的query数据或控制参数，用于驱动本函数处理流程。
+    - documents（list[str]）：调用方传入的documents数据或控制参数，用于驱动本函数处理流程。
+
+    返回：dict；返回值供调用方继续编排业务流程或生成接口响应。
+
+    副作用：可能访问数据库、文件、模型服务或流式事件通道，异常会沿调用链抛出。
+    """
     return await reorder_service.reorder_documents(query, documents)
 
 
 async def _search_notes_callback(query: str, top_k: int, user_id: str) -> str:
+    """
+    用途：搜索search notes callback相关的数据或流程。
+
+    参数：
+    - query（str）：调用方传入的query数据或控制参数，用于驱动本函数处理流程。
+    - top_k（int）：调用方传入的top_k数据或控制参数，用于驱动本函数处理流程。
+    - user_id（str）：调用方传入的user_id数据或控制参数，用于驱动本函数处理流程。
+
+    返回：str；返回值供调用方继续编排业务流程或生成接口响应。
+
+    副作用：可能访问数据库、文件、模型服务或流式事件通道，异常会沿调用链抛出。
+    """
     async with AsyncSessionLocal() as db:
         try:
             results = await init_manager.note_service.search_notes(db, user_id, query, top_k=top_k)
@@ -129,6 +241,16 @@ async def _search_notes_callback(query: str, top_k: int, user_id: str) -> str:
 
 
 async def _note_stats_callback(user_id: str) -> str:
+    """
+    用途：异步执行note stats callback相关业务流程。
+
+    参数：
+    - user_id（str）：调用方传入的user_id数据或控制参数，用于驱动本函数处理流程。
+
+    返回：str；返回值供调用方继续编排业务流程或生成接口响应。
+
+    副作用：可能访问数据库、文件、模型服务或流式事件通道，异常会沿调用链抛出。
+    """
     async with AsyncSessionLocal() as db:
         try:
             stats = await init_manager.note_service.get_category_stats(db, user_id)
@@ -147,6 +269,18 @@ async def _note_stats_callback(user_id: str) -> str:
 
 
 async def _create_note_callback(title: str, content: str, user_id: str) -> str:
+    """
+    用途：创建create note callback相关的数据或流程。
+
+    参数：
+    - title（str）：调用方传入的title数据或控制参数，用于驱动本函数处理流程。
+    - content（str）：调用方传入的content数据或控制参数，用于驱动本函数处理流程。
+    - user_id（str）：调用方传入的user_id数据或控制参数，用于驱动本函数处理流程。
+
+    返回：str；返回值供调用方继续编排业务流程或生成接口响应。
+
+    副作用：可能访问数据库、文件、模型服务或流式事件通道，异常会沿调用链抛出。
+    """
     async with AsyncSessionLocal() as db:
         try:
             payload = NoteCreate(title=title, content=content)
@@ -158,6 +292,18 @@ async def _create_note_callback(title: str, content: str, user_id: str) -> str:
 
 
 async def _related_notes_callback(note_id: str, top_k: int, user_id: str) -> str:
+    """
+    用途：异步执行related notes callback相关业务流程。
+
+    参数：
+    - note_id（str）：调用方传入的note_id数据或控制参数，用于驱动本函数处理流程。
+    - top_k（int）：调用方传入的top_k数据或控制参数，用于驱动本函数处理流程。
+    - user_id（str）：调用方传入的user_id数据或控制参数，用于驱动本函数处理流程。
+
+    返回：str；返回值供调用方继续编排业务流程或生成接口响应。
+
+    副作用：可能访问数据库、文件、模型服务或流式事件通道，异常会沿调用链抛出。
+    """
     async with AsyncSessionLocal() as db:
         try:
             related = await init_manager.note_service.get_related_notes(db, note_id, user_id, top_k=top_k)
@@ -176,7 +322,29 @@ async def _related_notes_callback(note_id: str, top_k: int, user_id: str) -> str
 
 
 def _build_tool_callbacks(source_refs: list[SourceReference] | None = None) -> AgentToolCallbacks:
+    """
+    用途：构建build tool callbacks相关的数据或流程。
+
+    参数：
+    - source_refs（list[SourceReference] | None）：调用方传入的source_refs数据或控制参数，用于驱动本函数处理流程。
+
+    返回：AgentToolCallbacks；返回值供调用方继续编排业务流程或生成接口响应。
+
+    副作用：可能访问数据库、文件、模型服务或流式事件通道，异常会沿调用链抛出。
+    """
     async def scoped_rag_summary(query: str, user_id: str | None, thinking_callback=None) -> str:
+        """
+        用途：异步执行scoped rag summary相关业务流程。
+
+        参数：
+        - query（str）：调用方传入的query数据或控制参数，用于驱动本函数处理流程。
+        - user_id（str | None）：调用方传入的user_id数据或控制参数，用于驱动本函数处理流程。
+        - thinking_callback（未显式标注）：调用方传入的thinking_callback数据或控制参数，用于驱动本函数处理流程。
+
+        返回：str；返回值供调用方继续编排业务流程或生成接口响应。
+
+        副作用：可能访问数据库、文件、模型服务或流式事件通道，异常会沿调用链抛出。
+        """
         return await rag_summary_tool_result(query, user_id, thinking_callback=thinking_callback, source_refs=source_refs)
 
     return AgentToolCallbacks(
@@ -189,6 +357,18 @@ def _build_tool_callbacks(source_refs: list[SourceReference] | None = None) -> A
 
 
 async def get_agent_response(query: str, history: list[tuple] | None, user_id: str) -> dict:
+    """
+    用途：读取或查询get agent response相关的数据或流程。
+
+    参数：
+    - query（str）：调用方传入的query数据或控制参数，用于驱动本函数处理流程。
+    - history（list[tuple] | None）：调用方传入的history数据或控制参数，用于驱动本函数处理流程。
+    - user_id（str）：调用方传入的user_id数据或控制参数，用于驱动本函数处理流程。
+
+    返回：dict；返回值供调用方继续编排业务流程或生成接口响应。
+
+    副作用：可能访问数据库、文件、模型服务或流式事件通道，异常会沿调用链抛出。
+    """
     return await runtime_get_agent_response(
         query,
         history,
@@ -205,9 +385,35 @@ async def stream_agent_response(
     source_refs: list[SourceReference] | None = None,
     rag_enabled: bool = True,
 ) -> AsyncGenerator[str, None]:
+    """
+    用途：流式处理stream agent response相关的数据或流程。
+
+    参数：
+    - query（str）：调用方传入的query数据或控制参数，用于驱动本函数处理流程。
+    - session_id（str）：调用方传入的session_id数据或控制参数，用于驱动本函数处理流程。
+    - user_id（str）：调用方传入的user_id数据或控制参数，用于驱动本函数处理流程。
+    - project_id（str | None）：调用方传入的project_id数据或控制参数，用于驱动本函数处理流程。
+    - source_refs（list[SourceReference] | None）：调用方传入的source_refs数据或控制参数，用于驱动本函数处理流程。
+    - rag_enabled（bool）：调用方传入的rag_enabled数据或控制参数，用于驱动本函数处理流程。
+
+    返回：AsyncGenerator[str, None]；返回值供调用方继续编排业务流程或生成接口响应。
+
+    副作用：可能访问数据库、文件、模型服务或流式事件通道，异常会沿调用链抛出。
+    """
     history = await sm.session_manager.get_history(session_id, user_id, project_id=project_id)
 
     async def persist_message(user_query: str, response: str) -> None:
+        """
+        用途：异步执行persist message相关业务流程。
+
+        参数：
+        - user_query（str）：调用方传入的user_query数据或控制参数，用于驱动本函数处理流程。
+        - response（str）：调用方传入的response数据或控制参数，用于驱动本函数处理流程。
+
+        返回：None；返回值供调用方继续编排业务流程或生成接口响应。
+
+        副作用：可能访问数据库、文件、模型服务或流式事件通道，异常会沿调用链抛出。
+        """
         reference_payload = [_source_ref_dict(ref) for ref in source_refs] if source_refs else None
         await sm.session_manager.add_message(
             session_id,
@@ -219,15 +425,42 @@ async def stream_agent_response(
         )
 
     def sse(payload: dict) -> str:
+        """
+        用途：执行sse相关业务逻辑。
+
+        参数：
+        - payload（dict）：调用方传入的payload数据或控制参数，用于驱动本函数处理流程。
+
+        返回：str；返回值供调用方继续编排业务流程或生成接口响应。
+        """
         return f"data: {json.dumps(payload, ensure_ascii=False)}\n\n"
 
     thinking_queue: asyncio.Queue[dict] = asyncio.Queue()
 
     async def thinking_callback(data: dict) -> None:
+        """
+        用途：异步执行thinking callback相关业务流程。
+
+        参数：
+        - data（dict）：调用方传入的data数据或控制参数，用于驱动本函数处理流程。
+
+        返回：None；返回值供调用方继续编排业务流程或生成接口响应。
+
+        副作用：可能访问数据库、文件、模型服务或流式事件通道，异常会沿调用链抛出。
+        """
         logger.info(f"【思考过程】{data.get('stage', 'unknown')}: {data.get('content', '')}")
         await thinking_queue.put(data)
 
     async def drain_thinking_queue() -> list[str]:
+        """
+        用途：异步执行drain thinking queue相关业务流程。
+
+        参数：无显式业务参数。
+
+        返回：list[str]；返回值供调用方继续编排业务流程或生成接口响应。
+
+        副作用：可能访问数据库、文件、模型服务或流式事件通道，异常会沿调用链抛出。
+        """
         events = []
         while not thinking_queue.empty():
             try:

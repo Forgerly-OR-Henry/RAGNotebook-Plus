@@ -1,3 +1,9 @@
+"""
+模块职责：Agent 能力模块，负责检索增强、模型调用、工具编排或文档处理。
+
+主要协作：本文件只声明当前模块的职责边界，运行时行为由下方函数、类和依赖对象共同完成。
+"""
+
 import os
 from pathlib import Path
 from typing import Any
@@ -12,10 +18,25 @@ DEFAULT_RERANKER_MODEL_PATH = r"models\bge-reranker-v2-m3"
 
 
 def project_root() -> Path:
+    """
+    用途：执行project root相关业务逻辑。
+
+    参数：无显式业务参数。
+
+    返回：Path；返回值供调用方继续编排业务流程或生成接口响应。
+    """
     return Path(__file__).resolve().parents[4]
 
 
 def resolve_reranker_model_path(path_value: str | None = None) -> Path:
+    """
+    用途：解析并归一化resolve reranker model path相关的数据或流程。
+
+    参数：
+    - path_value（str | None）：调用方传入的path_value数据或控制参数，用于驱动本函数处理流程。
+
+    返回：Path；返回值供调用方继续编排业务流程或生成接口响应。
+    """
     configured_path = path_value or require_env_value("RERANKER_MODEL_PATH", DEFAULT_RERANKER_MODEL_PATH)
     model_path = Path(configured_path.strip().strip('"').strip("'"))
     if model_path.is_absolute():
@@ -24,6 +45,14 @@ def resolve_reranker_model_path(path_value: str | None = None) -> Path:
 
 
 def find_model_path(base_path: str) -> str:
+    """
+    用途：执行find model path相关业务逻辑。
+
+    参数：
+    - base_path（str）：调用方传入的base_path数据或控制参数，用于驱动本函数处理流程。
+
+    返回：str；返回值供调用方继续编排业务流程或生成接口响应。
+    """
     base = Path(base_path)
     if (base / 'config.json').exists():
         return str(base)
@@ -37,6 +66,14 @@ def find_model_path(base_path: str) -> str:
 
 
 def has_model_config(base_path: Path) -> bool:
+    """
+    用途：执行has model config相关业务逻辑。
+
+    参数：
+    - base_path（Path）：调用方传入的base_path数据或控制参数，用于驱动本函数处理流程。
+
+    返回：bool；返回值供调用方继续编排业务流程或生成接口响应。
+    """
     actual_model_path = Path(find_model_path(str(base_path)))
     return (actual_model_path / 'config.json').exists()
 
@@ -78,6 +115,13 @@ class ReorderService:
     """文档重排序服务"""
 
     def __init__(self):
+        """
+        用途：执行init相关业务逻辑。
+
+        参数：无显式业务参数。
+
+        返回：未显式标注；返回值供调用方继续编排业务流程或生成接口响应。
+        """
         import torch
 
         self.LOCAL_MODEL_PATH = str(resolve_reranker_model_path())

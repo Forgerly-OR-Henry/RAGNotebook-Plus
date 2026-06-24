@@ -1,3 +1,7 @@
+<!--
+模块职责：对话主界面组件，负责会话选择、消息流、RAG 开关、项目上下文和模型输出展示。
+主要协作：通过组合 API、状态、组件和路由来支撑当前页面或功能。
+-->
 <script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
@@ -39,6 +43,10 @@ import type {
   SourceRefType,
 } from '../types/api'
 
+/**
+ * 类型：`ChatMessage` 描述当前业务域中的数据结构。
+ * 字段含义应与后端接口、组件入参或本地状态保持一致。
+ */
 type ChatMessage = {
   role: 'user' | 'assistant'
   content: string
@@ -47,17 +55,29 @@ type ChatMessage = {
   elapsedSeconds?: number
 }
 
+/**
+ * 类型：`MentionOption` 描述当前业务域中的数据结构。
+ * 字段含义应与后端接口、组件入参或本地状态保持一致。
+ */
 type MentionOption = ChatSourceRef & {
   title: string
   subtitle: string
 }
 
+/**
+ * 类型：`ReferenceFolder` 描述当前业务域中的数据结构。
+ * 字段含义应与后端接口、组件入参或本地状态保持一致。
+ */
 type ReferenceFolder = {
   id: string
   name: string
   children?: ReferenceFolder[]
 }
 
+/**
+ * 类型：`ReferenceFile` 描述当前业务域中的数据结构。
+ * 字段含义应与后端接口、组件入参或本地状态保持一致。
+ */
 type ReferenceFile = {
   id: string
   folderId?: string | null
@@ -66,6 +86,10 @@ type ReferenceFile = {
   sourceType: SourceRefType
 }
 
+/**
+ * 类型：`ReferenceTreeRow` 描述当前业务域中的数据结构。
+ * 字段含义应与后端接口、组件入参或本地状态保持一致。
+ */
 type ReferenceTreeRow = {
   key: string
   kind: 'folder' | 'file' | 'empty'
@@ -78,6 +102,10 @@ type ReferenceTreeRow = {
   collapsed?: boolean
 }
 
+/**
+ * 类型：`MentionSection` 描述当前业务域中的数据结构。
+ * 字段含义应与后端接口、组件入参或本地状态保持一致。
+ */
 type MentionSection = {
   key: string
   title: string
@@ -101,53 +129,132 @@ const noteFolders = ref<NoteFolder[]>([])
 const knowledgeFolders = ref<KnowledgeFolder[]>([])
 const messages = ref<ChatMessage[]>([])
 const responseTimingBySession = ref<Record<string, number>>({})
+// 响应式状态：保存当前组件内部的临时 UI 或业务处理状态。
 const query = ref('')
 const selectedRefs = ref<MentionOption[]>([])
+// 响应式状态：保存当前组件内部的临时 UI 或业务处理状态。
 const loading = ref(false)
+// 响应式状态：保存当前组件内部的临时 UI 或业务处理状态。
 const contextLoading = ref(false)
+// 响应式状态：保存当前组件内部的临时 UI 或业务处理状态。
 const errorMessage = ref('')
+// 响应式状态：保存当前组件内部的临时 UI 或业务处理状态。
 const thinkingMessage = ref('')
+// 响应式状态：保存当前组件内部的临时 UI 或业务处理状态。
 const uploadMessage = ref('')
+// 响应式状态：保存当前组件内部的临时 UI 或业务处理状态。
 const uploadProgress = ref(0)
+// 响应式状态：保存当前组件内部的临时 UI 或业务处理状态。
 const showMention = ref(false)
+// 响应式状态：保存当前组件内部的临时 UI 或业务处理状态。
 const mentionSearch = ref('')
 const addSourceType = ref<SourceRefType>('note')
+// 响应式状态：保存当前组件内部的临时 UI 或业务处理状态。
 const addSourceId = ref('')
 const messagesContainer = ref<HTMLElement | null>(null)
 const knowledgeFileInput = ref<HTMLInputElement | null>(null)
 const noteFileInput = ref<HTMLInputElement | null>(null)
 const projectNameInput = ref<HTMLInputElement | null>(null)
 const activeAssistantIndex = ref<number | null>(null)
+// 响应式状态：保存当前组件内部的临时 UI 或业务处理状态。
 const processingStartedAt = ref(0)
+// 响应式状态：保存当前组件内部的临时 UI 或业务处理状态。
 const processingElapsedSeconds = ref(0)
+// 响应式状态：保存当前组件内部的临时 UI 或业务处理状态。
 const createProjectModalOpen = ref(false)
+// 响应式状态：保存当前组件内部的临时 UI 或业务处理状态。
 const newProjectName = ref('')
+// 响应式状态：保存当前组件内部的临时 UI 或业务处理状态。
 const newProjectDescription = ref('')
+// 响应式状态：保存当前组件内部的临时 UI 或业务处理状态。
 const createProjectLoading = ref(false)
+// 响应式状态：保存当前组件内部的临时 UI 或业务处理状态。
 const createProjectError = ref('')
+// 响应式状态：保存当前组件内部的临时 UI 或业务处理状态。
 const ragEnabled = ref(localStorage.getItem(RAG_STORAGE_KEY) === 'true')
 const collapsedReferenceFolderKeys = ref<Set<string>>(new Set())
 
+/**
+ * 用途：执行activeProjectId相关业务逻辑。
+ * 参数：无显式业务参数。
+ * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+ */
 const activeProjectId = computed(() => String(route.params.projectId || ''))
+/**
+ * 用途：执行activeSessionId相关业务逻辑。
+ * 参数：无显式业务参数。
+ * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+ */
 const activeSessionId = computed(() => String(route.params.sessionId || ''))
+/**
+ * 用途：执行isProjectMode相关业务逻辑。
+ * 参数：无显式业务参数。
+ * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+ */
 const isProjectMode = computed(() => Boolean(activeProjectId.value))
+/**
+ * 用途：执行activeProject相关业务逻辑。
+ * 参数：无显式业务参数。
+ * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+ */
 const activeProject = computed(() => projects.value.find((project) => project.id === activeProjectId.value) || null)
+/**
+ * 用途：执行effectiveRagEnabled相关业务逻辑。
+ * 参数：无显式业务参数。
+ * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+ */
 const effectiveRagEnabled = computed(() => ragEnabled.value || selectedRefs.value.length > 0)
+/**
+ * 用途：执行selectedReferenceKeys相关业务逻辑。
+ * 参数：无显式业务参数。
+ * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+ */
 const selectedReferenceKeys = computed(() => new Set(selectedRefs.value.map((ref) => `${ref.source_type}:${ref.source_id}`)))
 
+/**
+ * 用途：执行userId相关业务逻辑。
+ * 参数：无显式业务参数。
+ * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+ */
 const userId = computed(() => userStore.userInfo?.id || userStore.userInfo?.uuid || userStore.userInfo?.user_id || '')
+// 响应式状态：保存当前组件内部的临时 UI 或业务处理状态。
 const userAvatarLoadFailed = ref(false)
+/**
+ * 用途：执行userDisplayName相关业务逻辑。
+ * 参数：无显式业务参数。
+ * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+ */
 const userDisplayName = computed(() => userStore.userInfo?.username || userStore.userInfo?.email || '用户')
+/**
+ * 用途：执行userAvatarText相关业务逻辑。
+ * 参数：无显式业务参数。
+ * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+ */
 const userAvatarText = computed(() => {
   const name = userDisplayName.value.trim()
   return name ? name[0].toUpperCase() : 'U'
 })
+/**
+ * 用途：执行userAvatarUrl相关业务逻辑。
+ * 参数：无显式业务参数。
+ * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+ */
 const userAvatarUrl = computed(() => {
   if (userAvatarLoadFailed.value) return ''
   return userStore.userInfo?.avatar?.trim() || ''
 })
 
+/**
+ * 用途：执行projectSourceKeys相关业务逻辑。
+ * 参数：无显式业务参数。
+ * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+ */
 const projectSourceKeys = computed(() => new Set(projectSources.value.map((source) => `${source.source_type}:${source.source_id}`)))
+/**
+ * 用途：执行projectSourceByKey相关业务逻辑。
+ * 参数：无显式业务参数。
+ * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+ */
 const projectSourceByKey = computed(() => {
   const map = new Map<string, ProjectSource>()
   for (const source of projectSources.value) {
@@ -156,13 +263,38 @@ const projectSourceByKey = computed(() => {
   return map
 })
 
+/**
+ * 用途：执行notesById相关业务逻辑。
+ * 参数：无显式业务参数。
+ * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+ */
 const notesById = computed(() => new Map(notes.value.map((note) => [note.id, note])))
+/**
+ * 用途：执行docsById相关业务逻辑。
+ * 参数：无显式业务参数。
+ * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+ */
 const docsById = computed(() => new Map(docs.value.map((doc) => [doc.id, doc])))
+/**
+ * 用途：执行projectNoteSourceCount相关业务逻辑。
+ * 参数：无显式业务参数。
+ * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+ */
 const projectNoteSourceCount = computed(() => projectSources.value.filter((source) => source.source_type === 'note').length)
+/**
+ * 用途：执行projectKnowledgeSourceCount相关业务逻辑。
+ * 参数：无显式业务参数。
+ * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+ */
 const projectKnowledgeSourceCount = computed(() => projectSources.value.filter((source) => source.source_type === 'knowledge').length)
 
 let processingTimer: number | undefined
 
+/**
+ * 用途：执行addSourceOptions相关业务逻辑。
+ * 参数：无显式业务参数。
+ * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+ */
 const addSourceOptions = computed(() => {
   if (addSourceType.value === 'note') {
     return notes.value
@@ -174,6 +306,11 @@ const addSourceOptions = computed(() => {
     .map((doc) => ({ id: doc.id, title: doc.original_filename || doc.title || doc.filename }))
 })
 
+/**
+ * 用途：执行globalNoteReferenceFiles相关业务逻辑。
+ * 参数：无显式业务参数。
+ * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+ */
 const globalNoteReferenceFiles = computed<ReferenceFile[]>(() => notes.value.map((note) => ({
     id: note.id,
     folderId: note.folder_id,
@@ -182,6 +319,11 @@ const globalNoteReferenceFiles = computed<ReferenceFile[]>(() => notes.value.map
     sourceType: 'note' as const,
 })))
 
+/**
+ * 用途：执行globalKnowledgeReferenceFiles相关业务逻辑。
+ * 参数：无显式业务参数。
+ * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+ */
 const globalKnowledgeReferenceFiles = computed<ReferenceFile[]>(() => docs.value.map((doc) => ({
   id: doc.id,
   folderId: doc.folder_id,
@@ -190,6 +332,11 @@ const globalKnowledgeReferenceFiles = computed<ReferenceFile[]>(() => docs.value
   sourceType: 'knowledge' as const,
 })))
 
+/**
+ * 用途：执行projectNoteReferenceFiles相关业务逻辑。
+ * 参数：无显式业务参数。
+ * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+ */
 const projectNoteReferenceFiles = computed<ReferenceFile[]>(() => projectSources.value
   .filter((source) => source.source_type === 'note')
   .map((source) => {
@@ -203,6 +350,11 @@ const projectNoteReferenceFiles = computed<ReferenceFile[]>(() => projectSources
     }
   }))
 
+/**
+ * 用途：执行projectKnowledgeReferenceFiles相关业务逻辑。
+ * 参数：无显式业务参数。
+ * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+ */
 const projectKnowledgeReferenceFiles = computed<ReferenceFile[]>(() => projectSources.value
   .filter((source) => source.source_type === 'knowledge')
   .map((source) => {
@@ -216,6 +368,11 @@ const projectKnowledgeReferenceFiles = computed<ReferenceFile[]>(() => projectSo
     }
   }))
 
+/**
+ * 用途：执行noteReferenceRows相关业务逻辑。
+ * 参数：无显式业务参数。
+ * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+ */
 const noteReferenceRows = computed(() => buildReferenceTreeRows(
   noteFolders.value,
   globalNoteReferenceFiles.value,
@@ -225,6 +382,11 @@ const noteReferenceRows = computed(() => buildReferenceTreeRows(
   true,
 ))
 
+/**
+ * 用途：执行knowledgeReferenceRows相关业务逻辑。
+ * 参数：无显式业务参数。
+ * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+ */
 const knowledgeReferenceRows = computed(() => buildReferenceTreeRows(
   knowledgeFolders.value,
   globalKnowledgeReferenceFiles.value,
@@ -234,6 +396,11 @@ const knowledgeReferenceRows = computed(() => buildReferenceTreeRows(
   true,
 ))
 
+/**
+ * 用途：执行projectNoteReferenceRows相关业务逻辑。
+ * 参数：无显式业务参数。
+ * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+ */
 const projectNoteReferenceRows = computed(() => buildReferenceTreeRows(
   noteFolders.value,
   projectNoteReferenceFiles.value,
@@ -243,6 +410,11 @@ const projectNoteReferenceRows = computed(() => buildReferenceTreeRows(
   true,
 ))
 
+/**
+ * 用途：执行projectKnowledgeReferenceRows相关业务逻辑。
+ * 参数：无显式业务参数。
+ * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+ */
 const projectKnowledgeReferenceRows = computed(() => buildReferenceTreeRows(
   knowledgeFolders.value,
   projectKnowledgeReferenceFiles.value,
@@ -252,6 +424,11 @@ const projectKnowledgeReferenceRows = computed(() => buildReferenceTreeRows(
   true,
 ))
 
+/**
+ * 用途：执行filteredMentionSections相关业务逻辑。
+ * 参数：无显式业务参数。
+ * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+ */
 const filteredMentionSections = computed<MentionSection[]>(() => {
   const keyword = mentionSearch.value.trim().toLowerCase()
   const collapsedKeys = keyword ? new Set<string>() : collapsedReferenceFolderKeys.value
@@ -268,24 +445,50 @@ const filteredMentionSections = computed<MentionSection[]>(() => {
   ].filter((section) => section.rows.length)
 })
 
+/**
+ * 用途：执行getSourceIcon相关业务逻辑。
+ * @param type 调用方传入的type参数，用于驱动当前前端逻辑。
+ * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+ */
 function getSourceIcon(type: SourceRefType) {
   return type === 'note' ? FileText : Library
 }
 
+/**
+ * 用途：执行handleUserAvatarError相关业务逻辑。
+ * 参数：无显式业务参数。
+ * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+ */
 function handleUserAvatarError() {
   userAvatarLoadFailed.value = true
 }
 
+/**
+ * 用途：执行getKnowledgeTitle相关业务逻辑。
+ * @param doc 调用方传入的doc参数，用于驱动当前前端逻辑。
+ * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+ */
 function getKnowledgeTitle(doc: KnowledgeDocument) {
   return doc.original_filename || doc.title || doc.filename || '未命名文档'
 }
 
+/**
+ * 用途：执行filterMentionFiles相关业务逻辑。
+ * @param files 调用方传入的files参数，用于驱动当前前端逻辑。
+ * @param keyword 调用方传入的keyword参数，用于驱动当前前端逻辑。
+ * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+ */
 function filterMentionFiles(files: ReferenceFile[], keyword: string) {
   return files
     .filter((file) => !selectedReferenceKeys.value.has(`${file.sourceType}:${file.id}`))
     .filter((file) => !keyword || file.title.toLowerCase().includes(keyword) || file.subtitle.toLowerCase().includes(keyword))
 }
 
+/**
+ * 用途：执行buildReferenceTreeRows相关业务逻辑。
+ * 参数：无显式业务参数。
+ * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+ */
 function buildReferenceTreeRows(
   folders: ReferenceFolder[],
   files: ReferenceFile[],
@@ -304,11 +507,22 @@ function buildReferenceTreeRows(
     filesByFolder.set(folderKey, group)
   }
 
+  /**
+   * 用途：执行folderFileCount相关业务逻辑。
+   * @param folder 调用方传入的folder参数，用于驱动当前前端逻辑。
+   * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+   */
   const folderFileCount = (folder: ReferenceFolder): number => {
     const directCount = filesByFolder.get(folder.id)?.length || 0
     return directCount + (folder.children || []).reduce((sum, child) => sum + folderFileCount(child), 0)
   }
 
+  /**
+   * 用途：执行pushFileRows相关业务逻辑。
+   * @param group 调用方传入的group参数，用于驱动当前前端逻辑。
+   * @param depth 调用方传入的depth参数，用于驱动当前前端逻辑。
+   * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+   */
   const pushFileRows = (group: ReferenceFile[] | undefined, depth: number) => {
     for (const file of group || []) {
       rows.push({
@@ -323,6 +537,12 @@ function buildReferenceTreeRows(
     }
   }
 
+  /**
+   * 用途：执行walk相关业务逻辑。
+   * @param items 调用方传入的items参数，用于驱动当前前端逻辑。
+   * @param depth 调用方传入的depth参数，用于驱动当前前端逻辑。
+   * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+   */
   const walk = (items: ReferenceFolder[], depth: number) => {
     for (const folder of items) {
       const count = folderFileCount(folder)
@@ -370,6 +590,11 @@ function buildReferenceTreeRows(
   return rows
 }
 
+/**
+ * 用途：执行removeTreeProjectSource相关业务逻辑。
+ * @param row 调用方传入的row参数，用于驱动当前前端逻辑。
+ * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+ */
 function removeTreeProjectSource(row: ReferenceTreeRow) {
   if (row.kind !== 'file' || !row.sourceType || !row.sourceId) return
   const source = projectSourceByKey.value.get(`${row.sourceType}:${row.sourceId}`)
@@ -378,6 +603,11 @@ function removeTreeProjectSource(row: ReferenceTreeRow) {
   }
 }
 
+/**
+ * 用途：执行mentionOptionFromRow相关业务逻辑。
+ * @param row 调用方传入的row参数，用于驱动当前前端逻辑。
+ * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+ */
 function mentionOptionFromRow(row: ReferenceTreeRow): MentionOption | null {
   if (row.kind !== 'file' || !row.sourceType || !row.sourceId) return null
   return {
@@ -388,6 +618,11 @@ function mentionOptionFromRow(row: ReferenceTreeRow): MentionOption | null {
   }
 }
 
+/**
+ * 用途：执行addReference相关业务逻辑。
+ * @param option 调用方传入的option参数，用于驱动当前前端逻辑。
+ * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+ */
 function addReference(option: MentionOption) {
   if (!selectedReferenceKeys.value.has(`${option.source_type}:${option.source_id}`)) {
     selectedRefs.value.push(option)
@@ -395,6 +630,11 @@ function addReference(option: MentionOption) {
   ragEnabled.value = true
 }
 
+/**
+ * 用途：执行selectReferenceRow相关业务逻辑。
+ * @param row 调用方传入的row参数，用于驱动当前前端逻辑。
+ * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+ */
 function selectReferenceRow(row: ReferenceTreeRow) {
   const option = mentionOptionFromRow(row)
   if (!option) return
@@ -403,6 +643,11 @@ function selectReferenceRow(row: ReferenceTreeRow) {
   mentionSearch.value = ''
 }
 
+/**
+ * 用途：执行selectMentionRow相关业务逻辑。
+ * @param row 调用方传入的row参数，用于驱动当前前端逻辑。
+ * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+ */
 function selectMentionRow(row: ReferenceTreeRow) {
   const option = mentionOptionFromRow(row)
   if (option) {
@@ -410,12 +655,22 @@ function selectMentionRow(row: ReferenceTreeRow) {
   }
 }
 
+/**
+ * 用途：执行isReferenceSelected相关业务逻辑。
+ * @param row 调用方传入的row参数，用于驱动当前前端逻辑。
+ * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+ */
 function isReferenceSelected(row: ReferenceTreeRow) {
   return row.kind === 'file'
     && Boolean(row.sourceType && row.sourceId)
     && selectedReferenceKeys.value.has(`${row.sourceType}:${row.sourceId}`)
 }
 
+/**
+ * 用途：执行toggleReferenceFolder相关业务逻辑。
+ * @param row 调用方传入的row参数，用于驱动当前前端逻辑。
+ * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+ */
 function toggleReferenceFolder(row: ReferenceTreeRow) {
   if (row.kind !== 'folder') return
   const nextKeys = new Set(collapsedReferenceFolderKeys.value)
@@ -427,6 +682,11 @@ function toggleReferenceFolder(row: ReferenceTreeRow) {
   collapsedReferenceFolderKeys.value = nextKeys
 }
 
+/**
+ * 用途：执行sessionPath相关业务逻辑。
+ * @param session 调用方传入的session参数，用于驱动当前前端逻辑。
+ * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+ */
 function sessionPath(session: ChatSession) {
   if (session.project_id) {
     return `/chat/project/${session.project_id}/session/${session.id}`
@@ -434,14 +694,29 @@ function sessionPath(session: ChatSession) {
   return `/chat/session/${session.id}`
 }
 
+/**
+ * 用途：执行activeScopePath相关业务逻辑。
+ * 参数：无显式业务参数。
+ * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+ */
 function activeScopePath() {
   return activeProjectId.value ? `/chat/project/${activeProjectId.value}` : '/chat'
 }
 
+/**
+ * 用途：执行sessionsForProject相关业务逻辑。
+ * @param projectId 调用方传入的projectId参数，用于驱动当前前端逻辑。
+ * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+ */
 function sessionsForProject(projectId: string) {
   return projectSessionMap.value[projectId] || []
 }
 
+/**
+ * 用途：执行formatSessionTime相关业务逻辑。
+ * 参数：无显式业务参数。
+ * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+ */
 function formatSessionTime(value?: string | null) {
   if (!value) return ''
   const date = new Date(value)
@@ -459,6 +734,11 @@ function formatSessionTime(value?: string | null) {
   return `${date.getMonth() + 1}/${date.getDate()} ${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`
 }
 
+/**
+ * 用途：执行scrollToBottom相关业务逻辑。
+ * 参数：无显式业务参数。
+ * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+ */
 async function scrollToBottom() {
   await nextTick()
   if (messagesContainer.value) {
@@ -466,6 +746,11 @@ async function scrollToBottom() {
   }
 }
 
+/**
+ * 用途：执行startProcessingTimer相关业务逻辑。
+ * @param index 调用方传入的index参数，用于驱动当前前端逻辑。
+ * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+ */
 function startProcessingTimer(index: number) {
   clearProcessingTimer()
   activeAssistantIndex.value = index
@@ -478,6 +763,11 @@ function startProcessingTimer(index: number) {
   }, 1000)
 }
 
+/**
+ * 用途：执行finishProcessingTimer相关业务逻辑。
+ * @param status 调用方传入的status参数，用于驱动当前前端逻辑。
+ * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+ */
 function finishProcessingTimer(status: NonNullable<ChatMessage['status']> = 'done') {
   const index = activeAssistantIndex.value
   const seconds = updateProcessingElapsed(index)
@@ -493,6 +783,11 @@ function finishProcessingTimer(status: NonNullable<ChatMessage['status']> = 'don
   return seconds
 }
 
+/**
+ * 用途：执行clearProcessingTimer相关业务逻辑。
+ * 参数：无显式业务参数。
+ * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+ */
 function clearProcessingTimer() {
   if (processingTimer) {
     window.clearInterval(processingTimer)
@@ -503,6 +798,11 @@ function clearProcessingTimer() {
   processingElapsedSeconds.value = 0
 }
 
+/**
+ * 用途：执行updateProcessingElapsed相关业务逻辑。
+ * @param index 调用方传入的index参数，用于驱动当前前端逻辑。
+ * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+ */
 function updateProcessingElapsed(index = activeAssistantIndex.value) {
   if (index === null || !processingStartedAt.value) return processingElapsedSeconds.value
   const seconds = Math.max(0, Math.floor((Date.now() - processingStartedAt.value) / 1000))
@@ -514,6 +814,12 @@ function updateProcessingElapsed(index = activeAssistantIndex.value) {
   return seconds
 }
 
+/**
+ * 用途：执行setAssistantStatus相关业务逻辑。
+ * @param index 调用方传入的index参数，用于驱动当前前端逻辑。
+ * @param status 调用方传入的status参数，用于驱动当前前端逻辑。
+ * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+ */
 function setAssistantStatus(index: number, status: NonNullable<ChatMessage['status']>) {
   const message = messages.value[index]
   if (message?.role === 'assistant') {
@@ -521,18 +827,35 @@ function setAssistantStatus(index: number, status: NonNullable<ChatMessage['stat
   }
 }
 
+/**
+ * 用途：执行messageElapsedSeconds相关业务逻辑。
+ * @param message 调用方传入的message参数，用于驱动当前前端逻辑。
+ * @param index 调用方传入的index参数，用于驱动当前前端逻辑。
+ * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+ */
 function messageElapsedSeconds(message: ChatMessage, index: number) {
   if (message.role !== 'assistant') return null
   if (activeAssistantIndex.value === index) return processingElapsedSeconds.value
   return typeof message.elapsedSeconds === 'number' ? message.elapsedSeconds : null
 }
 
+/**
+ * 用途：执行processingMetaLabel相关业务逻辑。
+ * @param message 调用方传入的message参数，用于驱动当前前端逻辑。
+ * @param index 调用方传入的index参数，用于驱动当前前端逻辑。
+ * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+ */
 function processingMetaLabel(message: ChatMessage, index: number) {
   const seconds = messageElapsedSeconds(message, index)
   if (seconds === null) return ''
   return `已处理 ${formatProcessingSeconds(seconds)}`
 }
 
+/**
+ * 用途：执行formatProcessingSeconds相关业务逻辑。
+ * @param seconds 调用方传入的seconds参数，用于驱动当前前端逻辑。
+ * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+ */
 function formatProcessingSeconds(seconds: number) {
   if (seconds < 60) return `${seconds}s`
   const minutes = Math.floor(seconds / 60)
@@ -540,12 +863,23 @@ function formatProcessingSeconds(seconds: number) {
   return `${minutes}m ${String(rest).padStart(2, '0')}s`
 }
 
+/**
+ * 用途：执行shouldShowThinkingPlaceholder相关业务逻辑。
+ * @param message 调用方传入的message参数，用于驱动当前前端逻辑。
+ * @param index 调用方传入的index参数，用于驱动当前前端逻辑。
+ * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+ */
 function shouldShowThinkingPlaceholder(message: ChatMessage, index: number) {
   return message.role === 'assistant'
     && activeAssistantIndex.value === index
     && !message.content.trim()
 }
 
+/**
+ * 用途：执行loadSourceLibrary相关业务逻辑。
+ * 参数：无显式业务参数。
+ * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+ */
 async function loadSourceLibrary() {
   const [noteRes, docRes, noteFolderRes, knowledgeFolderRes] = await Promise.all([
     notesApi.list({ page: 1, page_size: 100 }),
@@ -559,11 +893,21 @@ async function loadSourceLibrary() {
   knowledgeFolders.value = knowledgeFolderRes.data.folders
 }
 
+/**
+ * 用途：执行loadProjects相关业务逻辑。
+ * 参数：无显式业务参数。
+ * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+ */
 async function loadProjects() {
   const res = await projectsApi.list()
   projects.value = res.data.projects
 }
 
+/**
+ * 用途：执行loadSessions相关业务逻辑。
+ * 参数：无显式业务参数。
+ * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+ */
 async function loadSessions() {
   if (!userId.value) return
   const normalRes = await sessionsApi.list(userId.value, null)
@@ -583,6 +927,11 @@ async function loadSessions() {
   projectSessionMap.value = Object.fromEntries(projectResults)
 }
 
+/**
+ * 用途：执行loadProjectSources相关业务逻辑。
+ * 参数：无显式业务参数。
+ * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+ */
 async function loadProjectSources() {
   if (!activeProjectId.value) {
     projectSources.value = []
@@ -592,6 +941,11 @@ async function loadProjectSources() {
   projectSources.value = res.data.sources
 }
 
+/**
+ * 用途：执行loadSessionHistory相关业务逻辑。
+ * @param sessionId 调用方传入的sessionId参数，用于驱动当前前端逻辑。
+ * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+ */
 async function loadSessionHistory(sessionId: string) {
   const res = await sessionsApi.get(sessionId)
   const historyMessages: ChatMessage[] = res.data.history.flatMap(([user, assistant]) => [
@@ -600,6 +954,11 @@ async function loadSessionHistory(sessionId: string) {
   ])
   const lastElapsed = responseTimingBySession.value[sessionId]
   if (typeof lastElapsed === 'number') {
+    /**
+     * 用途：执行lastAssistant相关业务逻辑。
+     * 参数：无显式业务参数。
+     * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+     */
     const lastAssistant = [...historyMessages].reverse().find((message) => message.role === 'assistant')
     if (lastAssistant) {
       lastAssistant.elapsedSeconds = lastElapsed
@@ -610,6 +969,11 @@ async function loadSessionHistory(sessionId: string) {
   await scrollToBottom()
 }
 
+/**
+ * 用途：执行refreshWorkspace相关业务逻辑。
+ * 参数：无显式业务参数。
+ * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+ */
 async function refreshWorkspace() {
   if (!userId.value) return
   contextLoading.value = true
@@ -632,18 +996,38 @@ async function refreshWorkspace() {
   }
 }
 
+/**
+ * 用途：执行openNormalChat相关业务逻辑。
+ * 参数：无显式业务参数。
+ * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+ */
 function openNormalChat() {
   void router.push('/chat')
 }
 
+/**
+ * 用途：执行openProject相关业务逻辑。
+ * @param projectId 调用方传入的projectId参数，用于驱动当前前端逻辑。
+ * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+ */
 function openProject(projectId: string) {
   void router.push(`/chat/project/${projectId}`)
 }
 
+/**
+ * 用途：执行openSession相关业务逻辑。
+ * @param session 调用方传入的session参数，用于驱动当前前端逻辑。
+ * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+ */
 function openSession(session: ChatSession) {
   void router.push(sessionPath(session))
 }
 
+/**
+ * 用途：执行newChat相关业务逻辑。
+ * 参数：无显式业务参数。
+ * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+ */
 function newChat() {
   clearProcessingTimer()
   messages.value = []
@@ -652,6 +1036,11 @@ function newChat() {
   void router.push(activeScopePath())
 }
 
+/**
+ * 用途：执行openCreateProjectModal相关业务逻辑。
+ * 参数：无显式业务参数。
+ * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+ */
 async function openCreateProjectModal() {
   newProjectName.value = ''
   newProjectDescription.value = ''
@@ -661,11 +1050,21 @@ async function openCreateProjectModal() {
   projectNameInput.value?.focus()
 }
 
+/**
+ * 用途：执行closeCreateProjectModal相关业务逻辑。
+ * 参数：无显式业务参数。
+ * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+ */
 function closeCreateProjectModal() {
   if (createProjectLoading.value) return
   createProjectModalOpen.value = false
 }
 
+/**
+ * 用途：执行submitCreateProject相关业务逻辑。
+ * 参数：无显式业务参数。
+ * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+ */
 async function submitCreateProject() {
   const name = newProjectName.value.trim()
   if (!name) {
@@ -691,6 +1090,11 @@ async function submitCreateProject() {
   }
 }
 
+/**
+ * 用途：执行deleteProject相关业务逻辑。
+ * @param project 调用方传入的project参数，用于驱动当前前端逻辑。
+ * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+ */
 async function deleteProject(project: ChatProject) {
   const confirmed = await confirmDialog({
     title: '删除项目',
@@ -704,6 +1108,11 @@ async function deleteProject(project: ChatProject) {
   await refreshWorkspace()
 }
 
+/**
+ * 用途：执行deleteSession相关业务逻辑。
+ * @param session 调用方传入的session参数，用于驱动当前前端逻辑。
+ * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+ */
 async function deleteSession(session: ChatSession) {
   const confirmed = await confirmDialog({
     title: '删除对话',
@@ -719,6 +1128,11 @@ async function deleteSession(session: ChatSession) {
   await loadSessions()
 }
 
+/**
+ * 用途：执行handleComposerInput相关业务逻辑。
+ * 参数：无显式业务参数。
+ * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+ */
 function handleComposerInput() {
   const atIndex = query.value.lastIndexOf('@')
   if (atIndex < 0) {
@@ -736,6 +1150,11 @@ function handleComposerInput() {
   showMention.value = true
 }
 
+/**
+ * 用途：执行selectMention相关业务逻辑。
+ * @param option 调用方传入的option参数，用于驱动当前前端逻辑。
+ * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+ */
 function selectMention(option: MentionOption) {
   addReference(option)
   const atIndex = query.value.lastIndexOf('@')
@@ -746,14 +1165,29 @@ function selectMention(option: MentionOption) {
   mentionSearch.value = ''
 }
 
+/**
+ * 用途：执行removeReference相关业务逻辑。
+ * @param ref 调用方传入的ref参数，用于驱动当前前端逻辑。
+ * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+ */
 function removeReference(ref: ChatSourceRef) {
   selectedRefs.value = selectedRefs.value.filter((item) => !(item.source_type === ref.source_type && item.source_id === ref.source_id))
 }
 
+/**
+ * 用途：执行toggleRag相关业务逻辑。
+ * 参数：无显式业务参数。
+ * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+ */
 function toggleRag() {
   ragEnabled.value = !ragEnabled.value
 }
 
+/**
+ * 用途：执行parseSseBlock相关业务逻辑。
+ * @param block 调用方传入的block参数，用于驱动当前前端逻辑。
+ * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+ */
 function parseSseBlock(block: string): SSEMessage | null {
   const data = block
     .split(/\r?\n/)
@@ -765,10 +1199,20 @@ function parseSseBlock(block: string): SSEMessage | null {
   return JSON.parse(data) as SSEMessage
 }
 
+/**
+ * 用途：执行send相关业务逻辑。
+ * 参数：无显式业务参数。
+ * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+ */
 async function send() {
   const current = query.value.trim()
   if (!current || loading.value) return
 
+  /**
+   * 用途：执行references相关业务逻辑。
+   * 参数：无显式业务参数。
+   * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+   */
   const references = selectedRefs.value.map((ref) => ({ source_type: ref.source_type, source_id: ref.source_id }))
   const request: ChatQueryRequest = { query: current, rag_enabled: effectiveRagEnabled.value }
   if (activeSessionId.value) request.session_id = activeSessionId.value
@@ -790,6 +1234,11 @@ async function send() {
   let buffer = ''
   let responseElapsed = 0
   let processingFinished = false
+  /**
+   * 用途：执行finishCurrentResponse相关业务逻辑。
+   * @param status 调用方传入的status参数，用于驱动当前前端逻辑。
+   * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+   */
   const finishCurrentResponse = (status: NonNullable<ChatMessage['status']>) => {
     if (!processingFinished) {
       responseElapsed = finishProcessingTimer(status)
@@ -862,6 +1311,11 @@ async function send() {
   }
 }
 
+/**
+ * 用途：执行addExistingSource相关业务逻辑。
+ * 参数：无显式业务参数。
+ * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+ */
 async function addExistingSource() {
   if (!activeProjectId.value || !addSourceId.value) return
   await projectsApi.addSources(activeProjectId.value, [{ source_type: addSourceType.value, source_id: addSourceId.value }])
@@ -870,6 +1324,11 @@ async function addExistingSource() {
   await loadProjects()
 }
 
+/**
+ * 用途：执行removeProjectSource相关业务逻辑。
+ * @param source 调用方传入的source参数，用于驱动当前前端逻辑。
+ * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+ */
 async function removeProjectSource(source: ProjectSource) {
   if (!activeProjectId.value) return
   await projectsApi.removeSource(activeProjectId.value, { source_type: source.source_type, source_id: source.source_id })
@@ -877,14 +1336,29 @@ async function removeProjectSource(source: ProjectSource) {
   await loadProjects()
 }
 
+/**
+ * 用途：执行openKnowledgePicker相关业务逻辑。
+ * 参数：无显式业务参数。
+ * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+ */
 function openKnowledgePicker() {
   knowledgeFileInput.value?.click()
 }
 
+/**
+ * 用途：执行openNotePicker相关业务逻辑。
+ * 参数：无显式业务参数。
+ * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+ */
 function openNotePicker() {
   noteFileInput.value?.click()
 }
 
+/**
+ * 用途：执行uploadKnowledgeFiles相关业务逻辑。
+ * @param event 调用方传入的event参数，用于驱动当前前端逻辑。
+ * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+ */
 async function uploadKnowledgeFiles(event: Event) {
   const input = event.target as HTMLInputElement
   const files = Array.from(input.files || [])
@@ -904,6 +1378,11 @@ async function uploadKnowledgeFiles(event: Event) {
   }
 }
 
+/**
+ * 用途：执行importNoteFile相关业务逻辑。
+ * @param event 调用方传入的event参数，用于驱动当前前端逻辑。
+ * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+ */
 async function importNoteFile(event: Event) {
   const input = event.target as HTMLInputElement
   const file = input.files?.[0]
@@ -919,14 +1398,17 @@ async function importNoteFile(event: Event) {
   }
 }
 
+// 状态监听：在关键输入变化后同步副作用或刷新页面数据。
 watch(() => [route.fullPath, userId.value], () => {
   void refreshWorkspace()
 }, { immediate: true })
 
+// 状态监听：在关键输入变化后同步副作用或刷新页面数据。
 watch(() => userStore.userInfo?.avatar, () => {
   userAvatarLoadFailed.value = false
 })
 
+// 状态监听：在关键输入变化后同步副作用或刷新页面数据。
 watch(ragEnabled, (value) => {
   localStorage.setItem(RAG_STORAGE_KEY, value ? 'true' : 'false')
 })

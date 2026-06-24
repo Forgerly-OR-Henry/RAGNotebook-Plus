@@ -1,3 +1,7 @@
+<!--
+模块职责：知识库列表界面，负责上传、分类、文件夹、批量操作和文档预览入口。
+主要协作：通过组合 API、状态、组件和路由来支撑当前页面或功能。
+-->
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
@@ -21,6 +25,10 @@ import { readJsonPref } from '../api/localPrefs'
 import { confirmDialog } from '../composables/useAppDialog'
 import type { KnowledgeDocument, KnowledgeFolder } from '../types/api'
 
+/**
+ * 类型：`ApiError` 描述当前业务域中的数据结构。
+ * 字段含义应与后端接口、组件入参或本地状态保持一致。
+ */
 type ApiError = {
   message?: string
   response?: {
@@ -31,13 +39,25 @@ type ApiError = {
   }
 }
 
+/**
+ * 类型：`FolderMode` 描述当前业务域中的数据结构。
+ * 字段含义应与后端接口、组件入参或本地状态保持一致。
+ */
 type FolderMode = 'all' | 'unfiled' | 'folder'
 
+/**
+ * 接口：`FolderRow` 描述当前业务域中的数据结构。
+ * 字段含义应与后端接口、组件入参或本地状态保持一致。
+ */
 interface FolderRow {
   folder: KnowledgeFolder
   depth: number
 }
 
+/**
+ * 接口：`FolderOption` 描述当前业务域中的数据结构。
+ * 字段含义应与后端接口、组件入参或本地状态保持一致。
+ */
 interface FolderOption {
   id: string
   name: string
@@ -48,33 +68,50 @@ interface FolderOption {
 const router = useRouter()
 
 const documents = ref<KnowledgeDocument[]>([])
+// 响应式状态：保存当前组件内部的临时 UI 或业务处理状态。
 const loading = ref(false)
+// 响应式状态：保存当前组件内部的临时 UI 或业务处理状态。
 const uploading = ref(false)
+// 响应式状态：保存当前组件内部的临时 UI 或业务处理状态。
 const deletingId = ref('')
+// 响应式状态：保存当前组件内部的临时 UI 或业务处理状态。
 const pinningId = ref('')
+// 响应式状态：保存当前组件内部的临时 UI 或业务处理状态。
 const searchQuery = ref('')
+// 响应式状态：保存当前组件内部的临时 UI 或业务处理状态。
 const category = ref('')
+// 响应式状态：保存当前组件内部的临时 UI 或业务处理状态。
 const message = ref('')
+// 响应式状态：保存当前组件内部的临时 UI 或业务处理状态。
 const errorMessage = ref('')
+// 响应式状态：保存当前组件内部的临时 UI 或业务处理状态。
 const folderError = ref('')
+// 响应式状态：保存当前组件内部的临时 UI 或业务处理状态。
 const progressMessage = ref('')
+// 响应式状态：保存当前组件内部的临时 UI 或业务处理状态。
 const progressValue = ref(0)
 const fileInput = ref<HTMLInputElement | null>(null)
 
 const folders = ref<KnowledgeFolder[]>([])
+// 响应式状态：保存当前组件内部的临时 UI 或业务处理状态。
 const totalDocumentCount = ref(0)
+// 响应式状态：保存当前组件内部的临时 UI 或业务处理状态。
 const unfiledCount = ref(0)
 const activeFolderMode = ref<FolderMode>('all')
 const activeFolderId = ref<string | null>(null)
 const expandedFolderIds = ref<Set<string>>(new Set())
 
+// 响应式状态：保存当前组件内部的临时 UI 或业务处理状态。
 const folderDialogOpen = ref(false)
 const folderDialogMode = ref<'create' | 'edit'>('create')
+// 响应式状态：保存当前组件内部的临时 UI 或业务处理状态。
 const folderFormName = ref('')
 const folderFormParentId = ref<string | null>(null)
 const editingFolder = ref<KnowledgeFolder | null>(null)
 const deleteFolderTarget = ref<KnowledgeFolder | null>(null)
+// 响应式状态：保存当前组件内部的临时 UI 或业务处理状态。
 const movingFolder = ref(false)
+// 响应式状态：保存当前组件内部的临时 UI 或业务处理状态。
 const manageOpen = ref(false)
 const extraCategories = ref<string[]>([])
 const categoryCounts = ref<Record<string, number>>({})
@@ -102,10 +139,21 @@ const typeLabels: Record<string, string> = {
   document: '文档',
 }
 
+// 响应式状态：保存当前组件内部的临时 UI 或业务处理状态。
 const allCategories = ref(PREDEFINED_CATEGORIES)
 
+/**
+ * 用途：执行folderNameById相关业务逻辑。
+ * 参数：无显式业务参数。
+ * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+ */
 const folderNameById = computed(() => {
   const map = new Map<string, string>()
+  /**
+   * 用途：执行walk相关业务逻辑。
+   * @param nodes 调用方传入的nodes参数，用于驱动当前前端逻辑。
+   * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+   */
   const walk = (nodes: KnowledgeFolder[]) => {
     for (const node of nodes) {
       map.set(node.id, node.name)
@@ -116,13 +164,29 @@ const folderNameById = computed(() => {
   return map
 })
 
+/**
+ * 用途：执行folderOptions相关业务逻辑。
+ * 参数：无显式业务参数。
+ * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+ */
 const folderOptions = computed<FolderOption[]>(() => flattenFolders(folders.value, false))
+/**
+ * 用途：执行visibleFolderRows相关业务逻辑。
+ * 参数：无显式业务参数。
+ * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+ */
 const visibleFolderRows = computed<FolderRow[]>(() => flattenFolders(folders.value, true))
+/**
+ * 用途：执行activeFolderTitle相关业务逻辑。
+ * 参数：无显式业务参数。
+ * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+ */
 const activeFolderTitle = computed(() => {
   if (activeFolderMode.value === 'unfiled') return '未归档'
   if (activeFolderMode.value === 'folder') return folderName(activeFolderId.value) || '文件夹'
   return '全部文档'
 })
+// 派生状态：根据 props、store 或本地状态计算模板直接使用的数据。
 const activeFolderSelect = computed({
   get() {
     if (activeFolderMode.value === 'folder' && activeFolderId.value) return `folder:${activeFolderId.value}`
@@ -138,6 +202,11 @@ const activeFolderSelect = computed({
     }
   },
 })
+/**
+ * 用途：执行parentOptions相关业务逻辑。
+ * 参数：无显式业务参数。
+ * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+ */
 const parentOptions = computed(() => {
   if (!editingFolder.value) return folderOptions.value
   const blocked = new Set(descendantIds(editingFolder.value))
@@ -145,6 +214,13 @@ const parentOptions = computed(() => {
   return folderOptions.value.filter((item) => !blocked.has(item.id))
 })
 
+/**
+ * 用途：执行flattenFolders相关业务逻辑。
+ * @param items 调用方传入的items参数，用于驱动当前前端逻辑。
+ * @param visibleOnly 调用方传入的visibleOnly参数，用于驱动当前前端逻辑。
+ * @param depth 调用方传入的depth参数，用于驱动当前前端逻辑。
+ * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+ */
 function flattenFolders(items: KnowledgeFolder[], visibleOnly: boolean, depth = 0): FolderOption[] {
   const rows: FolderOption[] = []
   for (const folder of items) {
@@ -156,6 +232,11 @@ function flattenFolders(items: KnowledgeFolder[], visibleOnly: boolean, depth = 
   return rows
 }
 
+/**
+ * 用途：执行descendantIds相关业务逻辑。
+ * @param folder 调用方传入的folder参数，用于驱动当前前端逻辑。
+ * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+ */
 function descendantIds(folder: KnowledgeFolder): string[] {
   const ids: string[] = []
   for (const child of folder.children || []) {
@@ -164,6 +245,12 @@ function descendantIds(folder: KnowledgeFolder): string[] {
   return ids
 }
 
+/**
+ * 用途：执行getErrorMessage相关业务逻辑。
+ * @param error 调用方传入的error参数，用于驱动当前前端逻辑。
+ * @param fallback 调用方传入的fallback参数，用于驱动当前前端逻辑。
+ * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+ */
 function getErrorMessage(error: unknown, fallback: string) {
   const apiError = error as ApiError
   const detail = apiError.response?.data?.detail
@@ -174,10 +261,20 @@ function getErrorMessage(error: unknown, fallback: string) {
   return apiError.response?.data?.message || apiError.message || fallback
 }
 
+/**
+ * 用途：执行getDocumentTitle相关业务逻辑。
+ * @param doc 调用方传入的doc参数，用于驱动当前前端逻辑。
+ * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+ */
 function getDocumentTitle(doc: KnowledgeDocument) {
   return doc.original_filename || doc.title || doc.filename
 }
 
+/**
+ * 用途：执行getExtension相关业务逻辑。
+ * @param doc 调用方传入的doc参数，用于驱动当前前端逻辑。
+ * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+ */
 function getExtension(doc: KnowledgeDocument) {
   const explicitExt = doc.file_ext?.trim().toLowerCase()
   if (explicitExt) return explicitExt.startsWith('.') ? explicitExt : `.${explicitExt}`
@@ -185,14 +282,30 @@ function getExtension(doc: KnowledgeDocument) {
   return match?.[0].toLowerCase() || ''
 }
 
+/**
+ * 用途：执行normalizeText相关业务逻辑。
+ * 参数：无显式业务参数。
+ * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+ */
 function normalizeText(value?: string | null) {
   return (value || '').toLowerCase().replace(/\s+/g, '')
 }
 
+/**
+ * 用途：执行normalizePreview相关业务逻辑。
+ * 参数：无显式业务参数。
+ * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+ */
 function normalizePreview(value?: string | null) {
   return (value || '').replace(/\s+/g, ' ').trim()
 }
 
+/**
+ * 用途：执行isSubsequence相关业务逻辑。
+ * @param needle 调用方传入的needle参数，用于驱动当前前端逻辑。
+ * @param haystack 调用方传入的haystack参数，用于驱动当前前端逻辑。
+ * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+ */
 function isSubsequence(needle: string, haystack: string) {
   if (!needle) return true
   let index = 0
@@ -205,6 +318,11 @@ function isSubsequence(needle: string, haystack: string) {
   return false
 }
 
+/**
+ * 用途：执行isAiSummaryDocument相关业务逻辑。
+ * @param doc 调用方传入的doc参数，用于驱动当前前端逻辑。
+ * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+ */
 function isAiSummaryDocument(doc: KnowledgeDocument) {
   const corpus = normalizeText([
     doc.title,
@@ -216,6 +334,11 @@ function isAiSummaryDocument(doc: KnowledgeDocument) {
   return corpus.includes('ai总结') || corpus.includes('aisummary') || corpus.includes('summary') || corpus.includes('总结')
 }
 
+/**
+ * 用途：执行getDocumentType相关业务逻辑。
+ * @param doc 调用方传入的doc参数，用于驱动当前前端逻辑。
+ * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+ */
 function getDocumentType(doc: KnowledgeDocument) {
   if (isAiSummaryDocument(doc)) return 'ai-summary'
   const ext = getExtension(doc)
@@ -227,10 +350,20 @@ function getDocumentType(doc: KnowledgeDocument) {
   return 'document'
 }
 
+/**
+ * 用途：执行getDocumentTypeLabel相关业务逻辑。
+ * @param doc 调用方传入的doc参数，用于驱动当前前端逻辑。
+ * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+ */
 function getDocumentTypeLabel(doc: KnowledgeDocument) {
   return typeLabels[getDocumentType(doc)] || '文档'
 }
 
+/**
+ * 用途：执行getDocumentPreview相关业务逻辑。
+ * @param doc 调用方传入的doc参数，用于驱动当前前端逻辑。
+ * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+ */
 function getDocumentPreview(doc: KnowledgeDocument) {
   const preview = normalizePreview(doc.preview)
   if (preview) return preview
@@ -239,6 +372,11 @@ function getDocumentPreview(doc: KnowledgeDocument) {
   return '暂无预览内容'
 }
 
+/**
+ * 用途：执行formatDate相关业务逻辑。
+ * 参数：无显式业务参数。
+ * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+ */
 function formatDate(value?: string | null) {
   if (!value) return ''
   const date = new Date(value)
@@ -246,26 +384,51 @@ function formatDate(value?: string | null) {
   return date.toLocaleDateString('zh-CN', { month: 'short', day: 'numeric' })
 }
 
+/**
+ * 用途：执行folderName相关业务逻辑。
+ * @param folderId 调用方传入的folderId参数，用于驱动当前前端逻辑。
+ * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+ */
 function folderName(folderId: string | null | undefined) {
   if (!folderId) return ''
   return folderNameById.value.get(folderId) || folderOptions.value.find((item) => item.id === folderId)?.name || `文件夹（${folderId.slice(0, 6)}）`
 }
 
+/**
+ * 用途：执行folderOptionLabel相关业务逻辑。
+ * @param item 调用方传入的item参数，用于驱动当前前端逻辑。
+ * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+ */
 function folderOptionLabel(item: FolderOption) {
   const prefix = '-- '.repeat(item.depth)
   const name = item.name || `文件夹（${item.id.slice(0, 6)}）`
   return `${prefix}${name}`
 }
 
+/**
+ * 用途：执行categoryLabel相关业务逻辑。
+ * @param value 调用方传入的value参数，用于驱动当前前端逻辑。
+ * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+ */
 function categoryLabel(value: string | null | undefined) {
   if (!value) return ''
   return allCategories.value.find((item) => item.value === value)?.label || value
 }
 
+/**
+ * 用途：执行getSavedOrder相关业务逻辑。
+ * 参数：无显式业务参数。
+ * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+ */
 function getSavedOrder(): string[] {
   return readJsonPref<string[]>(CATEGORY_ORDER_KEY, [])
 }
 
+/**
+ * 用途：执行buildCategoryList相关业务逻辑。
+ * @param customCategories 调用方传入的customCategories参数，用于驱动当前前端逻辑。
+ * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+ */
 function buildCategoryList(customCategories: string[]) {
   const list = PREDEFINED_CATEGORIES.slice()
   for (const item of customCategories) {
@@ -276,6 +439,11 @@ function buildCategoryList(customCategories: string[]) {
 
   const order = getSavedOrder()
   if (order.length === 0) return list
+  /**
+   * 用途：执行orderIndex相关业务逻辑。
+   * 参数：无显式业务参数。
+   * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+   */
   const orderIndex = new Map(order.map((value, index) => [value, index]))
 
   return list.sort((a, b) => {
@@ -290,6 +458,11 @@ function buildCategoryList(customCategories: string[]) {
   })
 }
 
+/**
+ * 用途：执行matchesQuery相关业务逻辑。
+ * @param doc 调用方传入的doc参数，用于驱动当前前端逻辑。
+ * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+ */
 function matchesQuery(doc: KnowledgeDocument) {
   const compactQuery = normalizeText(searchQuery.value)
   if (!compactQuery) return true
@@ -307,9 +480,24 @@ function matchesQuery(doc: KnowledgeDocument) {
   return corpus.includes(compactQuery) || isSubsequence(compactQuery, corpus)
 }
 
+/**
+ * 用途：执行filteredDocuments相关业务逻辑。
+ * 参数：无显式业务参数。
+ * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+ */
 const filteredDocuments = computed(() => documents.value.filter((doc) => matchesQuery(doc)))
+/**
+ * 用途：执行documentCount相关业务逻辑。
+ * 参数：无显式业务参数。
+ * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+ */
 const documentCount = computed(() => filteredDocuments.value.length)
 
+/**
+ * 用途：执行sortPinned相关业务逻辑。
+ * @param items 调用方传入的items参数，用于驱动当前前端逻辑。
+ * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+ */
 function sortPinned(items: KnowledgeDocument[]) {
   return [...items].sort((a, b) => {
     if (a.is_pinned && !b.is_pinned) return -1
@@ -318,8 +506,18 @@ function sortPinned(items: KnowledgeDocument[]) {
   })
 }
 
+/**
+ * 用途：执行folderFilterParams相关业务逻辑。
+ * 参数：无显式业务参数。
+ * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+ */
 function folderFilterParams() {
   if (activeFolderMode.value === 'folder' && activeFolderId.value) {
+    /**
+     * 用途：执行exists相关业务逻辑。
+     * 参数：无显式业务参数。
+     * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+     */
     const exists = folderOptions.value.some((item) => item.id === activeFolderId.value)
     if (!exists) {
       activeFolderMode.value = 'all'
@@ -332,6 +530,11 @@ function folderFilterParams() {
   return {}
 }
 
+/**
+ * 用途：执行refreshCategories相关业务逻辑。
+ * @param extra 调用方传入的extra参数，用于驱动当前前端逻辑。
+ * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+ */
 async function refreshCategories(extra = extraCategories.value) {
   try {
     const res = await knowledgeApi.stats()
@@ -341,6 +544,11 @@ async function refreshCategories(extra = extraCategories.value) {
       counts[item.category] = item.count
     }
     categoryCounts.value = counts
+    /**
+     * 用途：执行all相关业务逻辑。
+     * 参数：无显式业务参数。
+     * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+     */
     const all = [...new Set([...statsCats.map((item) => item.category), ...extra])]
     allCategories.value = buildCategoryList(all)
     if (category.value && !allCategories.value.some((item) => item.value === category.value)) {
@@ -351,6 +559,11 @@ async function refreshCategories(extra = extraCategories.value) {
   }
 }
 
+/**
+ * 用途：执行loadFolders相关业务逻辑。
+ * 参数：无显式业务参数。
+ * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+ */
 async function loadFolders() {
   folderError.value = ''
   try {
@@ -358,6 +571,11 @@ async function loadFolders() {
     folders.value = res.data.folders || []
     totalDocumentCount.value = res.data.total_count || 0
     unfiledCount.value = res.data.unfiled_count || 0
+    /**
+     * 用途：执行known相关业务逻辑。
+     * 参数：无显式业务参数。
+     * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+     */
     const known = new Set(folderOptions.value.map((item) => item.id))
     if (activeFolderMode.value === 'folder' && activeFolderId.value && !known.has(activeFolderId.value)) {
       selectFolder('all')
@@ -368,6 +586,11 @@ async function loadFolders() {
   }
 }
 
+/**
+ * 用途：执行load相关业务逻辑。
+ * 参数：无显式业务参数。
+ * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+ */
 async function load() {
   loading.value = true
   message.value = ''
@@ -386,22 +609,43 @@ async function load() {
   }
 }
 
+/**
+ * 用途：执行refreshAll相关业务逻辑。
+ * 参数：无显式业务参数。
+ * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+ */
 async function refreshAll() {
   await loadFolders()
   await refreshCategories()
   await load()
 }
 
+/**
+ * 用途：执行resetAndLoad相关业务逻辑。
+ * 参数：无显式业务参数。
+ * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+ */
 function resetAndLoad() {
   void load()
 }
 
+/**
+ * 用途：执行selectFolder相关业务逻辑。
+ * @param mode 调用方传入的mode参数，用于驱动当前前端逻辑。
+ * @param folderId 调用方传入的folderId参数，用于驱动当前前端逻辑。
+ * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+ */
 function selectFolder(mode: FolderMode, folderId: string | null = null) {
   activeFolderMode.value = mode
   activeFolderId.value = mode === 'folder' ? folderId : null
   resetAndLoad()
 }
 
+/**
+ * 用途：执行toggleFolder相关业务逻辑。
+ * @param folderId 调用方传入的folderId参数，用于驱动当前前端逻辑。
+ * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+ */
 function toggleFolder(folderId: string) {
   const next = new Set(expandedFolderIds.value)
   if (next.has(folderId)) next.delete(folderId)
@@ -409,6 +653,11 @@ function toggleFolder(folderId: string) {
   expandedFolderIds.value = next
 }
 
+/**
+ * 用途：执行openCreateFolder相关业务逻辑。
+ * @param parentId 调用方传入的parentId参数，用于驱动当前前端逻辑。
+ * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+ */
 function openCreateFolder(parentId: string | null = null) {
   folderDialogMode.value = 'create'
   editingFolder.value = null
@@ -417,6 +666,11 @@ function openCreateFolder(parentId: string | null = null) {
   folderDialogOpen.value = true
 }
 
+/**
+ * 用途：执行openEditFolder相关业务逻辑。
+ * @param folder 调用方传入的folder参数，用于驱动当前前端逻辑。
+ * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+ */
 function openEditFolder(folder: KnowledgeFolder) {
   folderDialogMode.value = 'edit'
   editingFolder.value = folder
@@ -425,6 +679,11 @@ function openEditFolder(folder: KnowledgeFolder) {
   folderDialogOpen.value = true
 }
 
+/**
+ * 用途：执行saveFolder相关业务逻辑。
+ * 参数：无显式业务参数。
+ * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+ */
 async function saveFolder() {
   const name = folderFormName.value.trim()
   if (!name || movingFolder.value) return
@@ -451,6 +710,11 @@ async function saveFolder() {
   }
 }
 
+/**
+ * 用途：执行deleteFolder相关业务逻辑。
+ * @param mode 调用方传入的mode参数，用于驱动当前前端逻辑。
+ * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+ */
 async function deleteFolder(mode: 'unfile' | 'delete_documents') {
   const target = deleteFolderTarget.value
   if (!target) return
@@ -468,14 +732,29 @@ async function deleteFolder(mode: 'unfile' | 'delete_documents') {
   }
 }
 
+/**
+ * 用途：执行openFilePicker相关业务逻辑。
+ * 参数：无显式业务参数。
+ * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+ */
 function openFilePicker() {
   if (!uploading.value) fileInput.value?.click()
 }
 
+/**
+ * 用途：执行currentFolderIdForUpload相关业务逻辑。
+ * 参数：无显式业务参数。
+ * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+ */
 function currentFolderIdForUpload(): string | null {
   return activeFolderMode.value === 'folder' ? activeFolderId.value : null
 }
 
+/**
+ * 用途：执行uploadFiles相关业务逻辑。
+ * @param fileList 调用方传入的fileList参数，用于驱动当前前端逻辑。
+ * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+ */
 async function uploadFiles(fileList: FileList | File[]) {
   const files = Array.from(fileList)
   if (!files.length || uploading.value) return
@@ -513,16 +792,31 @@ async function uploadFiles(fileList: FileList | File[]) {
   }
 }
 
+/**
+ * 用途：执行handleFileChange相关业务逻辑。
+ * @param event 调用方传入的event参数，用于驱动当前前端逻辑。
+ * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+ */
 async function handleFileChange(event: Event) {
   const input = event.target as HTMLInputElement
   if (input.files) await uploadFiles(input.files)
   input.value = ''
 }
 
+/**
+ * 用途：执行openDocument相关业务逻辑。
+ * @param documentId 调用方传入的documentId参数，用于驱动当前前端逻辑。
+ * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+ */
 function openDocument(documentId: string) {
   void router.push(`/knowledge/${documentId}`)
 }
 
+/**
+ * 用途：执行togglePin相关业务逻辑。
+ * @param doc 调用方传入的doc参数，用于驱动当前前端逻辑。
+ * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+ */
 async function togglePin(doc: KnowledgeDocument) {
   if (pinningId.value) return
   pinningId.value = doc.id
@@ -538,6 +832,11 @@ async function togglePin(doc: KnowledgeDocument) {
   }
 }
 
+/**
+ * 用途：执行deleteDocument相关业务逻辑。
+ * @param doc 调用方传入的doc参数，用于驱动当前前端逻辑。
+ * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+ */
 async function deleteDocument(doc: KnowledgeDocument) {
   if (deletingId.value) return
   const filename = getDocumentTitle(doc)
@@ -563,6 +862,11 @@ async function deleteDocument(doc: KnowledgeDocument) {
   }
 }
 
+/**
+ * 用途：执行createCategory相关业务逻辑。
+ * @param name 调用方传入的name参数，用于驱动当前前端逻辑。
+ * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+ */
 function createCategory(name: string) {
   if (!extraCategories.value.includes(name)) {
     extraCategories.value = [...extraCategories.value, name]
@@ -573,10 +877,12 @@ onMounted(() => {
   void refreshAll()
 })
 
+// 状态监听：在关键输入变化后同步副作用或刷新页面数据。
 watch(category, () => {
   resetAndLoad()
 })
 
+// 状态监听：在关键输入变化后同步副作用或刷新页面数据。
 watch(extraCategories, () => {
   void refreshCategories()
 }, { deep: true })

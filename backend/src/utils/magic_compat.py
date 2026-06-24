@@ -1,3 +1,9 @@
+"""
+模块职责：通用工具模块，提供跨业务复用的配置、文件、路径或安全辅助函数。
+
+主要协作：本文件只声明当前模块的职责边界，运行时行为由下方函数、类和依赖对象共同完成。
+"""
+
 from __future__ import annotations
 
 import os
@@ -7,6 +13,13 @@ from pathlib import Path
 
 
 def ensure_magic_dll_path() -> None:
+    """
+    用途：校验并确保ensure magic dll path相关的数据或流程。
+
+    参数：无显式业务参数。
+
+    返回：None；返回值供调用方继续编排业务流程或生成接口响应。
+    """
     if sys.platform != "win32":
         return
 

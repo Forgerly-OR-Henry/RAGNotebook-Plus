@@ -1,3 +1,9 @@
+"""
+模块职责：Agent 能力模块，负责检索增强、模型调用、工具编排或文档处理。
+
+主要协作：本文件只声明当前模块的职责边界，运行时行为由下方函数、类和依赖对象共同完成。
+"""
+
 import datetime
 from collections.abc import Awaitable, Callable
 from contextvars import ContextVar
@@ -10,6 +16,16 @@ from utils.auth_utils import decode_django_jwt
 
 @dataclass
 class AgentToolCallbacks:
+    """
+    用途：领域对象或协作组件，用于承载本模块内的核心状态和行为。
+
+    属性：
+    - rag_summary（Callable[[str, str | None, Callable | None], Awaitable[str]] | None）：保存rag_summary相关状态、配置或数据字段。
+    - search_notes（Callable[[str, int, str], Awaitable[str]] | None）：保存search_notes相关状态、配置或数据字段。
+    - note_stats（Callable[[str], Awaitable[str]] | None）：保存note_stats相关状态、配置或数据字段。
+    - create_note（Callable[[str, str, str], Awaitable[str]] | None）：保存create_note相关状态、配置或数据字段。
+    - related_notes（Callable[[str, int, str], Awaitable[str]] | None）：保存related_notes相关状态、配置或数据字段。
+    """
     rag_summary: Callable[[str, str | None, Callable | None], Awaitable[str]] | None = None
     search_notes: Callable[[str, int, str], Awaitable[str]] | None = None
     note_stats: Callable[[str], Awaitable[str]] | None = None
@@ -48,10 +64,24 @@ def set_agent_tool_callbacks(callbacks: AgentToolCallbacks | None):
 
 
 def get_agent_tool_callbacks() -> AgentToolCallbacks | None:
+    """
+    用途：读取或查询get agent tool callbacks相关的数据或流程。
+
+    参数：无显式业务参数。
+
+    返回：AgentToolCallbacks | None；返回值供调用方继续编排业务流程或生成接口响应。
+    """
     return tool_callbacks_var.get()
 
 
 def _missing_tool() -> str:
+    """
+    用途：执行missing tool相关业务逻辑。
+
+    参数：无显式业务参数。
+
+    返回：str；返回值供调用方继续编排业务流程或生成接口响应。
+    """
     return "当前工具后端未初始化，请稍后重试。"
 
 

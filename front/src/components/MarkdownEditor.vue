@@ -1,14 +1,25 @@
+<!--
+模块职责：Vue 可复用组件，负责封装局部界面、交互状态和事件输出。
+主要协作：通过组合 API、状态、组件和路由来支撑当前页面或功能。
+-->
 <script setup lang="ts">
 import { nextTick, ref, watch, type Component } from 'vue'
 import { Columns2, Code2, Eye, Type } from '@lucide/vue'
 import MarkdownRenderer from './MarkdownRenderer.vue'
 
+/**
+ * 类型：`EditorMode` 描述当前业务域中的数据结构。
+ * 字段含义应与后端接口、组件入参或本地状态保持一致。
+ */
 type EditorMode = 'typora' | 'split' | 'source'
 
+// 组件入参：由父组件传入业务对象、加载态和展示模式。
 const props = defineProps<{ modelValue: string }>()
+// 组件事件：向父组件报告关闭、保存、选择等交互结果。
 const emit = defineEmits<{ 'update:modelValue': [value: string] }>()
 
 const mode = ref<EditorMode>('typora')
+// 响应式状态：保存当前组件内部的临时 UI 或业务处理状态。
 const isTyporaEditing = ref(false)
 const sourceInput = ref<HTMLTextAreaElement | null>(null)
 
@@ -18,11 +29,21 @@ const editorModes: { value: EditorMode; label: string; icon: Component; title: s
   { value: 'source', label: '源码', icon: Code2, title: 'Markdown 源码' },
 ]
 
+/**
+ * 用途：执行updateContent相关业务逻辑。
+ * @param event 调用方传入的event参数，用于驱动当前前端逻辑。
+ * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+ */
 function updateContent(event: Event) {
   const target = event.target as HTMLTextAreaElement
   emit('update:modelValue', target.value)
 }
 
+/**
+ * 用途：执行setMode相关业务逻辑。
+ * @param nextMode 调用方传入的nextMode参数，用于驱动当前前端逻辑。
+ * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+ */
 function setMode(nextMode: EditorMode) {
   mode.value = nextMode
   if (nextMode !== 'typora') {
@@ -30,6 +51,11 @@ function setMode(nextMode: EditorMode) {
   }
 }
 
+/**
+ * 用途：执行startTyporaEditing相关业务逻辑。
+ * 参数：无显式业务参数。
+ * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+ */
 async function startTyporaEditing() {
   if (mode.value !== 'typora') return
   isTyporaEditing.value = true
@@ -37,10 +63,16 @@ async function startTyporaEditing() {
   sourceInput.value?.focus()
 }
 
+/**
+ * 用途：执行stopTyporaEditing相关业务逻辑。
+ * 参数：无显式业务参数。
+ * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+ */
 function stopTyporaEditing() {
   isTyporaEditing.value = false
 }
 
+// 状态监听：在关键输入变化后同步副作用或刷新页面数据。
 watch(
   () => props.modelValue,
   () => {

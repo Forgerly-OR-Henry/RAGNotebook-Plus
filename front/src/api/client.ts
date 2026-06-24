@@ -1,3 +1,7 @@
+/**
+ * 模块职责：Axios 客户端封装，负责基础地址、认证头、响应解包和登录态失效处理。
+ * 主要协作：通过导出的类型、函数或组件配置供其他前端模块复用。
+ */
 import axios from 'axios'
 import { clearAuthAndRedirect, getJwtToken } from './authToken'
 

@@ -1,3 +1,9 @@
+"""
+模块职责：业务服务模块，负责组织领域用例、数据访问和外部能力协作。
+
+主要协作：本文件只声明当前模块的职责边界，运行时行为由下方函数、类和依赖对象共同完成。
+"""
+
 from __future__ import annotations
 
 import uuid
@@ -12,10 +18,35 @@ from mvc.services.sources import SourceChunk, format_source_context, get_source_
 
 
 class MindMapService:
+    """
+    用途：业务服务类，用于封装用例流程、依赖协作和事务边界。
+
+    属性：
+    - collector（实例属性，由构造函数注入或初始化）：保存collector相关状态、配置或数据字段。
+    """
     def __init__(self):
+        """
+        用途：执行init相关业务逻辑。
+
+        参数：无显式业务参数。
+
+        返回：未显式标注；返回值供调用方继续编排业务流程或生成接口响应。
+        """
         self.collector = get_source_registry()
 
     async def generate(self, db: AsyncSession, user_id: str, payload: MindMapGenerateRequest) -> dict:
+        """
+        用途：异步执行generate相关业务流程。
+
+        参数：
+        - db（AsyncSession）：调用方传入的db数据或控制参数，用于驱动本函数处理流程。
+        - user_id（str）：调用方传入的user_id数据或控制参数，用于驱动本函数处理流程。
+        - payload（MindMapGenerateRequest）：调用方传入的payload数据或控制参数，用于驱动本函数处理流程。
+
+        返回：dict；返回值供调用方继续编排业务流程或生成接口响应。
+
+        副作用：可能访问数据库、文件、模型服务或流式事件通道，异常会沿调用链抛出。
+        """
         source_ids = self._unique_ids(payload.source_ids)
         chunks = await self.collector.collect(db, user_id, payload.source_type, source_ids, max_chunks=30)
         if not chunks:
@@ -43,6 +74,14 @@ class MindMapService:
         return self._to_response(mindmap)
 
     def _unique_ids(self, source_ids: list[str]) -> list[str]:
+        """
+        用途：执行unique ids相关业务逻辑。
+
+        参数：
+        - source_ids（list[str]）：调用方传入的source_ids数据或控制参数，用于驱动本函数处理流程。
+
+        返回：list[str]；返回值供调用方继续编排业务流程或生成接口响应。
+        """
         seen: set[str] = set()
         unique: list[str] = []
         for source_id in source_ids:
@@ -53,10 +92,35 @@ class MindMapService:
         return unique
 
     async def get(self, db: AsyncSession, user_id: str, mindmap_id: str) -> dict | None:
+        """
+        用途：异步执行get相关业务流程。
+
+        参数：
+        - db（AsyncSession）：调用方传入的db数据或控制参数，用于驱动本函数处理流程。
+        - user_id（str）：调用方传入的user_id数据或控制参数，用于驱动本函数处理流程。
+        - mindmap_id（str）：调用方传入的mindmap_id数据或控制参数，用于驱动本函数处理流程。
+
+        返回：dict | None；返回值供调用方继续编排业务流程或生成接口响应。
+
+        副作用：可能访问数据库、文件、模型服务或流式事件通道，异常会沿调用链抛出。
+        """
         mindmap = await self._get_orm(db, user_id, mindmap_id)
         return self._to_response(mindmap) if mindmap else None
 
     async def update(self, db: AsyncSession, user_id: str, mindmap_id: str, payload: MindMapUpdateRequest) -> dict | None:
+        """
+        用途：异步执行update相关业务流程。
+
+        参数：
+        - db（AsyncSession）：调用方传入的db数据或控制参数，用于驱动本函数处理流程。
+        - user_id（str）：调用方传入的user_id数据或控制参数，用于驱动本函数处理流程。
+        - mindmap_id（str）：调用方传入的mindmap_id数据或控制参数，用于驱动本函数处理流程。
+        - payload（MindMapUpdateRequest）：调用方传入的payload数据或控制参数，用于驱动本函数处理流程。
+
+        返回：dict | None；返回值供调用方继续编排业务流程或生成接口响应。
+
+        副作用：可能访问数据库、文件、模型服务或流式事件通道，异常会沿调用链抛出。
+        """
         mindmap = await self._get_orm(db, user_id, mindmap_id)
         if not mindmap:
             return None
@@ -71,6 +135,19 @@ class MindMapService:
         return self._to_response(mindmap)
 
     async def export(self, db: AsyncSession, user_id: str, mindmap_id: str, export_format: str) -> str | dict | None:
+        """
+        用途：异步执行export相关业务流程。
+
+        参数：
+        - db（AsyncSession）：调用方传入的db数据或控制参数，用于驱动本函数处理流程。
+        - user_id（str）：调用方传入的user_id数据或控制参数，用于驱动本函数处理流程。
+        - mindmap_id（str）：调用方传入的mindmap_id数据或控制参数，用于驱动本函数处理流程。
+        - export_format（str）：调用方传入的export_format数据或控制参数，用于驱动本函数处理流程。
+
+        返回：str | dict | None；返回值供调用方继续编排业务流程或生成接口响应。
+
+        副作用：可能访问数据库、文件、模型服务或流式事件通道，异常会沿调用链抛出。
+        """
         mindmap = await self._get_orm(db, user_id, mindmap_id)
         if not mindmap:
             return None
@@ -85,13 +162,48 @@ class MindMapService:
         return self._to_mermaid(mindmap.title, graph.get("nodes", []), graph.get("edges", []))
 
     async def _get_orm(self, db: AsyncSession, user_id: str, mindmap_id: str):
+        """
+        用途：读取或查询get orm相关的数据或流程。
+
+        参数：
+        - db（AsyncSession）：调用方传入的db数据或控制参数，用于驱动本函数处理流程。
+        - user_id（str）：调用方传入的user_id数据或控制参数，用于驱动本函数处理流程。
+        - mindmap_id（str）：调用方传入的mindmap_id数据或控制参数，用于驱动本函数处理流程。
+
+        返回：未显式标注；返回值供调用方继续编排业务流程或生成接口响应。
+
+        副作用：可能访问数据库、文件、模型服务或流式事件通道，异常会沿调用链抛出。
+        """
         result = await db.execute(select(MindMap).where(MindMap.id == mindmap_id, MindMap.user_id == user_id))
         return result.scalar_one_or_none()
 
     async def _model_json(self, prompt: str) -> dict | None:
+        """
+        用途：异步执行model json相关业务流程。
+
+        参数：
+        - prompt（str）：调用方传入的prompt数据或控制参数，用于驱动本函数处理流程。
+
+        返回：dict | None；返回值供调用方继续编排业务流程或生成接口响应。
+
+        副作用：可能访问数据库、文件、模型服务或流式事件通道，异常会沿调用链抛出。
+        """
         return await model_json(prompt)
 
     async def _generate_graph(self, chunks: list[SourceChunk], max_nodes: int, max_depth: int, focus: str | None) -> dict:
+        """
+        用途：生成generate graph相关的数据或流程。
+
+        参数：
+        - chunks（list[SourceChunk]）：调用方传入的chunks数据或控制参数，用于驱动本函数处理流程。
+        - max_nodes（int）：调用方传入的max_nodes数据或控制参数，用于驱动本函数处理流程。
+        - max_depth（int）：调用方传入的max_depth数据或控制参数，用于驱动本函数处理流程。
+        - focus（str | None）：调用方传入的focus数据或控制参数，用于驱动本函数处理流程。
+
+        返回：dict；返回值供调用方继续编排业务流程或生成接口响应。
+
+        副作用：可能访问数据库、文件、模型服务或流式事件通道，异常会沿调用链抛出。
+        """
         max_nodes = max(5, min(max_nodes, 80))
         max_depth = max(2, min(max_depth, 6))
         context = format_source_context(chunks, max_chars=16000)
@@ -118,6 +230,15 @@ class MindMapService:
         return self._fallback_graph(chunks, max_nodes)
 
     def _fallback_graph(self, chunks: list[SourceChunk], max_nodes: int) -> dict:
+        """
+        用途：执行fallback graph相关业务逻辑。
+
+        参数：
+        - chunks（list[SourceChunk]）：调用方传入的chunks数据或控制参数，用于驱动本函数处理流程。
+        - max_nodes（int）：调用方传入的max_nodes数据或控制参数，用于驱动本函数处理流程。
+
+        返回：dict；返回值供调用方继续编排业务流程或生成接口响应。
+        """
         title = chunks[0].title if len(chunks) == 1 else "多来源知识导图"
         nodes = [{"id": "n0", "label": title[:40], "level": 0, "type": "root", "summary": "自动生成的中心主题", "source_refs": []}]
         edges = []
@@ -162,6 +283,14 @@ class MindMapService:
         return {"title": title, "nodes": nodes, "edges": edges}
 
     def _to_response(self, mindmap: MindMap) -> dict:
+        """
+        用途：执行to response相关业务逻辑。
+
+        参数：
+        - mindmap（MindMap）：调用方传入的mindmap数据或控制参数，用于驱动本函数处理流程。
+
+        返回：dict；返回值供调用方继续编排业务流程或生成接口响应。
+        """
         graph = mindmap.graph or {"nodes": [], "edges": []}
         return {
             "mindmap_id": mindmap.id,
@@ -176,6 +305,16 @@ class MindMapService:
         }
 
     def _to_mermaid(self, title: str, nodes: list[dict], edges: list[dict]) -> str:
+        """
+        用途：执行to mermaid相关业务逻辑。
+
+        参数：
+        - title（str）：调用方传入的title数据或控制参数，用于驱动本函数处理流程。
+        - nodes（list[dict]）：调用方传入的nodes数据或控制参数，用于驱动本函数处理流程。
+        - edges（list[dict]）：调用方传入的edges数据或控制参数，用于驱动本函数处理流程。
+
+        返回：str；返回值供调用方继续编排业务流程或生成接口响应。
+        """
         labels = {node["id"]: node.get("label", node["id"]).replace('"', "'") for node in nodes}
         lines = [f"%% {title}", "mindmap"]
         root = nodes[0]["id"] if nodes else "root"

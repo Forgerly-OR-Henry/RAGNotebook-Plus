@@ -1,3 +1,9 @@
+"""
+模块职责：Agent 能力模块，负责检索增强、模型调用、工具编排或文档处理。
+
+主要协作：本文件只声明当前模块的职责边界，运行时行为由下方函数、类和依赖对象共同完成。
+"""
+
 from __future__ import annotations
 
 import hashlib
@@ -19,11 +25,30 @@ _QUERY_EMBEDDING_CACHE: OrderedDict[tuple[int, str], list[float]] = OrderedDict(
 
 
 def clear_query_embedding_cache() -> None:
+    """
+    用途：执行clear query embedding cache相关业务逻辑。
+
+    参数：无显式业务参数。
+
+    返回：None；返回值供调用方继续编排业务流程或生成接口响应。
+    """
     _QUERY_EMBEDDING_CACHE.clear()
 
 
 @dataclass
 class IndexChunk:
+    """
+    用途：领域对象或协作组件，用于承载本模块内的核心状态和行为。
+
+    属性：
+    - id（str）：保存id相关状态、配置或数据字段。
+    - source_type（str）：保存source_type相关状态、配置或数据字段。
+    - source_id（str）：保存source_id相关状态、配置或数据字段。
+    - chunk_index（int）：保存chunk_index相关状态、配置或数据字段。
+    - content（str）：保存content相关状态、配置或数据字段。
+    - metadata（dict[str, Any]）：保存metadata相关状态、配置或数据字段。
+    - score（float | None）：保存score相关状态、配置或数据字段。
+    """
     id: str
     source_type: str
     source_id: str
@@ -37,9 +62,24 @@ class IndexRepository:
     """Unified pgvector repository for all indexed sources."""
 
     def __init__(self, embedding_model=None):
+        """
+        用途：执行init相关业务逻辑。
+
+        参数：
+        - embedding_model（未显式标注）：调用方传入的embedding_model数据或控制参数，用于驱动本函数处理流程。
+
+        返回：未显式标注；返回值供调用方继续编排业务流程或生成接口响应。
+        """
         self.embedding_model = embedding_model
 
     def _embedding_model(self):
+        """
+        用途：执行embedding model相关业务逻辑。
+
+        参数：无显式业务参数。
+
+        返回：未显式标注；返回值供调用方继续编排业务流程或生成接口响应。
+        """
         model = self.embedding_model or init_manager.embed_model
         if model is None:
             raise RuntimeError("Embedding model is not initialized")
@@ -47,11 +87,29 @@ class IndexRepository:
 
     @staticmethod
     def chunk_id(source_type: str, source_id: str, chunk_index: int) -> str:
+        """
+        用途：执行chunk id相关业务逻辑。
+
+        参数：
+        - source_type（str）：调用方传入的source_type数据或控制参数，用于驱动本函数处理流程。
+        - source_id（str）：调用方传入的source_id数据或控制参数，用于驱动本函数处理流程。
+        - chunk_index（int）：调用方传入的chunk_index数据或控制参数，用于驱动本函数处理流程。
+
+        返回：str；返回值供调用方继续编排业务流程或生成接口响应。
+        """
         digest = hashlib.sha1(f"{source_type}:{source_id}:{chunk_index}".encode("utf-8")).hexdigest()
         return digest[:40]
 
     @staticmethod
     def _vector_literal(embedding: list[float]) -> str:
+        """
+        用途：执行vector literal相关业务逻辑。
+
+        参数：
+        - embedding（list[float]）：调用方传入的embedding数据或控制参数，用于驱动本函数处理流程。
+
+        返回：str；返回值供调用方继续编排业务流程或生成接口响应。
+        """
         return "[" + ",".join(str(float(x)) for x in embedding) + "]"
 
     async def upsert_documents(
@@ -63,6 +121,20 @@ class IndexRepository:
         documents: list[Document],
         metadata: dict[str, Any] | None = None,
     ) -> list[str]:
+        """
+        用途：异步执行upsert documents相关业务流程。
+
+        参数：
+        - source_type（str）：调用方传入的source_type数据或控制参数，用于驱动本函数处理流程。
+        - source_id（str）：调用方传入的source_id数据或控制参数，用于驱动本函数处理流程。
+        - user_id（str）：调用方传入的user_id数据或控制参数，用于驱动本函数处理流程。
+        - documents（list[Document]）：调用方传入的documents数据或控制参数，用于驱动本函数处理流程。
+        - metadata（dict[str, Any] | None）：调用方传入的metadata数据或控制参数，用于驱动本函数处理流程。
+
+        返回：list[str]；返回值供调用方继续编排业务流程或生成接口响应。
+
+        副作用：可能访问数据库、文件、模型服务或流式事件通道，异常会沿调用链抛出。
+        """
         if not documents:
             return []
 
@@ -124,12 +196,33 @@ class IndexRepository:
         return ids
 
     async def _embed_documents(self, model, contents: list[str]) -> list[list[float]]:
+        """
+        用途：异步执行embed documents相关业务流程。
+
+        参数：
+        - model（未显式标注）：调用方传入的model数据或控制参数，用于驱动本函数处理流程。
+        - contents（list[str]）：调用方传入的contents数据或控制参数，用于驱动本函数处理流程。
+
+        返回：list[list[float]]；返回值供调用方继续编排业务流程或生成接口响应。
+
+        副作用：可能访问数据库、文件、模型服务或流式事件通道，异常会沿调用链抛出。
+        """
         try:
             return await self._to_thread(model.embed_documents, contents)
         except AttributeError:
             return [await self._to_thread(model.embed_query, content) for content in contents]
 
     async def _embed_query(self, query: str) -> list[float]:
+        """
+        用途：异步执行embed query相关业务流程。
+
+        参数：
+        - query（str）：调用方传入的query数据或控制参数，用于驱动本函数处理流程。
+
+        返回：list[float]；返回值供调用方继续编排业务流程或生成接口响应。
+
+        副作用：可能访问数据库、文件、模型服务或流式事件通道，异常会沿调用链抛出。
+        """
         model = self._embedding_model()
         cache_key = (id(model), query)
         cached = _QUERY_EMBEDDING_CACHE.get(cache_key)
@@ -146,6 +239,17 @@ class IndexRepository:
 
     @staticmethod
     async def _to_thread(func, *args):
+        """
+        用途：异步执行to thread相关业务流程。
+
+        参数：
+        - func（未显式标注）：调用方传入的func数据或控制参数，用于驱动本函数处理流程。
+        - args（未显式标注）：调用方传入的args数据或控制参数，用于驱动本函数处理流程。
+
+        返回：未显式标注；返回值供调用方继续编排业务流程或生成接口响应。
+
+        副作用：可能访问数据库、文件、模型服务或流式事件通道，异常会沿调用链抛出。
+        """
         import asyncio
 
         return await asyncio.to_thread(func, *args)
@@ -159,6 +263,20 @@ class IndexRepository:
         source_ids: list[str] | None = None,
         top_k: int = 4,
     ) -> list[IndexChunk]:
+        """
+        用途：异步执行search相关业务流程。
+
+        参数：
+        - user_id（str）：调用方传入的user_id数据或控制参数，用于驱动本函数处理流程。
+        - query（str）：调用方传入的query数据或控制参数，用于驱动本函数处理流程。
+        - source_type（str | None）：调用方传入的source_type数据或控制参数，用于驱动本函数处理流程。
+        - source_ids（list[str] | None）：调用方传入的source_ids数据或控制参数，用于驱动本函数处理流程。
+        - top_k（int）：调用方传入的top_k数据或控制参数，用于驱动本函数处理流程。
+
+        返回：list[IndexChunk]；返回值供调用方继续编排业务流程或生成接口响应。
+
+        副作用：可能访问数据库、文件、模型服务或流式事件通道，异常会沿调用链抛出。
+        """
         query_embedding = await self._embed_query(query)
         params: dict[str, Any] = {
             "user_id": user_id,
@@ -205,6 +323,18 @@ class IndexRepository:
         ]
 
     async def list_source_chunks(self, *, user_id: str, source_type: str, source_id: str) -> list[IndexChunk]:
+        """
+        用途：列出list source chunks相关的数据或流程。
+
+        参数：
+        - user_id（str）：调用方传入的user_id数据或控制参数，用于驱动本函数处理流程。
+        - source_type（str）：调用方传入的source_type数据或控制参数，用于驱动本函数处理流程。
+        - source_id（str）：调用方传入的source_id数据或控制参数，用于驱动本函数处理流程。
+
+        返回：list[IndexChunk]；返回值供调用方继续编排业务流程或生成接口响应。
+
+        副作用：可能访问数据库、文件、模型服务或流式事件通道，异常会沿调用链抛出。
+        """
         stmt = text(
             """
             SELECT id, source_type, document_id, chunk_index, content, metadata
@@ -232,6 +362,18 @@ class IndexRepository:
         ]
 
     async def delete_source(self, *, user_id: str, source_type: str, source_id: str) -> int:
+        """
+        用途：删除delete source相关的数据或流程。
+
+        参数：
+        - user_id（str）：调用方传入的user_id数据或控制参数，用于驱动本函数处理流程。
+        - source_type（str）：调用方传入的source_type数据或控制参数，用于驱动本函数处理流程。
+        - source_id（str）：调用方传入的source_id数据或控制参数，用于驱动本函数处理流程。
+
+        返回：int；返回值供调用方继续编排业务流程或生成接口响应。
+
+        副作用：可能访问数据库、文件、模型服务或流式事件通道，异常会沿调用链抛出。
+        """
         stmt = text(
             """
             DELETE FROM index_chunks
@@ -244,6 +386,17 @@ class IndexRepository:
             return result.rowcount or 0
 
     async def delete_user_source_type(self, *, user_id: str, source_type: str) -> int:
+        """
+        用途：删除delete user source type相关的数据或流程。
+
+        参数：
+        - user_id（str）：调用方传入的user_id数据或控制参数，用于驱动本函数处理流程。
+        - source_type（str）：调用方传入的source_type数据或控制参数，用于驱动本函数处理流程。
+
+        返回：int；返回值供调用方继续编排业务流程或生成接口响应。
+
+        副作用：可能访问数据库、文件、模型服务或流式事件通道，异常会沿调用链抛出。
+        """
         stmt = text("DELETE FROM index_chunks WHERE user_id = :user_id AND source_type = :source_type")
         async with AsyncSessionLocal() as session:
             result = await session.execute(stmt, {"user_id": user_id, "source_type": source_type})
@@ -252,6 +405,14 @@ class IndexRepository:
 
 
 def assert_embedding_dimension(embedding: list[float]) -> None:
+    """
+    用途：执行assert embedding dimension相关业务逻辑。
+
+    参数：
+    - embedding（list[float]）：调用方传入的embedding数据或控制参数，用于驱动本函数处理流程。
+
+    返回：None；返回值供调用方继续编排业务流程或生成接口响应。
+    """
     expected = embedding_dimension()
     actual = len(embedding or [])
     if actual != expected:
@@ -260,6 +421,13 @@ def assert_embedding_dimension(embedding: list[float]) -> None:
 
 
 def embedding_dimension() -> int:
+    """
+    用途：执行embedding dimension相关业务逻辑。
+
+    参数：无显式业务参数。
+
+    返回：int；返回值供调用方继续编排业务流程或生成接口响应。
+    """
     expected = require_env_int_value("EMBEDDING_DIM", 1024)
     if expected <= 0:
         raise RuntimeError(f"EMBEDDING_DIM 必须是正整数，当前值：{expected}")

@@ -1,3 +1,9 @@
+"""
+模块职责：FastAPI 路由控制器模块，负责请求参数绑定、权限依赖和服务层调用。
+
+主要协作：本文件只声明当前模块的职责边界，运行时行为由下方函数、类和依赖对象共同完成。
+"""
+
 import asyncio
 
 from fastapi import Depends, File, Form, HTTPException, UploadFile
@@ -28,6 +34,15 @@ project_router = APIRouter(prefix="/projects", tags=["projects"])
 
 
 async def ensure_note_service_ready():
+    """
+    用途：校验并确保ensure note service ready相关的数据或流程。
+
+    参数：无显式业务参数。
+
+    返回：未显式标注；返回值供调用方继续编排业务流程或生成接口响应。
+
+    副作用：可能访问数据库、文件、模型服务或流式事件通道，异常会沿调用链抛出。
+    """
     if init_manager.note_service is not None:
         return init_manager.note_service
 
@@ -50,6 +65,18 @@ async def list_projects(
     db: AsyncSession = Depends(get_db),
     project_service: ProjectService = Depends(get_project_service),
 ):
+    """
+    用途：列出list projects相关的数据或流程。
+
+    参数：
+    - user_id（str）：调用方传入的user_id数据或控制参数，用于驱动本函数处理流程。
+    - db（AsyncSession）：调用方传入的db数据或控制参数，用于驱动本函数处理流程。
+    - project_service（ProjectService）：调用方传入的project_service数据或控制参数，用于驱动本函数处理流程。
+
+    返回：未显式标注；返回值供调用方继续编排业务流程或生成接口响应。
+
+    副作用：可能访问数据库、文件、模型服务或流式事件通道，异常会沿调用链抛出。
+    """
     projects = await project_service.list_projects(db, user_id)
     return success_response(data=ProjectListResponse(projects=projects, total_count=len(projects)))
 
@@ -61,6 +88,19 @@ async def create_project(
     db: AsyncSession = Depends(get_db),
     project_service: ProjectService = Depends(get_project_service),
 ):
+    """
+    用途：创建create project相关的数据或流程。
+
+    参数：
+    - payload（ProjectCreateRequest）：调用方传入的payload数据或控制参数，用于驱动本函数处理流程。
+    - user_id（str）：调用方传入的user_id数据或控制参数，用于驱动本函数处理流程。
+    - db（AsyncSession）：调用方传入的db数据或控制参数，用于驱动本函数处理流程。
+    - project_service（ProjectService）：调用方传入的project_service数据或控制参数，用于驱动本函数处理流程。
+
+    返回：未显式标注；返回值供调用方继续编排业务流程或生成接口响应。
+
+    副作用：可能访问数据库、文件、模型服务或流式事件通道，异常会沿调用链抛出。
+    """
     project = await project_service.create_project(db, user_id, payload)
     return success_response(message="项目创建成功", data=ProjectResponse(**project))
 
@@ -72,6 +112,19 @@ async def get_project(
     db: AsyncSession = Depends(get_db),
     project_service: ProjectService = Depends(get_project_service),
 ):
+    """
+    用途：读取或查询get project相关的数据或流程。
+
+    参数：
+    - project_id（str）：调用方传入的project_id数据或控制参数，用于驱动本函数处理流程。
+    - user_id（str）：调用方传入的user_id数据或控制参数，用于驱动本函数处理流程。
+    - db（AsyncSession）：调用方传入的db数据或控制参数，用于驱动本函数处理流程。
+    - project_service（ProjectService）：调用方传入的project_service数据或控制参数，用于驱动本函数处理流程。
+
+    返回：未显式标注；返回值供调用方继续编排业务流程或生成接口响应。
+
+    副作用：可能访问数据库、文件、模型服务或流式事件通道，异常会沿调用链抛出。
+    """
     project = await project_service.get_project(db, user_id, project_id)
     return success_response(data=ProjectResponse(**await project_service._project_to_dict(db, project)))
 
@@ -84,6 +137,20 @@ async def update_project(
     db: AsyncSession = Depends(get_db),
     project_service: ProjectService = Depends(get_project_service),
 ):
+    """
+    用途：更新update project相关的数据或流程。
+
+    参数：
+    - project_id（str）：调用方传入的project_id数据或控制参数，用于驱动本函数处理流程。
+    - payload（ProjectUpdateRequest）：调用方传入的payload数据或控制参数，用于驱动本函数处理流程。
+    - user_id（str）：调用方传入的user_id数据或控制参数，用于驱动本函数处理流程。
+    - db（AsyncSession）：调用方传入的db数据或控制参数，用于驱动本函数处理流程。
+    - project_service（ProjectService）：调用方传入的project_service数据或控制参数，用于驱动本函数处理流程。
+
+    返回：未显式标注；返回值供调用方继续编排业务流程或生成接口响应。
+
+    副作用：可能访问数据库、文件、模型服务或流式事件通道，异常会沿调用链抛出。
+    """
     project = await project_service.update_project(db, user_id, project_id, payload)
     return success_response(message="项目已更新", data=ProjectResponse(**project))
 
@@ -95,6 +162,19 @@ async def delete_project(
     db: AsyncSession = Depends(get_db),
     project_service: ProjectService = Depends(get_project_service),
 ):
+    """
+    用途：删除delete project相关的数据或流程。
+
+    参数：
+    - project_id（str）：调用方传入的project_id数据或控制参数，用于驱动本函数处理流程。
+    - user_id（str）：调用方传入的user_id数据或控制参数，用于驱动本函数处理流程。
+    - db（AsyncSession）：调用方传入的db数据或控制参数，用于驱动本函数处理流程。
+    - project_service（ProjectService）：调用方传入的project_service数据或控制参数，用于驱动本函数处理流程。
+
+    返回：未显式标注；返回值供调用方继续编排业务流程或生成接口响应。
+
+    副作用：可能访问数据库、文件、模型服务或流式事件通道，异常会沿调用链抛出。
+    """
     await project_service.delete_project(db, user_id, project_id)
     return success_response(data=None, message="项目已删除")
 
@@ -106,6 +186,19 @@ async def list_project_sources(
     db: AsyncSession = Depends(get_db),
     project_service: ProjectService = Depends(get_project_service),
 ):
+    """
+    用途：列出list project sources相关的数据或流程。
+
+    参数：
+    - project_id（str）：调用方传入的project_id数据或控制参数，用于驱动本函数处理流程。
+    - user_id（str）：调用方传入的user_id数据或控制参数，用于驱动本函数处理流程。
+    - db（AsyncSession）：调用方传入的db数据或控制参数，用于驱动本函数处理流程。
+    - project_service（ProjectService）：调用方传入的project_service数据或控制参数，用于驱动本函数处理流程。
+
+    返回：未显式标注；返回值供调用方继续编排业务流程或生成接口响应。
+
+    副作用：可能访问数据库、文件、模型服务或流式事件通道，异常会沿调用链抛出。
+    """
     sources = await project_service.list_sources(db, user_id, project_id)
     return success_response(data=ProjectSourcesResponse(sources=sources, total_count=len(sources)))
 
@@ -118,6 +211,20 @@ async def add_project_sources(
     db: AsyncSession = Depends(get_db),
     project_service: ProjectService = Depends(get_project_service),
 ):
+    """
+    用途：异步执行add project sources相关业务流程。
+
+    参数：
+    - project_id（str）：调用方传入的project_id数据或控制参数，用于驱动本函数处理流程。
+    - payload（ProjectSourcesAddRequest）：调用方传入的payload数据或控制参数，用于驱动本函数处理流程。
+    - user_id（str）：调用方传入的user_id数据或控制参数，用于驱动本函数处理流程。
+    - db（AsyncSession）：调用方传入的db数据或控制参数，用于驱动本函数处理流程。
+    - project_service（ProjectService）：调用方传入的project_service数据或控制参数，用于驱动本函数处理流程。
+
+    返回：未显式标注；返回值供调用方继续编排业务流程或生成接口响应。
+
+    副作用：可能访问数据库、文件、模型服务或流式事件通道，异常会沿调用链抛出。
+    """
     sources = await project_service.add_sources(db, user_id, project_id, payload.sources)
     return success_response(message="项目文件已添加", data=ProjectSourcesResponse(sources=sources, total_count=len(sources)))
 
@@ -131,6 +238,21 @@ async def remove_project_source(
     db: AsyncSession = Depends(get_db),
     project_service: ProjectService = Depends(get_project_service),
 ):
+    """
+    用途：移除remove project source相关的数据或流程。
+
+    参数：
+    - project_id（str）：调用方传入的project_id数据或控制参数，用于驱动本函数处理流程。
+    - source_type（str）：调用方传入的source_type数据或控制参数，用于驱动本函数处理流程。
+    - source_id（str）：调用方传入的source_id数据或控制参数，用于驱动本函数处理流程。
+    - user_id（str）：调用方传入的user_id数据或控制参数，用于驱动本函数处理流程。
+    - db（AsyncSession）：调用方传入的db数据或控制参数，用于驱动本函数处理流程。
+    - project_service（ProjectService）：调用方传入的project_service数据或控制参数，用于驱动本函数处理流程。
+
+    返回：未显式标注；返回值供调用方继续编排业务流程或生成接口响应。
+
+    副作用：可能访问数据库、文件、模型服务或流式事件通道，异常会沿调用链抛出。
+    """
     await project_service.remove_source(db, user_id, project_id, source_type, source_id)
     return success_response(data=None, message="项目文件已移除")
 
@@ -144,10 +266,35 @@ async def upload_project_documents(
     project_service: ProjectService = Depends(get_project_service),
     _: None = Depends(rate_limit(limit=3, window=60)),
 ):
+    """
+    用途：上传upload project documents相关的数据或流程。
+
+    参数：
+    - project_id（str）：调用方传入的project_id数据或控制参数，用于驱动本函数处理流程。
+    - files（list[UploadFile]）：调用方传入的files数据或控制参数，用于驱动本函数处理流程。
+    - user_id（str）：调用方传入的user_id数据或控制参数，用于驱动本函数处理流程。
+    - knowledge_service（KnowledgeService）：调用方传入的knowledge_service数据或控制参数，用于驱动本函数处理流程。
+    - project_service（ProjectService）：调用方传入的project_service数据或控制参数，用于驱动本函数处理流程。
+    - _（None）：调用方传入的_数据或控制参数，用于驱动本函数处理流程。
+
+    返回：未显式标注；返回值供调用方继续编排业务流程或生成接口响应。
+
+    副作用：可能访问数据库、文件、模型服务或流式事件通道，异常会沿调用链抛出。
+    """
     async with AsyncSessionLocal() as db:
         await project_service.get_project(db, user_id, project_id)
 
     async def attach_document(document: Document) -> None:
+        """
+        用途：异步执行attach document相关业务流程。
+
+        参数：
+        - document（Document）：调用方传入的document数据或控制参数，用于驱动本函数处理流程。
+
+        返回：None；返回值供调用方继续编排业务流程或生成接口响应。
+
+        副作用：可能访问数据库、文件、模型服务或流式事件通道，异常会沿调用链抛出。
+        """
         async with AsyncSessionLocal() as attach_db:
             await project_service.add_sources(
                 attach_db,
@@ -173,6 +320,22 @@ async def import_project_note(
     project_service: ProjectService = Depends(get_project_service),
     _: object = Depends(ensure_note_service_ready),
 ):
+    """
+    用途：异步执行import project note相关业务流程。
+
+    参数：
+    - project_id（str）：调用方传入的project_id数据或控制参数，用于驱动本函数处理流程。
+    - file（UploadFile）：调用方传入的file数据或控制参数，用于驱动本函数处理流程。
+    - category（str | None）：调用方传入的category数据或控制参数，用于驱动本函数处理流程。
+    - user_id（str）：调用方传入的user_id数据或控制参数，用于驱动本函数处理流程。
+    - db（AsyncSession）：调用方传入的db数据或控制参数，用于驱动本函数处理流程。
+    - project_service（ProjectService）：调用方传入的project_service数据或控制参数，用于驱动本函数处理流程。
+    - _（object）：调用方传入的_数据或控制参数，用于驱动本函数处理流程。
+
+    返回：未显式标注；返回值供调用方继续编排业务流程或生成接口响应。
+
+    副作用：可能访问数据库、文件、模型服务或流式事件通道，异常会沿调用链抛出。
+    """
     await project_service.get_project(db, user_id, project_id)
     content = await file.read()
     if len(content) > NOTE_IMPORT_MAX_FILE_SIZE:

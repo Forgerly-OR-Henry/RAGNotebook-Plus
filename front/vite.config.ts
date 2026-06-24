@@ -1,8 +1,17 @@
+/**
+ * 模块职责：前端构建配置模块，负责声明 Vite、ESLint、Tailwind 或 PostCSS 行为。
+ * 主要协作：通过导出的类型、函数或组件配置供其他前端模块复用。
+ */
 import { defineConfig, loadEnv } from 'vite'
 import vue from '@vitejs/plugin-vue'
 import path from 'path'
 import fs from 'fs'
 
+/**
+ * 用途：执行envFileKeys相关业务逻辑。
+ * @param filePath 调用方传入的filePath参数，用于驱动当前前端逻辑。
+ * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+ */
 function envFileKeys(filePath: string): Set<string> {
   if (!fs.existsSync(filePath)) {
     return new Set()
@@ -18,12 +27,23 @@ function envFileKeys(filePath: string): Set<string> {
   )
 }
 
+/**
+ * 用途：执行validateEnvDeclaresTemplateKeys相关业务逻辑。
+ * @param envPath 调用方传入的envPath参数，用于驱动当前前端逻辑。
+ * @param examplePath 调用方传入的examplePath参数，用于驱动当前前端逻辑。
+ * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+ */
 function validateEnvDeclaresTemplateKeys(envPath: string, examplePath: string): void {
   if (!fs.existsSync(envPath) || !fs.existsSync(examplePath)) {
     return
   }
 
   const envKeys = envFileKeys(envPath)
+  /**
+   * 用途：执行missing相关业务逻辑。
+   * 参数：无显式业务参数。
+   * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+   */
   const missing = Array.from(envFileKeys(examplePath)).filter((key) => !envKeys.has(key))
   if (missing.length > 0) {
     throw new Error(
@@ -33,6 +53,12 @@ function validateEnvDeclaresTemplateKeys(envPath: string, examplePath: string): 
   }
 }
 
+/**
+ * 用途：执行requiredEnv相关业务逻辑。
+ * @param env 调用方传入的env参数，用于驱动当前前端逻辑。
+ * @param key 调用方传入的key参数，用于驱动当前前端逻辑。
+ * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+ */
 function requiredEnv(env: Record<string, string>, key: string): string {
   const value = env[key]?.trim()
   if (!value) {
@@ -41,6 +67,12 @@ function requiredEnv(env: Record<string, string>, key: string): string {
   return value
 }
 
+/**
+ * 用途：执行envInt相关业务逻辑。
+ * @param env 调用方传入的env参数，用于驱动当前前端逻辑。
+ * @param key 调用方传入的key参数，用于驱动当前前端逻辑。
+ * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+ */
 function envInt(env: Record<string, string>, key: string): number {
   const value = Number(requiredEnv(env, key))
   if (!Number.isInteger(value)) {
@@ -49,6 +81,11 @@ function envInt(env: Record<string, string>, key: string): number {
   return value
 }
 
+/**
+ * 用途：执行processEnv相关业务逻辑。
+ * 参数：无显式业务参数。
+ * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+ */
 function processEnv(): Record<string, string> {
   return Object.fromEntries(
     Object.entries(process.env).filter((entry): entry is [string, string] => entry[1] !== undefined),

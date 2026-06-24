@@ -1,3 +1,7 @@
+<!--
+模块职责：富文本编辑器组件，封装 TipTap 编辑器、工具栏、Markdown 转换和内容同步。
+主要协作：通过组合 API、状态、组件和路由来支撑当前页面或功能。
+-->
 <script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, ref, watch } from 'vue'
 import type { Editor } from '@tiptap/core'
@@ -43,7 +47,15 @@ import {
 } from '@lucide/vue'
 import { promptDialog } from '../composables/useAppDialog'
 
+/**
+ * 类型：`AutocompleteFn` 描述当前业务域中的数据结构。
+ * 字段含义应与后端接口、组件入参或本地状态保持一致。
+ */
 type AutocompleteFn = (context: string) => Promise<string | null>
+/**
+ * 类型：`EditorMode` 描述当前业务域中的数据结构。
+ * 字段含义应与后端接口、组件入参或本地状态保持一致。
+ */
 type EditorMode = 'rich' | 'preview' | 'source'
 
 const props = withDefaults(defineProps<{
@@ -55,17 +67,20 @@ const props = withDefaults(defineProps<{
   autocomplete: undefined,
 })
 
+// 组件事件：向父组件报告关闭、保存、选择等交互结果。
 const emit = defineEmits<{
   'update:modelValue': [value: string]
 }>()
 
 const lowlight = createLowlight(common)
+// 响应式状态：保存当前组件内部的临时 UI 或业务处理状态。
 const updatingFromModel = ref(false)
 const editorMode = ref<EditorMode>('rich')
 const wrapperRef = ref<HTMLElement | null>(null)
 const sourceInput = ref<HTMLTextAreaElement | null>(null)
 const ghost = ref<{ text: string; left: number; top: number } | null>(null)
 const ghostText = ref<string | null>(null)
+// 响应式状态：保存当前组件内部的临时 UI 或业务处理状态。
 const ghostFrom = ref(0)
 let autocompleteTimer: number | undefined
 
@@ -87,6 +102,11 @@ turndown.addRule('taskListItem', {
   },
 })
 
+/**
+ * 用途：执行markdownToHtml相关业务逻辑。
+ * @param value 调用方传入的value参数，用于驱动当前前端逻辑。
+ * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+ */
 function markdownToHtml(value: string) {
   const rawHtml = marked.parse(value || '', {
     async: false,
@@ -100,11 +120,21 @@ function markdownToHtml(value: string) {
   })
 }
 
+/**
+ * 用途：执行htmlToMarkdown相关业务逻辑。
+ * @param html 调用方传入的html参数，用于驱动当前前端逻辑。
+ * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+ */
 function htmlToMarkdown(html: string) {
   const md = turndown.turndown(html)
   return md.trim() ? md : ''
 }
 
+/**
+ * 用途：执行editorMarkdown相关业务逻辑。
+ * @param editorInstance 调用方传入的editorInstance参数，用于驱动当前前端逻辑。
+ * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+ */
 function editorMarkdown(editorInstance: Editor) {
   return htmlToMarkdown(editorInstance.getHTML())
 }
@@ -139,6 +169,11 @@ const editor = useEditor({
   },
 })
 
+/**
+ * 用途：执行activeHeading相关业务逻辑。
+ * 参数：无显式业务参数。
+ * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+ */
 const activeHeading = computed(() => {
   const currentEditor = editor.value
   if (!currentEditor) return '0'
@@ -148,12 +183,27 @@ const activeHeading = computed(() => {
   return '0'
 })
 
+/**
+ * 用途：执行inTable相关业务逻辑。
+ * 参数：无显式业务参数。
+ * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+ */
 const inTable = computed(() => editor.value?.isActive('table') ?? false)
 
+/**
+ * 用途：执行isRichMode相关业务逻辑。
+ * 参数：无显式业务参数。
+ * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+ */
 function isRichMode() {
   return editorMode.value === 'rich'
 }
 
+/**
+ * 用途：执行setEditorMode相关业务逻辑。
+ * @param mode 调用方传入的mode参数，用于驱动当前前端逻辑。
+ * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+ */
 async function setEditorMode(mode: EditorMode) {
   editorMode.value = mode
   clearGhost()
@@ -170,17 +220,32 @@ async function setEditorMode(mode: EditorMode) {
   }
 }
 
+/**
+ * 用途：执行updateSource相关业务逻辑。
+ * @param event 调用方传入的event参数，用于驱动当前前端逻辑。
+ * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+ */
 function updateSource(event: Event) {
   const target = event.target as HTMLTextAreaElement
   emit('update:modelValue', target.value)
 }
 
+/**
+ * 用途：执行run相关业务逻辑。
+ * @param command 调用方传入的command参数，用于驱动当前前端逻辑。
+ * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+ */
 function run(command: (editorInstance: Editor) => void) {
   const currentEditor = editor.value
   if (!currentEditor || !isRichMode()) return
   command(currentEditor)
 }
 
+/**
+ * 用途：执行setHeading相关业务逻辑。
+ * @param value 调用方传入的value参数，用于驱动当前前端逻辑。
+ * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+ */
 function setHeading(value: string) {
   run((currentEditor) => {
     if (value === '0') {
@@ -191,6 +256,11 @@ function setHeading(value: string) {
   })
 }
 
+/**
+ * 用途：执行addLink相关业务逻辑。
+ * 参数：无显式业务参数。
+ * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+ */
 async function addLink() {
   const currentEditor = editor.value
   if (!currentEditor) return
@@ -209,6 +279,11 @@ async function addLink() {
   currentEditor.chain().focus().extendMarkRange('link').setLink({ href: href.trim() }).run()
 }
 
+/**
+ * 用途：执行addImage相关业务逻辑。
+ * 参数：无显式业务参数。
+ * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+ */
 async function addImage() {
   const currentEditor = editor.value
   if (!currentEditor) return
@@ -221,6 +296,11 @@ async function addImage() {
   currentEditor.chain().focus().setImage({ src: src.trim() }).run()
 }
 
+/**
+ * 用途：执行updateGhostPosition相关业务逻辑。
+ * 参数：无显式业务参数。
+ * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+ */
 function updateGhostPosition() {
   const currentEditor = editor.value
   const wrapper = wrapperRef.value
@@ -242,11 +322,21 @@ function updateGhostPosition() {
   }
 }
 
+/**
+ * 用途：执行clearGhost相关业务逻辑。
+ * 参数：无显式业务参数。
+ * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+ */
 function clearGhost() {
   ghostText.value = null
   ghost.value = null
 }
 
+/**
+ * 用途：执行scheduleAutocomplete相关业务逻辑。
+ * 参数：无显式业务参数。
+ * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+ */
 function scheduleAutocomplete() {
   window.clearTimeout(autocompleteTimer)
   clearGhost()
@@ -271,6 +361,11 @@ function scheduleAutocomplete() {
   }, 3000)
 }
 
+/**
+ * 用途：执行handleKeydown相关业务逻辑。
+ * @param event 调用方传入的event参数，用于驱动当前前端逻辑。
+ * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+ */
 function handleKeydown(event: KeyboardEvent) {
   const currentEditor = editor.value
   if (!currentEditor) return
@@ -307,6 +402,7 @@ function handleKeydown(event: KeyboardEvent) {
   }
 }
 
+// 状态监听：在关键输入变化后同步副作用或刷新页面数据。
 watch(
   () => props.modelValue,
   (value) => {
@@ -323,6 +419,7 @@ watch(
   },
 )
 
+// 状态监听：在关键输入变化后同步副作用或刷新页面数据。
 watch(
   editor,
   (currentEditor, previousEditor) => {
@@ -338,6 +435,12 @@ onBeforeUnmount(() => {
   editor.value?.destroy()
 })
 
+/**
+ * 用途：执行scrollToHeading相关业务逻辑。
+ * @param text 调用方传入的text参数，用于驱动当前前端逻辑。
+ * @param level 调用方传入的level参数，用于驱动当前前端逻辑。
+ * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+ */
 async function scrollToHeading(text: string, level: number) {
   if (editorMode.value !== 'rich') {
     await setEditorMode('rich')
@@ -345,6 +448,11 @@ async function scrollToHeading(text: string, level: number) {
 
   const currentEditor = editor.value
   if (!currentEditor) return
+  /**
+   * 用途：执行normalize相关业务逻辑。
+   * @param value 调用方传入的value参数，用于驱动当前前端逻辑。
+   * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+   */
   const normalize = (value: string) => value.replace(/\\([.![\]()*_`~-])/g, '$1').trim().toLowerCase()
   const target = normalize(text)
 

@@ -5,7 +5,6 @@ import asyncio
 import html
 import io
 import json
-import os
 import re
 import uuid
 import zipfile
@@ -26,6 +25,7 @@ from mvc.models.storage_object import StorageObject
 from mvc.schemas import NoteCreate, NoteFolderCreate, NoteFolderResponse, NoteFolderTreeResponse, NoteFolderUpdate, NoteResponse, NoteUpdate
 from mvc.services.note_import_service import NOTE_IMPORT_MAX_FILE_SIZE, NoteImportError, build_imported_note_payload
 from mvc.services.storage_service import StorageService, get_storage_service
+from utils.env_loader import optional_env_value
 
 
 class NoteFolderError(ValueError):
@@ -36,7 +36,14 @@ DEFAULT_NOTE_INDEX_TIMEOUT_SECONDS = 120
 
 
 def _note_index_timeout_seconds() -> float:
-    raw_value = os.getenv("NOTE_INDEX_TIMEOUT_SECONDS", "").strip()
+    """
+    用途：执行note index timeout seconds相关业务逻辑。
+
+    参数：无显式业务参数。
+
+    返回：float；返回值供调用方继续编排业务流程或生成接口响应。
+    """
+    raw_value = optional_env_value("NOTE_INDEX_TIMEOUT_SECONDS")
     if not raw_value:
         return DEFAULT_NOTE_INDEX_TIMEOUT_SECONDS
     try:
@@ -51,6 +58,14 @@ def _note_index_timeout_seconds() -> float:
 
 
 def _strip_note_html(value: str | None) -> str:
+    """
+    用途：执行strip note html相关业务逻辑。
+
+    参数：
+    - value（str | None）：调用方传入的value数据或控制参数，用于驱动本函数处理流程。
+
+    返回：str；返回值供调用方继续编排业务流程或生成接口响应。
+    """
     if not value:
         return ""
     text = re.sub(r"<br\s*/?>", "\n", value, flags=re.IGNORECASE)
@@ -60,14 +75,39 @@ def _strip_note_html(value: str | None) -> str:
 
 
 def _normalize_search_text(value: str | None) -> str:
+    """
+    用途：执行normalize search text相关业务逻辑。
+
+    参数：
+    - value（str | None）：调用方传入的value数据或控制参数，用于驱动本函数处理流程。
+
+    返回：str；返回值供调用方继续编排业务流程或生成接口响应。
+    """
     return re.sub(r"\s+", " ", _strip_note_html(value).lower()).strip()
 
 
 def _compact_search_text(value: str | None) -> str:
+    """
+    用途：执行compact search text相关业务逻辑。
+
+    参数：
+    - value（str | None）：调用方传入的value数据或控制参数，用于驱动本函数处理流程。
+
+    返回：str；返回值供调用方继续编排业务流程或生成接口响应。
+    """
     return re.sub(r"\s+", "", _normalize_search_text(value))
 
 
 def _is_subsequence(needle: str, haystack: str) -> bool:
+    """
+    用途：执行is subsequence相关业务逻辑。
+
+    参数：
+    - needle（str）：调用方传入的needle数据或控制参数，用于驱动本函数处理流程。
+    - haystack（str）：调用方传入的haystack数据或控制参数，用于驱动本函数处理流程。
+
+    返回：bool；返回值供调用方继续编排业务流程或生成接口响应。
+    """
     if not needle:
         return False
 
@@ -81,6 +121,16 @@ def _is_subsequence(needle: str, haystack: str) -> bool:
 
 
 def _rank_note_search_match(note: Note, query: str, content_value: str) -> int | None:
+    """
+    用途：执行rank note search match相关业务逻辑。
+
+    参数：
+    - note（Note）：调用方传入的note数据或控制参数，用于驱动本函数处理流程。
+    - query（str）：调用方传入的query数据或控制参数，用于驱动本函数处理流程。
+    - content_value（str）：调用方传入的content_value数据或控制参数，用于驱动本函数处理流程。
+
+    返回：int | None；返回值供调用方继续编排业务流程或生成接口响应。
+    """
     normalized_query = _normalize_search_text(query)
     compact_query = _compact_search_text(query)
     if not compact_query:
@@ -127,6 +177,14 @@ def _rank_note_search_match(note: Note, query: str, content_value: str) -> int |
 
 
 def _note_search_sort_key(match: tuple[int, Note]) -> tuple[int, int, float, str]:
+    """
+    用途：执行note search sort key相关业务逻辑。
+
+    参数：
+    - match（tuple[int, Note]）：调用方传入的match数据或控制参数，用于驱动本函数处理流程。
+
+    返回：tuple[int, int, float, str]；返回值供调用方继续编排业务流程或生成接口响应。
+    """
     rank, note = match
     updated_at = note.updated_at or note.created_at
     if updated_at is None:
@@ -164,6 +222,15 @@ class NoteService:
 
     @staticmethod
     def _copy_storage_fields(target: StorageObject, source: StorageObject) -> None:
+        """
+        用途：执行copy storage fields相关业务逻辑。
+
+        参数：
+        - target（StorageObject）：调用方传入的target数据或控制参数，用于驱动本函数处理流程。
+        - source（StorageObject）：调用方传入的source数据或控制参数，用于驱动本函数处理流程。
+
+        返回：None；返回值供调用方继续编排业务流程或生成接口响应。
+        """
         for field in (
             "backend",
             "host",
@@ -206,6 +273,16 @@ class NoteService:
         )
 
     async def _read_note_content(self, storage_object: StorageObject) -> str:
+        """
+        用途：异步执行read note content相关业务流程。
+
+        参数：
+        - storage_object（StorageObject）：调用方传入的storage_object数据或控制参数，用于驱动本函数处理流程。
+
+        返回：str；返回值供调用方继续编排业务流程或生成接口响应。
+
+        副作用：可能访问数据库、文件、模型服务或流式事件通道，异常会沿调用链抛出。
+        """
         try:
             return await self.storage_service.read_object_text(storage_object)
         except FileNotFoundError:
@@ -213,6 +290,18 @@ class NoteService:
             return ""
 
     async def _get_note_row(self, db: AsyncSession, note_id: str, user_id: str):
+        """
+        用途：读取或查询get note row相关的数据或流程。
+
+        参数：
+        - db（AsyncSession）：调用方传入的db数据或控制参数，用于驱动本函数处理流程。
+        - note_id（str）：调用方传入的note_id数据或控制参数，用于驱动本函数处理流程。
+        - user_id（str）：调用方传入的user_id数据或控制参数，用于驱动本函数处理流程。
+
+        返回：未显式标注；返回值供调用方继续编排业务流程或生成接口响应。
+
+        副作用：可能访问数据库、文件、模型服务或流式事件通道，异常会沿调用链抛出。
+        """
         result = await db.execute(
             select(Note, Document, StorageObject)
             .join(Document, Note.document_id == Document.id)
@@ -222,6 +311,18 @@ class NoteService:
         return result.one_or_none()
 
     async def _get_note_folder_id(self, db: AsyncSession, user_id: str, note_id: str) -> str | None:
+        """
+        用途：读取或查询get note folder id相关的数据或流程。
+
+        参数：
+        - db（AsyncSession）：调用方传入的db数据或控制参数，用于驱动本函数处理流程。
+        - user_id（str）：调用方传入的user_id数据或控制参数，用于驱动本函数处理流程。
+        - note_id（str）：调用方传入的note_id数据或控制参数，用于驱动本函数处理流程。
+
+        返回：str | None；返回值供调用方继续编排业务流程或生成接口响应。
+
+        副作用：可能访问数据库、文件、模型服务或流式事件通道，异常会沿调用链抛出。
+        """
         result = await db.execute(
             select(NoteFolderAssignment.folder_id).where(
                 NoteFolderAssignment.user_id == user_id,
@@ -231,6 +332,18 @@ class NoteService:
         return result.scalar_one_or_none()
 
     async def _folder_ids_for_notes(self, db: AsyncSession, user_id: str, note_ids: list[str]) -> dict[str, str]:
+        """
+        用途：异步执行folder ids for notes相关业务流程。
+
+        参数：
+        - db（AsyncSession）：调用方传入的db数据或控制参数，用于驱动本函数处理流程。
+        - user_id（str）：调用方传入的user_id数据或控制参数，用于驱动本函数处理流程。
+        - note_ids（list[str]）：调用方传入的note_ids数据或控制参数，用于驱动本函数处理流程。
+
+        返回：dict[str, str]；返回值供调用方继续编排业务流程或生成接口响应。
+
+        副作用：可能访问数据库、文件、模型服务或流式事件通道，异常会沿调用链抛出。
+        """
         if not note_ids:
             return {}
         result = await db.execute(
@@ -242,6 +355,18 @@ class NoteService:
         return {note_id: folder_id for note_id, folder_id in result.all()}
 
     async def _get_folder(self, db: AsyncSession, user_id: str, folder_id: str | None) -> NoteFolder | None:
+        """
+        用途：读取或查询get folder相关的数据或流程。
+
+        参数：
+        - db（AsyncSession）：调用方传入的db数据或控制参数，用于驱动本函数处理流程。
+        - user_id（str）：调用方传入的user_id数据或控制参数，用于驱动本函数处理流程。
+        - folder_id（str | None）：调用方传入的folder_id数据或控制参数，用于驱动本函数处理流程。
+
+        返回：NoteFolder | None；返回值供调用方继续编排业务流程或生成接口响应。
+
+        副作用：可能访问数据库、文件、模型服务或流式事件通道，异常会沿调用链抛出。
+        """
         if not folder_id:
             return None
         result = await db.execute(
@@ -250,6 +375,18 @@ class NoteService:
         return result.scalar_one_or_none()
 
     async def _ensure_folder(self, db: AsyncSession, user_id: str, folder_id: str | None) -> NoteFolder | None:
+        """
+        用途：校验并确保ensure folder相关的数据或流程。
+
+        参数：
+        - db（AsyncSession）：调用方传入的db数据或控制参数，用于驱动本函数处理流程。
+        - user_id（str）：调用方传入的user_id数据或控制参数，用于驱动本函数处理流程。
+        - folder_id（str | None）：调用方传入的folder_id数据或控制参数，用于驱动本函数处理流程。
+
+        返回：NoteFolder | None；返回值供调用方继续编排业务流程或生成接口响应。
+
+        副作用：可能访问数据库、文件、模型服务或流式事件通道，异常会沿调用链抛出。
+        """
         if not folder_id:
             return None
         folder = await self._get_folder(db, user_id, folder_id)
@@ -265,6 +402,20 @@ class NoteService:
         parent_id: str | None,
         exclude_id: str | None = None,
     ) -> bool:
+        """
+        用途：异步执行sibling name exists相关业务流程。
+
+        参数：
+        - db（AsyncSession）：调用方传入的db数据或控制参数，用于驱动本函数处理流程。
+        - user_id（str）：调用方传入的user_id数据或控制参数，用于驱动本函数处理流程。
+        - name（str）：调用方传入的name数据或控制参数，用于驱动本函数处理流程。
+        - parent_id（str | None）：调用方传入的parent_id数据或控制参数，用于驱动本函数处理流程。
+        - exclude_id（str | None）：调用方传入的exclude_id数据或控制参数，用于驱动本函数处理流程。
+
+        返回：bool；返回值供调用方继续编排业务流程或生成接口响应。
+
+        副作用：可能访问数据库、文件、模型服务或流式事件通道，异常会沿调用链抛出。
+        """
         conditions = [NoteFolder.user_id == user_id, NoteFolder.name == name]
         if parent_id:
             conditions.append(NoteFolder.parent_id == parent_id)
@@ -276,6 +427,18 @@ class NoteService:
         return bool(result.scalar() or 0)
 
     async def _next_folder_sort_order(self, db: AsyncSession, user_id: str, parent_id: str | None) -> int:
+        """
+        用途：异步执行next folder sort order相关业务流程。
+
+        参数：
+        - db（AsyncSession）：调用方传入的db数据或控制参数，用于驱动本函数处理流程。
+        - user_id（str）：调用方传入的user_id数据或控制参数，用于驱动本函数处理流程。
+        - parent_id（str | None）：调用方传入的parent_id数据或控制参数，用于驱动本函数处理流程。
+
+        返回：int；返回值供调用方继续编排业务流程或生成接口响应。
+
+        副作用：可能访问数据库、文件、模型服务或流式事件通道，异常会沿调用链抛出。
+        """
         conditions = [NoteFolder.user_id == user_id]
         if parent_id:
             conditions.append(NoteFolder.parent_id == parent_id)
@@ -286,6 +449,18 @@ class NoteService:
         return int(current or 0) + 1
 
     async def _descendant_folder_ids(self, db: AsyncSession, user_id: str, folder_id: str) -> list[str]:
+        """
+        用途：异步执行descendant folder ids相关业务流程。
+
+        参数：
+        - db（AsyncSession）：调用方传入的db数据或控制参数，用于驱动本函数处理流程。
+        - user_id（str）：调用方传入的user_id数据或控制参数，用于驱动本函数处理流程。
+        - folder_id（str）：调用方传入的folder_id数据或控制参数，用于驱动本函数处理流程。
+
+        返回：list[str]；返回值供调用方继续编排业务流程或生成接口响应。
+
+        副作用：可能访问数据库、文件、模型服务或流式事件通道，异常会沿调用链抛出。
+        """
         result = await db.execute(select(NoteFolder.id, NoteFolder.parent_id).where(NoteFolder.user_id == user_id))
         children: dict[str | None, list[str]] = {}
         for current_id, parent_id in result.all():
@@ -306,6 +481,19 @@ class NoteService:
         folder_id: str,
         next_parent_id: str | None,
     ) -> bool:
+        """
+        用途：异步执行would create folder cycle相关业务流程。
+
+        参数：
+        - db（AsyncSession）：调用方传入的db数据或控制参数，用于驱动本函数处理流程。
+        - user_id（str）：调用方传入的user_id数据或控制参数，用于驱动本函数处理流程。
+        - folder_id（str）：调用方传入的folder_id数据或控制参数，用于驱动本函数处理流程。
+        - next_parent_id（str | None）：调用方传入的next_parent_id数据或控制参数，用于驱动本函数处理流程。
+
+        返回：bool；返回值供调用方继续编排业务流程或生成接口响应。
+
+        副作用：可能访问数据库、文件、模型服务或流式事件通道，异常会沿调用链抛出。
+        """
         current_parent_id = next_parent_id
         while current_parent_id:
             if current_parent_id == folder_id:
@@ -321,6 +509,19 @@ class NoteService:
         note_id: str,
         folder_id: str | None,
     ) -> None:
+        """
+        用途：异步执行apply note folder assignment相关业务流程。
+
+        参数：
+        - db（AsyncSession）：调用方传入的db数据或控制参数，用于驱动本函数处理流程。
+        - user_id（str）：调用方传入的user_id数据或控制参数，用于驱动本函数处理流程。
+        - note_id（str）：调用方传入的note_id数据或控制参数，用于驱动本函数处理流程。
+        - folder_id（str | None）：调用方传入的folder_id数据或控制参数，用于驱动本函数处理流程。
+
+        返回：None；返回值供调用方继续编排业务流程或生成接口响应。
+
+        副作用：可能访问数据库、文件、模型服务或流式事件通道，异常会沿调用链抛出。
+        """
         if folder_id:
             await self._ensure_folder(db, user_id, folder_id)
         await db.execute(
@@ -341,6 +542,16 @@ class NoteService:
 
     @staticmethod
     def _folder_to_response(folder: NoteFolder, note_count: int, children: list[NoteFolderResponse]) -> NoteFolderResponse:
+        """
+        用途：执行folder to response相关业务逻辑。
+
+        参数：
+        - folder（NoteFolder）：调用方传入的folder数据或控制参数，用于驱动本函数处理流程。
+        - note_count（int）：调用方传入的note_count数据或控制参数，用于驱动本函数处理流程。
+        - children（list[NoteFolderResponse]）：调用方传入的children数据或控制参数，用于驱动本函数处理流程。
+
+        返回：NoteFolderResponse；返回值供调用方继续编排业务流程或生成接口响应。
+        """
         return NoteFolderResponse(
             id=folder.id,
             user_id=folder.user_id,
@@ -384,6 +595,17 @@ class NoteService:
             logger.error(f"更新笔记索引失败 note_id={note_id}: {e}")
 
     async def list_note_folders(self, db: AsyncSession, user_id: str) -> NoteFolderTreeResponse:
+        """
+        用途：列出list note folders相关的数据或流程。
+
+        参数：
+        - db（AsyncSession）：调用方传入的db数据或控制参数，用于驱动本函数处理流程。
+        - user_id（str）：调用方传入的user_id数据或控制参数，用于驱动本函数处理流程。
+
+        返回：NoteFolderTreeResponse；返回值供调用方继续编排业务流程或生成接口响应。
+
+        副作用：可能访问数据库、文件、模型服务或流式事件通道，异常会沿调用链抛出。
+        """
         result = await db.execute(
             select(NoteFolder).where(NoteFolder.user_id == user_id).order_by(NoteFolder.sort_order.asc(), NoteFolder.created_at.asc())
         )
@@ -415,6 +637,14 @@ class NoteService:
             by_parent.setdefault(folder.parent_id, []).append(folder)
 
         def build(parent_id: str | None) -> list[NoteFolderResponse]:
+            """
+            用途：执行build相关业务逻辑。
+
+            参数：
+            - parent_id（str | None）：调用方传入的parent_id数据或控制参数，用于驱动本函数处理流程。
+
+            返回：list[NoteFolderResponse]；返回值供调用方继续编排业务流程或生成接口响应。
+            """
             return [
                 self._folder_to_response(folder, int(counts.get(folder.id, 0)), build(folder.id))
                 for folder in by_parent.get(parent_id, [])
@@ -423,6 +653,18 @@ class NoteService:
         return NoteFolderTreeResponse(folders=build(None), total_count=total_count, unfiled_count=unfiled_count)
 
     async def create_folder(self, db: AsyncSession, user_id: str, payload: NoteFolderCreate) -> NoteFolderResponse:
+        """
+        用途：创建create folder相关的数据或流程。
+
+        参数：
+        - db（AsyncSession）：调用方传入的db数据或控制参数，用于驱动本函数处理流程。
+        - user_id（str）：调用方传入的user_id数据或控制参数，用于驱动本函数处理流程。
+        - payload（NoteFolderCreate）：调用方传入的payload数据或控制参数，用于驱动本函数处理流程。
+
+        返回：NoteFolderResponse；返回值供调用方继续编排业务流程或生成接口响应。
+
+        副作用：可能访问数据库、文件、模型服务或流式事件通道，异常会沿调用链抛出。
+        """
         name = payload.name.strip()
         parent_id = payload.parent_id or None
         if parent_id:
@@ -449,6 +691,19 @@ class NoteService:
         folder_id: str,
         payload: NoteFolderUpdate,
     ) -> NoteFolderResponse | None:
+        """
+        用途：更新update folder相关的数据或流程。
+
+        参数：
+        - db（AsyncSession）：调用方传入的db数据或控制参数，用于驱动本函数处理流程。
+        - user_id（str）：调用方传入的user_id数据或控制参数，用于驱动本函数处理流程。
+        - folder_id（str）：调用方传入的folder_id数据或控制参数，用于驱动本函数处理流程。
+        - payload（NoteFolderUpdate）：调用方传入的payload数据或控制参数，用于驱动本函数处理流程。
+
+        返回：NoteFolderResponse | None；返回值供调用方继续编排业务流程或生成接口响应。
+
+        副作用：可能访问数据库、文件、模型服务或流式事件通道，异常会沿调用链抛出。
+        """
         folder = await self._get_folder(db, user_id, folder_id)
         if not folder:
             return None
@@ -483,6 +738,19 @@ class NoteService:
         return self._folder_to_response(folder, int(note_count or 0), [])
 
     async def delete_folder(self, db: AsyncSession, user_id: str, folder_id: str, mode: str = "unfile") -> int | None:
+        """
+        用途：删除delete folder相关的数据或流程。
+
+        参数：
+        - db（AsyncSession）：调用方传入的db数据或控制参数，用于驱动本函数处理流程。
+        - user_id（str）：调用方传入的user_id数据或控制参数，用于驱动本函数处理流程。
+        - folder_id（str）：调用方传入的folder_id数据或控制参数，用于驱动本函数处理流程。
+        - mode（str）：调用方传入的mode数据或控制参数，用于驱动本函数处理流程。
+
+        返回：int | None；返回值供调用方继续编排业务流程或生成接口响应。
+
+        副作用：可能访问数据库、文件、模型服务或流式事件通道，异常会沿调用链抛出。
+        """
         folder = await self._get_folder(db, user_id, folder_id)
         if not folder:
             return None
@@ -729,6 +997,20 @@ class NoteService:
         document_id: str,
         storage_object_id: str,
     ) -> None:
+        """
+        用途：删除delete note metadata相关的数据或流程。
+
+        参数：
+        - db（AsyncSession）：调用方传入的db数据或控制参数，用于驱动本函数处理流程。
+        - user_id（str）：调用方传入的user_id数据或控制参数，用于驱动本函数处理流程。
+        - note_id（str）：调用方传入的note_id数据或控制参数，用于驱动本函数处理流程。
+        - document_id（str）：调用方传入的document_id数据或控制参数，用于驱动本函数处理流程。
+        - storage_object_id（str）：调用方传入的storage_object_id数据或控制参数，用于驱动本函数处理流程。
+
+        返回：None；返回值供调用方继续编排业务流程或生成接口响应。
+
+        副作用：可能访问数据库、文件、模型服务或流式事件通道，异常会沿调用链抛出。
+        """
         await db.execute(
             delete(NoteFolderAssignment).where(
                 NoteFolderAssignment.user_id == user_id,

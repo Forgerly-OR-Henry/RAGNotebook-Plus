@@ -1,3 +1,9 @@
+"""
+模块职责：项目源码模块，封装 RAGNotebook 的可维护业务逻辑。
+
+主要协作：本文件只声明当前模块的职责边界，运行时行为由下方函数、类和依赖对象共同完成。
+"""
+
 from fastapi import HTTPException
 from fastapi.exceptions import RequestValidationError
 from sqlalchemy.exc import IntegrityError, SQLAlchemyError

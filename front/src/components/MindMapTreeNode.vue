@@ -1,4 +1,12 @@
+<!--
+模块职责：Vue 可复用组件，负责封装局部界面、交互状态和事件输出。
+主要协作：通过组合 API、状态、组件和路由来支撑当前页面或功能。
+-->
 <script setup lang="ts">
+/**
+ * 接口：`MindMapTreeNodeData` 描述当前业务域中的数据结构。
+ * 字段含义应与后端接口、组件入参或本地状态保持一致。
+ */
 interface MindMapTreeNodeData {
   id: string
   label: string
@@ -15,6 +23,11 @@ withDefaults(defineProps<{
   depth: 0,
 })
 
+/**
+ * 用途：执行nodeClass相关业务逻辑。
+ * @param depth 调用方传入的depth参数，用于驱动当前前端逻辑。
+ * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+ */
 function nodeClass(depth: number) {
   if (depth === 0) {
     return 'mindmap-node--root'

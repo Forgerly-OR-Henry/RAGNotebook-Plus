@@ -1,3 +1,7 @@
+/*
+ * 模块职责：全局样式入口，集中定义 Tailwind 基础层、Markdown 渲染、编辑器和页面通用视觉规则。
+ * 说明：这里只注释结构性样式职责，不改变任何选择器、层级或视觉效果。
+ */
 @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@300;400;500;600;700&family=Noto+Serif+SC:wght@400;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
 
 @tailwind base;

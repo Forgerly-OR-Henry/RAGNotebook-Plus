@@ -1,3 +1,7 @@
+<!--
+模块职责：Vue 页面组件，负责组合业务 API、页面状态和用户交互。
+主要协作：通过组合 API、状态、组件和路由来支撑当前页面或功能。
+-->
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { ArrowLeft, Brain, Check, ChevronRight, Database, FileText, Folder, Loader2, Search, Sparkles } from '@lucide/vue'
@@ -8,6 +12,10 @@ import MindMapCanvas from '../components/MindMapCanvas.vue'
 import { buildFolderTreeRows, type FolderTreeFile } from '../features/sources/folderTree'
 import type { KnowledgeDocument, KnowledgeFolder, MindMapResponse, MindMapSourceType, Note, NoteFolder } from '../types/api'
 
+/**
+ * 类型：`Step` 描述当前业务域中的数据结构。
+ * 字段含义应与后端接口、组件入参或本地状态保持一致。
+ */
 type Step = 'selection' | 'generating' | 'canvas'
 
 const notes = ref<Note[]>([])
@@ -20,15 +28,25 @@ const collapsedFolderKeys = ref<Record<MindMapSourceType, Set<string>>>({
   note: new Set(),
   knowledge: new Set(),
 })
+// 响应式状态：保存当前组件内部的临时 UI 或业务处理状态。
 const focus = ref('')
+// 响应式状态：保存当前组件内部的临时 UI 或业务处理状态。
 const searchQuery = ref('')
 const mindmap = ref<MindMapResponse | null>(null)
 const step = ref<Step>('selection')
+// 响应式状态：保存当前组件内部的临时 UI 或业务处理状态。
 const loadingSources = ref(false)
+// 响应式状态：保存当前组件内部的临时 UI 或业务处理状态。
 const errorMessage = ref('')
+// 响应式状态：保存当前组件内部的临时 UI 或业务处理状态。
 const generatingMessage = ref('正在读取内容...')
 let generatingTimer: number | undefined
 
+/**
+ * 用途：执行sourceFiles相关业务逻辑。
+ * 参数：无显式业务参数。
+ * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+ */
 const sourceFiles = computed<FolderTreeFile[]>(() => {
   if (sourceType.value === 'note') {
     return notes.value
@@ -56,6 +74,11 @@ const sourceFiles = computed<FolderTreeFile[]>(() => {
     .filter((item) => item.id)
 })
 
+/**
+ * 用途：执行sourceRows相关业务逻辑。
+ * 参数：无显式业务参数。
+ * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+ */
 const sourceRows = computed(() => buildFolderTreeRows(
   sourceType.value === 'note' ? noteFolders.value : knowledgeFolders.value,
   sourceFiles.value,
@@ -65,19 +88,36 @@ const sourceRows = computed(() => buildFolderTreeRows(
   true,
 ))
 
+/**
+ * 用途：执行visibleSourceIds相关业务逻辑。
+ * 参数：无显式业务参数。
+ * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+ */
 const visibleSourceIds = computed(() => sourceRows.value
   .filter((item) => item.kind === 'file' && item.sourceId)
   .map((item) => item.sourceId as string))
 
+/**
+ * 用途：执行selectedIds相关业务逻辑。
+ * 参数：无显式业务参数。
+ * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+ */
 const selectedIds = computed(() => Array.from(selectedSourceIds.value))
+/**
+ * 用途：执行allVisibleSelected相关业务逻辑。
+ * 参数：无显式业务参数。
+ * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+ */
 const allVisibleSelected = computed(() => visibleSourceIds.value.length > 0 && visibleSourceIds.value.every((id) => selectedSourceIds.value.has(id)))
 
+// 状态监听：在关键输入变化后同步副作用或刷新页面数据。
 watch(sourceType, () => {
   selectedSourceIds.value = new Set()
   searchQuery.value = ''
   errorMessage.value = ''
 })
 
+// 状态监听：在关键输入变化后同步副作用或刷新页面数据。
 watch(step, (value) => {
   clearGeneratingTimer()
   if (value !== 'generating') return
@@ -101,6 +141,11 @@ onBeforeUnmount(() => {
   clearGeneratingTimer()
 })
 
+/**
+ * 用途：执行loadSources相关业务逻辑。
+ * 参数：无显式业务参数。
+ * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+ */
 async function loadSources() {
   loadingSources.value = true
   errorMessage.value = ''
@@ -122,6 +167,11 @@ async function loadSources() {
   }
 }
 
+/**
+ * 用途：执行clearGeneratingTimer相关业务逻辑。
+ * 参数：无显式业务参数。
+ * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+ */
 function clearGeneratingTimer() {
   if (generatingTimer) {
     window.clearInterval(generatingTimer)
@@ -129,6 +179,11 @@ function clearGeneratingTimer() {
   }
 }
 
+/**
+ * 用途：执行toggleSourceSelection相关业务逻辑。
+ * @param id 调用方传入的id参数，用于驱动当前前端逻辑。
+ * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+ */
 function toggleSourceSelection(id: string) {
   const next = new Set(selectedSourceIds.value)
   if (next.has(id)) {
@@ -139,6 +194,11 @@ function toggleSourceSelection(id: string) {
   selectedSourceIds.value = next
 }
 
+/**
+ * 用途：执行toggleAllVisible相关业务逻辑。
+ * 参数：无显式业务参数。
+ * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+ */
 function toggleAllVisible() {
   const next = new Set(selectedSourceIds.value)
   if (allVisibleSelected.value) {
@@ -149,11 +209,21 @@ function toggleAllVisible() {
   selectedSourceIds.value = next
 }
 
+/**
+ * 用途：执行isFolderCollapsed相关业务逻辑。
+ * @param key 调用方传入的key参数，用于驱动当前前端逻辑。
+ * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+ */
 function isFolderCollapsed(key: string) {
   if (searchQuery.value.trim()) return false
   return !collapsedFolderKeys.value[sourceType.value].has(key)
 }
 
+/**
+ * 用途：执行toggleFolder相关业务逻辑。
+ * @param key 调用方传入的key参数，用于驱动当前前端逻辑。
+ * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+ */
 function toggleFolder(key: string) {
   const next = new Set(collapsedFolderKeys.value[sourceType.value])
   if (next.has(key)) {
@@ -167,6 +237,11 @@ function toggleFolder(key: string) {
   }
 }
 
+/**
+ * 用途：执行generate相关业务逻辑。
+ * 参数：无显式业务参数。
+ * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+ */
 async function generate() {
   errorMessage.value = ''
   if (selectedIds.value.length === 0) {
@@ -191,15 +266,31 @@ async function generate() {
   }
 }
 
+/**
+ * 用途：执行backToSelection相关业务逻辑。
+ * 参数：无显式业务参数。
+ * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+ */
 function backToSelection() {
   step.value = 'selection'
 }
 
+/**
+ * 用途：执行resolveErrorMessage相关业务逻辑。
+ * @param error 调用方传入的error参数，用于驱动当前前端逻辑。
+ * @param fallback 调用方传入的fallback参数，用于驱动当前前端逻辑。
+ * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+ */
 function resolveErrorMessage(error: unknown, fallback: string) {
   const detail = error as { message?: string; response?: { data?: { detail?: string; message?: string } } }
   return detail.response?.data?.message || detail.response?.data?.detail || detail.message || fallback
 }
 
+/**
+ * 用途：执行formatDate相关业务逻辑。
+ * 参数：无显式业务参数。
+ * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+ */
 function formatDate(value?: string | null) {
   if (!value) return '未知时间'
   const date = new Date(value)

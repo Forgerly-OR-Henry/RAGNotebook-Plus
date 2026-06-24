@@ -1,3 +1,7 @@
+/**
+ * 模块职责：前端 API 模块，负责封装 HTTP/SSE 请求并保持视图层调用简洁。
+ * 主要协作：通过导出的类型、函数或组件配置供其他前端模块复用。
+ */
 import client from './client'
 import { endpoints } from './endpoints'
 import { uploadFormSse, type StreamResult } from './stream'
@@ -11,8 +15,17 @@ import type {
   ProjectSourcesResponse,
 } from '../types/api'
 
+/**
+ * 类型：`KnowledgeUploadResult` 描述当前业务域中的数据结构。
+ * 字段含义应与后端接口、组件入参或本地状态保持一致。
+ */
 type KnowledgeUploadResult = StreamResult<KnowledgeUploadProgress>
 
+/**
+ * 用途：执行uploadProjectKnowledge相关业务逻辑。
+ * 参数：无显式业务参数。
+ * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+ */
 async function uploadProjectKnowledge(
   projectId: string,
   files: File[],

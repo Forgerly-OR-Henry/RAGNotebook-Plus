@@ -1,3 +1,7 @@
+<!--
+模块职责：Vue 可复用组件，负责封装局部界面、交互状态和事件输出。
+主要协作：通过组合 API、状态、组件和路由来支撑当前页面或功能。
+-->
 <script setup lang="ts">
 import { ref } from 'vue'
 import { X } from '@lucide/vue'
@@ -9,17 +13,29 @@ const props = withDefaults(defineProps<{
   placeholder: '添加标签...',
 })
 
+// 组件事件：向父组件报告关闭、保存、选择等交互结果。
 const emit = defineEmits<{
   'update:tags': [tags: string[]]
 }>()
 
+// 响应式状态：保存当前组件内部的临时 UI 或业务处理状态。
 const value = ref('')
 const inputRef = ref<HTMLInputElement | null>(null)
 
+/**
+ * 用途：执行update相关业务逻辑。
+ * @param nextTags 调用方传入的nextTags参数，用于驱动当前前端逻辑。
+ * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+ */
 function update(nextTags: string[]) {
   emit('update:tags', nextTags)
 }
 
+/**
+ * 用途：执行addTag相关业务逻辑。
+ * @param raw 调用方传入的raw参数，用于驱动当前前端逻辑。
+ * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+ */
 function addTag(raw: string) {
   const tag = raw.trim()
   if (!tag) return
@@ -29,10 +45,20 @@ function addTag(raw: string) {
   value.value = ''
 }
 
+/**
+ * 用途：执行removeTag相关业务逻辑。
+ * @param index 调用方传入的index参数，用于驱动当前前端逻辑。
+ * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+ */
 function removeTag(index: number) {
   update(props.tags.filter((_, currentIndex) => currentIndex !== index))
 }
 
+/**
+ * 用途：执行handleKeydown相关业务逻辑。
+ * @param event 调用方传入的event参数，用于驱动当前前端逻辑。
+ * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+ */
 function handleKeydown(event: KeyboardEvent) {
   if (event.key === 'Enter' || event.key === ',' || event.key === '，') {
     event.preventDefault()
@@ -44,6 +70,11 @@ function handleKeydown(event: KeyboardEvent) {
   }
 }
 
+/**
+ * 用途：执行handlePaste相关业务逻辑。
+ * @param event 调用方传入的event参数，用于驱动当前前端逻辑。
+ * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+ */
 function handlePaste(event: ClipboardEvent) {
   const text = event.clipboardData?.getData('text') || ''
   if (!/[，,]/.test(text)) return

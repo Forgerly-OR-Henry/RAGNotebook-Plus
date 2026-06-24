@@ -1,3 +1,9 @@
+"""
+模块职责：项目源码模块，封装 RAGNotebook 的可维护业务逻辑。
+
+主要协作：本文件只声明当前模块的职责边界，运行时行为由下方函数、类和依赖对象共同完成。
+"""
+
 import logging
 import os
 import sys
@@ -25,6 +31,17 @@ def get_logger(
         file_level: int = logging.DEBUG,
         log_file: str = None,
 ) -> logging.Logger:
+    """
+    用途：读取或查询get logger相关的数据或流程。
+
+    参数：
+    - name（str）：调用方传入的name数据或控制参数，用于驱动本函数处理流程。
+    - console_level（int）：调用方传入的console_level数据或控制参数，用于驱动本函数处理流程。
+    - file_level（int）：调用方传入的file_level数据或控制参数，用于驱动本函数处理流程。
+    - log_file（str）：调用方传入的log_file数据或控制参数，用于驱动本函数处理流程。
+
+    返回：logging.Logger；返回值供调用方继续编排业务流程或生成接口响应。
+    """
     logger = logging.getLogger(name)
     logger.setLevel(logging.DEBUG)
 

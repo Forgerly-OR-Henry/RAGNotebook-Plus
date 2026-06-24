@@ -72,7 +72,20 @@ DEFAULT_TEMPLATES = [
 
 class NoteTemplateService:
 
+    """
+    用途：业务服务类，用于封装用例流程、依赖协作和事务边界。
+
+    属性：该类不声明持久字段，主要通过方法行为或异常类型表达语义。
+    """
     def _to_response(self, t: NoteTemplate) -> NoteTemplateResponse:
+        """
+        用途：执行to response相关业务逻辑。
+
+        参数：
+        - t（NoteTemplate）：调用方传入的t数据或控制参数，用于驱动本函数处理流程。
+
+        返回：NoteTemplateResponse；返回值供调用方继续编排业务流程或生成接口响应。
+        """
         return NoteTemplateResponse(
             id=t.id,
             user_id=t.user_id,
@@ -202,6 +215,13 @@ _note_template_service: NoteTemplateService | None = None
 
 
 def get_note_template_service() -> NoteTemplateService:
+    """
+    用途：读取或查询get note template service相关的数据或流程。
+
+    参数：无显式业务参数。
+
+    返回：NoteTemplateService；返回值供调用方继续编排业务流程或生成接口响应。
+    """
     global _note_template_service
     if _note_template_service is None:
         _note_template_service = NoteTemplateService()

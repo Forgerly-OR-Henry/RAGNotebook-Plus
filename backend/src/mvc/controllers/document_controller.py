@@ -1,3 +1,9 @@
+"""
+模块职责：FastAPI 路由控制器模块，负责请求参数绑定、权限依赖和服务层调用。
+
+主要协作：本文件只声明当前模块的职责边界，运行时行为由下方函数、类和依赖对象共同完成。
+"""
+
 from __future__ import annotations
 
 import re
@@ -24,6 +30,19 @@ async def download_document(
     user_id: str = Depends(get_current_user_id),
     storage_service: StorageService = Depends(get_storage_service),
 ):
+    """
+    用途：下载download document相关的数据或流程。
+
+    参数：
+    - document_id（str）：调用方传入的document_id数据或控制参数，用于驱动本函数处理流程。
+    - db（未显式标注）：调用方传入的db数据或控制参数，用于驱动本函数处理流程。
+    - user_id（str）：调用方传入的user_id数据或控制参数，用于驱动本函数处理流程。
+    - storage_service（StorageService）：调用方传入的storage_service数据或控制参数，用于驱动本函数处理流程。
+
+    返回：未显式标注；返回值供调用方继续编排业务流程或生成接口响应。
+
+    副作用：可能访问数据库、文件、模型服务或流式事件通道，异常会沿调用链抛出。
+    """
     result = await db.execute(
         select(Document, StorageObject)
         .join(StorageObject, Document.storage_object_id == StorageObject.id)

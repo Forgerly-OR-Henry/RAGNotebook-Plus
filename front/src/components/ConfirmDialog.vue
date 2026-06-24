@@ -1,3 +1,7 @@
+<!--
+模块职责：Vue 可复用组件，负责封装局部界面、交互状态和事件输出。
+主要协作：通过组合 API、状态、组件和路由来支撑当前页面或功能。
+-->
 <script setup lang="ts">
 import { nextTick, ref, watch } from 'vue'
 import { X } from '@lucide/vue'
@@ -15,6 +19,7 @@ const props = withDefaults(defineProps<{
   variant: 'default',
 })
 
+// 组件事件：向父组件报告关闭、保存、选择等交互结果。
 const emit = defineEmits<{
   'update:open': [open: boolean]
   confirm: []
@@ -22,6 +27,7 @@ const emit = defineEmits<{
 
 const confirmButton = ref<HTMLButtonElement | null>(null)
 
+// 状态监听：在关键输入变化后同步副作用或刷新页面数据。
 watch(
   () => props.open,
   async (open) => {
@@ -31,10 +37,20 @@ watch(
   },
 )
 
+/**
+ * 用途：执行close相关业务逻辑。
+ * 参数：无显式业务参数。
+ * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+ */
 function close() {
   emit('update:open', false)
 }
 
+/**
+ * 用途：执行confirm相关业务逻辑。
+ * 参数：无显式业务参数。
+ * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
+ */
 function confirm() {
   emit('confirm')
   close()

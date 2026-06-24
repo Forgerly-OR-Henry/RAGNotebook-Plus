@@ -1,3 +1,9 @@
+"""
+模块职责：Pydantic schema 模块，负责声明接口请求、响应和嵌套数据结构。
+
+主要协作：本文件只声明当前模块的职责边界，运行时行为由下方函数、类和依赖对象共同完成。
+"""
+
 from pydantic import BaseModel
 
 

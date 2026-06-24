@@ -1,3 +1,9 @@
+"""
+模块职责：模型工厂模块，负责根据环境配置创建聊天模型、嵌入模型和重排模型。
+
+主要协作：本文件只声明当前模块的职责边界，运行时行为由下方函数、类和依赖对象共同完成。
+"""
+
 from abc import ABC, abstractmethod
 from http import HTTPStatus
 
@@ -24,6 +30,16 @@ class DashScopeEmbeddingsWrapper(Embeddings):
     _DIMENSIONAL_MODELS = {"text-embedding-v3", "text-embedding-v4"}
 
     def __init__(self, model_name: str = "text-embedding-v4", api_key: str = None, embedding_dim: int | None = None):
+        """
+        用途：执行init相关业务逻辑。
+
+        参数：
+        - model_name（str）：调用方传入的model_name数据或控制参数，用于驱动本函数处理流程。
+        - api_key（str）：调用方传入的api_key数据或控制参数，用于驱动本函数处理流程。
+        - embedding_dim（int | None）：调用方传入的embedding_dim数据或控制参数，用于驱动本函数处理流程。
+
+        返回：未显式标注；返回值供调用方继续编排业务流程或生成接口响应。
+        """
         try:
             import dashscope
             self.dashscope = dashscope
@@ -39,6 +55,14 @@ class DashScopeEmbeddingsWrapper(Embeddings):
             raise ImportError("需要安装 dashscope 库: pip install dashscope")
 
     def _call_embedding(self, inputs: str | list[str]) -> list[list[float]]:
+        """
+        用途：执行call embedding相关业务逻辑。
+
+        参数：
+        - inputs（str | list[str]）：调用方传入的inputs数据或控制参数，用于驱动本函数处理流程。
+
+        返回：list[list[float]]；返回值供调用方继续编排业务流程或生成接口响应。
+        """
         kwargs = {
             "model": self.model_name,
             "input": inputs,

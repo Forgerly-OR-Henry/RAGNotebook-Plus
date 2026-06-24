@@ -1,3 +1,9 @@
+"""
+模块职责：知识库导入服务，负责上传文件解析、存储、索引构建和进度事件输出。
+
+主要协作：本文件只声明当前模块的职责边界，运行时行为由下方函数、类和依赖对象共同完成。
+"""
+
 from __future__ import annotations
 
 import asyncio
@@ -20,6 +26,7 @@ from mvc.models.knowledge_folder import KnowledgeFolderAssignment
 from mvc.models.project import ProjectSource
 from mvc.models.storage_object import StorageObject
 from mvc.services.storage_service import StorageService, get_storage_service
+from utils.env_loader import optional_env_value
 from utils.magic_compat import ensure_magic_dll_path
 
 ensure_magic_dll_path()
@@ -44,7 +51,16 @@ ALLOWED_MIME_TYPES = {
 
 
 def _timeout_seconds(env_name: str, default: float) -> float:
-    raw_value = os.getenv(env_name, "").strip()
+    """
+    用途：执行timeout seconds相关业务逻辑。
+
+    参数：
+    - env_name（str）：调用方传入的env_name数据或控制参数，用于驱动本函数处理流程。
+    - default（float）：调用方传入的default数据或控制参数，用于驱动本函数处理流程。
+
+    返回：float；返回值供调用方继续编排业务流程或生成接口响应。
+    """
+    raw_value = optional_env_value(env_name)
     if not raw_value:
         return default
     try:
@@ -60,6 +76,16 @@ def _timeout_seconds(env_name: str, default: float) -> float:
 
 @dataclass
 class UploadFileContent:
+    """
+    用途：领域对象或协作组件，用于承载本模块内的核心状态和行为。
+
+    属性：
+    - filename（str）：保存filename相关状态、配置或数据字段。
+    - content（bytes）：保存content相关状态、配置或数据字段。
+    - file_index（int）：保存file_index相关状态、配置或数据字段。
+    - file_size（int）：保存file_size相关状态、配置或数据字段。
+    - mime_type（str）：保存mime_type相关状态、配置或数据字段。
+    """
     filename: str
     content: bytes
     file_index: int
@@ -68,12 +94,30 @@ class UploadFileContent:
 
 
 class KnowledgeIngestionService:
+    """
+    用途：业务服务类，用于封装用例流程、依赖协作和事务边界。
+
+    属性：
+    - parser（实例属性，由构造函数注入或初始化）：保存parser相关状态、配置或数据字段。
+    - index_repository（实例属性，由构造函数注入或初始化）：保存index_repository相关状态、配置或数据字段。
+    - storage_service（实例属性，由构造函数注入或初始化）：保存storage_service相关状态、配置或数据字段。
+    """
     def __init__(
         self,
         parser: DocumentParser | None = None,
         index_repository: IndexRepository | None = None,
         storage_service: StorageService | None = None,
     ):
+        """
+        用途：执行init相关业务逻辑。
+
+        参数：
+        - parser（DocumentParser | None）：调用方传入的parser数据或控制参数，用于驱动本函数处理流程。
+        - index_repository（IndexRepository | None）：调用方传入的index_repository数据或控制参数，用于驱动本函数处理流程。
+        - storage_service（StorageService | None）：调用方传入的storage_service数据或控制参数，用于驱动本函数处理流程。
+
+        返回：未显式标注；返回值供调用方继续编排业务流程或生成接口响应。
+        """
         self.parser = parser or DocumentParser()
         self.index_repository = index_repository or IndexRepository()
         self.storage_service = storage_service or get_storage_service()
@@ -86,6 +130,20 @@ class KnowledgeIngestionService:
         folder_id: str | None = None,
         category: str | None = None,
     ) -> AsyncGenerator[str, None]:
+        """
+        用途：上传upload stream相关的数据或流程。
+
+        参数：
+        - files（list[UploadFile]）：调用方传入的files数据或控制参数，用于驱动本函数处理流程。
+        - user_id（str）：调用方传入的user_id数据或控制参数，用于驱动本函数处理流程。
+        - on_document_ready（Callable[[Document], Awaitable[None]] | None）：调用方传入的on_document_ready数据或控制参数，用于驱动本函数处理流程。
+        - folder_id（str | None）：调用方传入的folder_id数据或控制参数，用于驱动本函数处理流程。
+        - category（str | None）：调用方传入的category数据或控制参数，用于驱动本函数处理流程。
+
+        返回：AsyncGenerator[str, None]；返回值供调用方继续编排业务流程或生成接口响应。
+
+        副作用：可能访问数据库、文件、模型服务或流式事件通道，异常会沿调用链抛出。
+        """
         start_time = time.time()
         total_files = len(files)
         yield self._event("start", "开始处理文件...", total_files=total_files, progress=0)
@@ -245,6 +303,16 @@ class KnowledgeIngestionService:
         )
 
     async def _read_and_validate(self, files: list[UploadFile]) -> tuple[list[UploadFileContent], list[str]]:
+        """
+        用途：异步执行read and validate相关业务流程。
+
+        参数：
+        - files（list[UploadFile]）：调用方传入的files数据或控制参数，用于驱动本函数处理流程。
+
+        返回：tuple[list[UploadFileContent], list[str]]；返回值供调用方继续编排业务流程或生成接口响应。
+
+        副作用：可能访问数据库、文件、模型服务或流式事件通道，异常会沿调用链抛出。
+        """
         total_size = 0
         contents: list[UploadFileContent] = []
         events: list[str] = []
@@ -292,6 +360,26 @@ class KnowledgeIngestionService:
         folder_id: str | None = None,
         category: str | None = None,
     ) -> Document:
+        """
+        用途：创建create document record相关的数据或流程。
+
+        参数：
+        - user_id（str）：调用方传入的user_id数据或控制参数，用于驱动本函数处理流程。
+        - document_id（str）：调用方传入的document_id数据或控制参数，用于驱动本函数处理流程。
+        - filename（str）：调用方传入的filename数据或控制参数，用于驱动本函数处理流程。
+        - storage_object（StorageObject）：调用方传入的storage_object数据或控制参数，用于驱动本函数处理流程。
+        - content_hash（str）：调用方传入的content_hash数据或控制参数，用于驱动本函数处理流程。
+        - file_size（int）：调用方传入的file_size数据或控制参数，用于驱动本函数处理流程。
+        - mime_type（str）：调用方传入的mime_type数据或控制参数，用于驱动本函数处理流程。
+        - status（str）：调用方传入的status数据或控制参数，用于驱动本函数处理流程。
+        - status_message（str | None）：调用方传入的status_message数据或控制参数，用于驱动本函数处理流程。
+        - folder_id（str | None）：调用方传入的folder_id数据或控制参数，用于驱动本函数处理流程。
+        - category（str | None）：调用方传入的category数据或控制参数，用于驱动本函数处理流程。
+
+        返回：Document；返回值供调用方继续编排业务流程或生成接口响应。
+
+        副作用：可能访问数据库、文件、模型服务或流式事件通道，异常会沿调用链抛出。
+        """
         normalized_category = category.strip() if category else None
         async with AsyncSessionLocal() as session:
             document = Document(
@@ -337,6 +425,18 @@ class KnowledgeIngestionService:
             return document
 
     async def _mark_ready(self, document_id: str, user_id: str, chunk_count: int) -> None:
+        """
+        用途：异步执行mark ready相关业务流程。
+
+        参数：
+        - document_id（str）：调用方传入的document_id数据或控制参数，用于驱动本函数处理流程。
+        - user_id（str）：调用方传入的user_id数据或控制参数，用于驱动本函数处理流程。
+        - chunk_count（int）：调用方传入的chunk_count数据或控制参数，用于驱动本函数处理流程。
+
+        返回：None；返回值供调用方继续编排业务流程或生成接口响应。
+
+        副作用：可能访问数据库、文件、模型服务或流式事件通道，异常会沿调用链抛出。
+        """
         async with AsyncSessionLocal() as session:
             document = await session.get(Document, document_id)
             if document and document.user_id == user_id and document.source_type == "knowledge":
@@ -346,6 +446,18 @@ class KnowledgeIngestionService:
                 await session.commit()
 
     async def _mark_failed(self, document_id: str, user_id: str, error: str) -> None:
+        """
+        用途：异步执行mark failed相关业务流程。
+
+        参数：
+        - document_id（str）：调用方传入的document_id数据或控制参数，用于驱动本函数处理流程。
+        - user_id（str）：调用方传入的user_id数据或控制参数，用于驱动本函数处理流程。
+        - error（str）：调用方传入的error数据或控制参数，用于驱动本函数处理流程。
+
+        返回：None；返回值供调用方继续编排业务流程或生成接口响应。
+
+        副作用：可能访问数据库、文件、模型服务或流式事件通道，异常会沿调用链抛出。
+        """
         async with AsyncSessionLocal() as session:
             document = await session.get(Document, document_id)
             if document and document.user_id == user_id and document.source_type == "knowledge":
@@ -354,6 +466,18 @@ class KnowledgeIngestionService:
                 await session.commit()
 
     async def _cleanup_partial_document(self, *, user_id: str, document_id: str, storage_object: StorageObject) -> None:
+        """
+        用途：异步执行cleanup partial document相关业务流程。
+
+        参数：
+        - user_id（str）：调用方传入的user_id数据或控制参数，用于驱动本函数处理流程。
+        - document_id（str）：调用方传入的document_id数据或控制参数，用于驱动本函数处理流程。
+        - storage_object（StorageObject）：调用方传入的storage_object数据或控制参数，用于驱动本函数处理流程。
+
+        返回：None；返回值供调用方继续编排业务流程或生成接口响应。
+
+        副作用：可能访问数据库、文件、模型服务或流式事件通道，异常会沿调用链抛出。
+        """
         try:
             await self.index_repository.delete_source(user_id=user_id, source_type="knowledge", source_id=document_id)
         except Exception as exc:
@@ -388,6 +512,17 @@ class KnowledgeIngestionService:
         await self._delete_storage_object_data(storage_object, f"document_id={document_id}")
 
     async def _delete_storage_object_data(self, storage_object: StorageObject, context: str) -> None:
+        """
+        用途：删除delete storage object data相关的数据或流程。
+
+        参数：
+        - storage_object（StorageObject）：调用方传入的storage_object数据或控制参数，用于驱动本函数处理流程。
+        - context（str）：调用方传入的context数据或控制参数，用于驱动本函数处理流程。
+
+        返回：None；返回值供调用方继续编排业务流程或生成接口响应。
+
+        副作用：可能访问数据库、文件、模型服务或流式事件通道，异常会沿调用链抛出。
+        """
         try:
             await self.storage_service.delete_storage_object_data(storage_object)
         except Exception as exc:
@@ -395,6 +530,18 @@ class KnowledgeIngestionService:
 
     @staticmethod
     async def _with_timeout(awaitable, *, timeout_seconds: float, timeout_message: str):
+        """
+        用途：异步执行with timeout相关业务流程。
+
+        参数：
+        - awaitable（未显式标注）：调用方传入的awaitable数据或控制参数，用于驱动本函数处理流程。
+        - timeout_seconds（float）：调用方传入的timeout_seconds数据或控制参数，用于驱动本函数处理流程。
+        - timeout_message（str）：调用方传入的timeout_message数据或控制参数，用于驱动本函数处理流程。
+
+        返回：未显式标注；返回值供调用方继续编排业务流程或生成接口响应。
+
+        副作用：可能访问数据库、文件、模型服务或流式事件通道，异常会沿调用链抛出。
+        """
         try:
             return await asyncio.wait_for(awaitable, timeout=timeout_seconds)
         except TimeoutError as exc:
@@ -402,10 +549,29 @@ class KnowledgeIngestionService:
 
     @staticmethod
     def _progress(current_index: int, total_files: int) -> int:
+        """
+        用途：执行progress相关业务逻辑。
+
+        参数：
+        - current_index（int）：调用方传入的current_index数据或控制参数，用于驱动本函数处理流程。
+        - total_files（int）：调用方传入的total_files数据或控制参数，用于驱动本函数处理流程。
+
+        返回：int；返回值供调用方继续编排业务流程或生成接口响应。
+        """
         if total_files <= 0:
             return 100
         return min(99, int(current_index / total_files * 100))
 
     @staticmethod
     def _event(event_type: str, message: str, **kwargs) -> str:
+        """
+        用途：执行event相关业务逻辑。
+
+        参数：
+        - event_type（str）：调用方传入的event_type数据或控制参数，用于驱动本函数处理流程。
+        - message（str）：调用方传入的message数据或控制参数，用于驱动本函数处理流程。
+        - kwargs（未显式标注）：调用方传入的kwargs数据或控制参数，用于驱动本函数处理流程。
+
+        返回：str；返回值供调用方继续编排业务流程或生成接口响应。
+        """
         return SSEEvent(event_type=event_type, message=message, **kwargs).to_sse()

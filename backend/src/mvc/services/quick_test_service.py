@@ -1,3 +1,9 @@
+"""
+模块职责：业务服务模块，负责组织领域用例、数据访问和外部能力协作。
+
+主要协作：本文件只声明当前模块的职责边界，运行时行为由下方函数、类和依赖对象共同完成。
+"""
+
 from __future__ import annotations
 
 import uuid
@@ -13,10 +19,35 @@ from mvc.services.sources import SourceChunk, format_source_context, get_source_
 
 
 class QuickTestService:
+    """
+    用途：业务服务类，用于封装用例流程、依赖协作和事务边界。
+
+    属性：
+    - collector（实例属性，由构造函数注入或初始化）：保存collector相关状态、配置或数据字段。
+    """
     def __init__(self):
+        """
+        用途：执行init相关业务逻辑。
+
+        参数：无显式业务参数。
+
+        返回：未显式标注；返回值供调用方继续编排业务流程或生成接口响应。
+        """
         self.collector = get_source_registry()
 
     async def create_session(self, db: AsyncSession, user_id: str, payload: QuickTestCreateRequest) -> dict:
+        """
+        用途：创建create session相关的数据或流程。
+
+        参数：
+        - db（AsyncSession）：调用方传入的db数据或控制参数，用于驱动本函数处理流程。
+        - user_id（str）：调用方传入的user_id数据或控制参数，用于驱动本函数处理流程。
+        - payload（QuickTestCreateRequest）：调用方传入的payload数据或控制参数，用于驱动本函数处理流程。
+
+        返回：dict；返回值供调用方继续编排业务流程或生成接口响应。
+
+        副作用：可能访问数据库、文件、模型服务或流式事件通道，异常会沿调用链抛出。
+        """
         chunks = await self.collector.collect(db, user_id, payload.source_type, payload.source_ids)
         if not chunks:
             raise ValueError("没有找到可用于快速测试的来源内容")
@@ -52,6 +83,19 @@ class QuickTestService:
         return {"session_id": session_id, "first_question": question, "citations": citations}
 
     async def answer(self, db: AsyncSession, user_id: str, session_id: str, answer: str) -> dict | None:
+        """
+        用途：异步执行answer相关业务流程。
+
+        参数：
+        - db（AsyncSession）：调用方传入的db数据或控制参数，用于驱动本函数处理流程。
+        - user_id（str）：调用方传入的user_id数据或控制参数，用于驱动本函数处理流程。
+        - session_id（str）：调用方传入的session_id数据或控制参数，用于驱动本函数处理流程。
+        - answer（str）：调用方传入的answer数据或控制参数，用于驱动本函数处理流程。
+
+        返回：dict | None；返回值供调用方继续编排业务流程或生成接口响应。
+
+        副作用：可能访问数据库、文件、模型服务或流式事件通道，异常会沿调用链抛出。
+        """
         session = await self._get_session_orm(db, user_id, session_id)
         if not session:
             return None
@@ -107,6 +151,18 @@ class QuickTestService:
         }
 
     async def get_session(self, db: AsyncSession, user_id: str, session_id: str) -> dict | None:
+        """
+        用途：读取或查询get session相关的数据或流程。
+
+        参数：
+        - db（AsyncSession）：调用方传入的db数据或控制参数，用于驱动本函数处理流程。
+        - user_id（str）：调用方传入的user_id数据或控制参数，用于驱动本函数处理流程。
+        - session_id（str）：调用方传入的session_id数据或控制参数，用于驱动本函数处理流程。
+
+        返回：dict | None；返回值供调用方继续编排业务流程或生成接口响应。
+
+        副作用：可能访问数据库、文件、模型服务或流式事件通道，异常会沿调用链抛出。
+        """
         session = await self._get_session_orm(db, user_id, session_id)
         if not session:
             return None
@@ -146,6 +202,18 @@ class QuickTestService:
         }
 
     async def finish(self, db: AsyncSession, user_id: str, session_id: str) -> dict | None:
+        """
+        用途：异步执行finish相关业务流程。
+
+        参数：
+        - db（AsyncSession）：调用方传入的db数据或控制参数，用于驱动本函数处理流程。
+        - user_id（str）：调用方传入的user_id数据或控制参数，用于驱动本函数处理流程。
+        - session_id（str）：调用方传入的session_id数据或控制参数，用于驱动本函数处理流程。
+
+        返回：dict | None；返回值供调用方继续编排业务流程或生成接口响应。
+
+        副作用：可能访问数据库、文件、模型服务或流式事件通道，异常会沿调用链抛出。
+        """
         session = await self._get_session_orm(db, user_id, session_id)
         if not session:
             return None
@@ -160,12 +228,37 @@ class QuickTestService:
         return final
 
     async def _get_session_orm(self, db: AsyncSession, user_id: str, session_id: str):
+        """
+        用途：读取或查询get session orm相关的数据或流程。
+
+        参数：
+        - db（AsyncSession）：调用方传入的db数据或控制参数，用于驱动本函数处理流程。
+        - user_id（str）：调用方传入的user_id数据或控制参数，用于驱动本函数处理流程。
+        - session_id（str）：调用方传入的session_id数据或控制参数，用于驱动本函数处理流程。
+
+        返回：未显式标注；返回值供调用方继续编排业务流程或生成接口响应。
+
+        副作用：可能访问数据库、文件、模型服务或流式事件通道，异常会沿调用链抛出。
+        """
         result = await db.execute(
             select(StudyTestSession).where(StudyTestSession.id == session_id, StudyTestSession.user_id == user_id)
         )
         return result.scalar_one_or_none()
 
     async def _get_current_turn(self, db: AsyncSession, user_id: str, session_id: str, turn_index: int):
+        """
+        用途：读取或查询get current turn相关的数据或流程。
+
+        参数：
+        - db（AsyncSession）：调用方传入的db数据或控制参数，用于驱动本函数处理流程。
+        - user_id（str）：调用方传入的user_id数据或控制参数，用于驱动本函数处理流程。
+        - session_id（str）：调用方传入的session_id数据或控制参数，用于驱动本函数处理流程。
+        - turn_index（int）：调用方传入的turn_index数据或控制参数，用于驱动本函数处理流程。
+
+        返回：未显式标注；返回值供调用方继续编排业务流程或生成接口响应。
+
+        副作用：可能访问数据库、文件、模型服务或流式事件通道，异常会沿调用链抛出。
+        """
         result = await db.execute(
             select(StudyTestTurn).where(
                 StudyTestTurn.session_id == session_id,
@@ -176,6 +269,16 @@ class QuickTestService:
         return result.scalar_one_or_none()
 
     async def _model_json(self, prompt: str) -> dict | None:
+        """
+        用途：异步执行model json相关业务流程。
+
+        参数：
+        - prompt（str）：调用方传入的prompt数据或控制参数，用于驱动本函数处理流程。
+
+        返回：dict | None；返回值供调用方继续编排业务流程或生成接口响应。
+
+        副作用：可能访问数据库、文件、模型服务或流式事件通道，异常会沿调用链抛出。
+        """
         return await model_json(prompt)
 
     async def _generate_question(
@@ -187,6 +290,21 @@ class QuickTestService:
         previous_question: str | None = None,
         previous_answer: str | None = None,
     ) -> str:
+        """
+        用途：生成generate question相关的数据或流程。
+
+        参数：
+        - chunks（list[SourceChunk]）：调用方传入的chunks数据或控制参数，用于驱动本函数处理流程。
+        - difficulty（str）：调用方传入的difficulty数据或控制参数，用于驱动本函数处理流程。
+        - focus（str | None）：调用方传入的focus数据或控制参数，用于驱动本函数处理流程。
+        - turn_index（int）：调用方传入的turn_index数据或控制参数，用于驱动本函数处理流程。
+        - previous_question（str | None）：调用方传入的previous_question数据或控制参数，用于驱动本函数处理流程。
+        - previous_answer（str | None）：调用方传入的previous_answer数据或控制参数，用于驱动本函数处理流程。
+
+        返回：str；返回值供调用方继续编排业务流程或生成接口响应。
+
+        副作用：可能访问数据库、文件、模型服务或流式事件通道，异常会沿调用链抛出。
+        """
         context = format_source_context(chunks)
         prompt = f"""你是企业级笔记学习助手。请基于资料生成第 {turn_index} 个口头问答问题。
 难度: {difficulty}
@@ -204,6 +322,18 @@ class QuickTestService:
         return f"请用自己的话概括「{title}」中最重要的概念，并说明它为什么重要？"
 
     async def _evaluate_answer(self, chunks: list[SourceChunk], question: str, answer: str) -> dict:
+        """
+        用途：异步执行evaluate answer相关业务流程。
+
+        参数：
+        - chunks（list[SourceChunk]）：调用方传入的chunks数据或控制参数，用于驱动本函数处理流程。
+        - question（str）：调用方传入的question数据或控制参数，用于驱动本函数处理流程。
+        - answer（str）：调用方传入的answer数据或控制参数，用于驱动本函数处理流程。
+
+        返回：dict；返回值供调用方继续编排业务流程或生成接口响应。
+
+        副作用：可能访问数据库、文件、模型服务或流式事件通道，异常会沿调用链抛出。
+        """
         context = format_source_context(chunks)
         prompt = f"""你是严格但友好的学习测评助手。请根据资料评价用户回答。
 问题: {question}
@@ -223,6 +353,18 @@ class QuickTestService:
         return {"feedback": str(feedback), "score": score, "citations": [chunk.citation() for chunk in chunks[:3]]}
 
     async def _finish_payload(self, db: AsyncSession, session: StudyTestSession, chunks: list[SourceChunk]) -> dict:
+        """
+        用途：异步执行finish payload相关业务流程。
+
+        参数：
+        - db（AsyncSession）：调用方传入的db数据或控制参数，用于驱动本函数处理流程。
+        - session（StudyTestSession）：调用方传入的session数据或控制参数，用于驱动本函数处理流程。
+        - chunks（list[SourceChunk]）：调用方传入的chunks数据或控制参数，用于驱动本函数处理流程。
+
+        返回：dict；返回值供调用方继续编排业务流程或生成接口响应。
+
+        副作用：可能访问数据库、文件、模型服务或流式事件通道，异常会沿调用链抛出。
+        """
         turns_result = await db.execute(
             select(StudyTestTurn)
             .where(StudyTestTurn.session_id == session.id, StudyTestTurn.user_id == session.user_id)
