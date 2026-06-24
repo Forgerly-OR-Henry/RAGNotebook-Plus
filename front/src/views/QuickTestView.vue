@@ -24,6 +24,7 @@ import {
 import { chatApi } from '../api/chat'
 import { knowledgeApi } from '../api/knowledge'
 import { notesApi } from '../api/notes'
+import GenerationProgress from '../components/GenerationProgress.vue'
 import { buildFolderTreeRows, type FolderTreeFile } from '../features/sources/folderTree'
 import type { KnowledgeDocument, KnowledgeFolder, Note, NoteFolder, QuizResponse } from '../types/api'
 
@@ -607,17 +608,8 @@ onMounted(() => {
       </div>
     </section>
 
-    <section v-else-if="step === 'generating'" class="flex flex-1 flex-col items-center justify-center gap-7 py-20">
-      <div class="relative flex h-28 w-28 items-center justify-center">
-        <div class="absolute h-28 w-28 animate-ping rounded-full border border-[var(--color-accent)] opacity-20" />
-        <div class="flex h-16 w-16 items-center justify-center rounded-full bg-[var(--color-accent)] text-white shadow-lg">
-          <Brain :size="32" />
-        </div>
-      </div>
-      <div class="text-center">
-        <h2 class="font-heading text-lg font-semibold">AI 快速测验生成中</h2>
-        <p class="mt-2 text-sm text-[var(--color-text-secondary)]">{{ generatingMessage }}</p>
-      </div>
+    <section v-else-if="step === 'generating'" class="flex flex-1 items-center justify-center py-20">
+      <GenerationProgress title="AI 快速测验生成中" :message="generatingMessage" />
     </section>
 
     <section v-else-if="step === 'quiz' && quiz" class="flex flex-1 flex-col gap-5">

@@ -8,6 +8,7 @@ import { ArrowLeft, Brain, Check, ChevronRight, Database, FileText, Folder, Load
 import { knowledgeApi } from '../api/knowledge'
 import { mindmapApi } from '../api/mindmaps'
 import { notesApi } from '../api/notes'
+import GenerationProgress from '../components/GenerationProgress.vue'
 import MindMapCanvas from '../components/MindMapCanvas.vue'
 import { buildFolderTreeRows, type FolderTreeFile } from '../features/sources/folderTree'
 import type { KnowledgeDocument, KnowledgeFolder, MindMapResponse, MindMapSourceType, Note, NoteFolder } from '../types/api'
@@ -402,7 +403,7 @@ function formatDate(value?: string | null) {
             </div>
           </template>
         </div>
-              </div>
+      </div>
 
       <p v-if="errorMessage" class="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{{ errorMessage }}</p>
 
@@ -419,14 +420,8 @@ function formatDate(value?: string | null) {
       </div>
     </section>
 
-    <section v-else-if="step === 'generating'" class="flex flex-1 flex-col items-center justify-center gap-5 py-20">
-      <div class="flex h-16 w-16 items-center justify-center rounded-md bg-[var(--color-accent)] text-white shadow-sm">
-        <Brain :size="30" />
-      </div>
-      <div class="text-center">
-        <h2 class="text-base font-semibold text-[var(--color-text)]">思维导图生成中</h2>
-        <p class="mt-1 text-xs text-[var(--color-text-secondary)]">{{ generatingMessage }}</p>
-      </div>
+    <section v-else-if="step === 'generating'" class="flex flex-1 items-center justify-center py-20">
+      <GenerationProgress title="思维导图生成中" :message="generatingMessage" />
     </section>
 
     <section v-else class="flex min-h-0 flex-1 flex-col gap-3">

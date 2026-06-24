@@ -93,6 +93,9 @@ ehthumbs_vista.db
 /models/bge-reranker-v2-m3/*
 !/models/bge-reranker-v2-m3/.gitkeep
 
+## Generated presentation documents
+/my-docs/
+
 ## Local AI and coding assistant state
 .agents/
 .codex/

@@ -7,6 +7,7 @@ import { computed, nextTick, onBeforeUnmount, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import {
   Bot,
+  Check,
   ChevronRight,
   FileText,
   Folder,
@@ -148,9 +149,13 @@ const uploadProgress = ref(0)
 const showMention = ref(false)
 // 响应式状态：保存当前组件内部的临时 UI 或业务处理状态。
 const mentionSearch = ref('')
-const addSourceType = ref<SourceRefType>('note')
+const addSourceType = ref<SourceRefType>('knowledge')
 // 响应式状态：保存当前组件内部的临时 UI 或业务处理状态。
-const addSourceId = ref('')
+const selectedAddSources = ref<ChatSourceRef[]>([])
+const sourcePickerOpen = ref(false)
+const sourcePickerSearch = ref('')
+const sourcePickerSubmitting = ref(false)
+const sourcePickerError = ref('')
 const messagesContainer = ref<HTMLElement | null>(null)
 const knowledgeFileInput = ref<HTMLInputElement | null>(null)
 const noteFileInput = ref<HTMLInputElement | null>(null)
@@ -290,21 +295,49 @@ const projectKnowledgeSourceCount = computed(() => projectSources.value.filter((
 
 let processingTimer: number | undefined
 
-/**
- * 用途：执行addSourceOptions相关业务逻辑。
- * 参数：无显式业务参数。
- * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
- */
-const addSourceOptions = computed(() => {
-  if (addSourceType.value === 'note') {
-    return notes.value
-      .filter((note) => !projectSourceKeys.value.has(`note:${note.id}`))
-      .map((note) => ({ id: note.id, title: note.title || '未命名笔记' }))
-  }
-  return docs.value
-    .filter((doc) => !projectSourceKeys.value.has(`knowledge:${doc.id}`))
-    .map((doc) => ({ id: doc.id, title: doc.original_filename || doc.title || doc.filename }))
+const availableNoteSourceFiles = computed<ReferenceFile[]>(() => globalNoteReferenceFiles.value
+  .filter((file) => !projectSourceKeys.value.has(`note:${file.id}`)))
+
+const availableKnowledgeSourceFiles = computed<ReferenceFile[]>(() => globalKnowledgeReferenceFiles.value
+  .filter((file) => !projectSourceKeys.value.has(`knowledge:${file.id}`)))
+
+const sourcePickerFiles = computed<ReferenceFile[]>(() => (
+  addSourceType.value === 'note' ? availableNoteSourceFiles.value : availableKnowledgeSourceFiles.value
+))
+
+const sourcePickerRows = computed(() => {
+  const keyword = sourcePickerSearch.value.trim().toLowerCase()
+  const files = filterSourcePickerFiles(sourcePickerFiles.value, keyword)
+  const folders = addSourceType.value === 'note' ? noteFolders.value : knowledgeFolders.value
+  const emptyTitle = keyword
+    ? '没有匹配的文件'
+    : addSourceType.value === 'note' ? '暂无可关联笔记' : '暂无可关联知识库文件'
+
+  return buildReferenceTreeRows(
+    folders,
+    files,
+    emptyTitle,
+    keyword ? new Set<string>() : collapsedReferenceFolderKeys.value,
+    `picker-${addSourceType.value}:`,
+    !keyword,
+  )
 })
+
+const selectedAddSourceKeys = computed(() => new Set(selectedAddSources.value.map((source) => sourceKey(source.source_type, source.source_id))))
+
+const availableSourceFilesByKey = computed(() => {
+  const map = new Map<string, ReferenceFile>()
+  for (const file of [...availableNoteSourceFiles.value, ...availableKnowledgeSourceFiles.value]) {
+    map.set(sourceKey(file.sourceType, file.id), file)
+  }
+  return map
+})
+
+const selectedAddSourceFiles = computed(() => selectedAddSources.value
+  .map((source) => availableSourceFilesByKey.value.get(sourceKey(source.source_type, source.source_id)))
+  .filter((file): file is ReferenceFile => Boolean(file)))
+
+const selectedAddSourceSummary = computed(() => selectedAddSourceFiles.value.map((file) => file.title).join('、'))
 
 /**
  * 用途：执行globalNoteReferenceFiles相关业务逻辑。
@@ -454,6 +487,10 @@ function getSourceIcon(type: SourceRefType) {
   return type === 'note' ? FileText : Library
 }
 
+function sourceKey(type: SourceRefType, id: string) {
+  return `${type}:${id}`
+}
+
 /**
  * 用途：执行handleUserAvatarError相关业务逻辑。
  * 参数：无显式业务参数。
@@ -482,6 +519,11 @@ function filterMentionFiles(files: ReferenceFile[], keyword: string) {
   return files
     .filter((file) => !selectedReferenceKeys.value.has(`${file.sourceType}:${file.id}`))
     .filter((file) => !keyword || file.title.toLowerCase().includes(keyword) || file.subtitle.toLowerCase().includes(keyword))
+}
+
+function filterSourcePickerFiles(files: ReferenceFile[], keyword: string) {
+  if (!keyword) return files
+  return files.filter((file) => file.title.toLowerCase().includes(keyword) || file.subtitle.toLowerCase().includes(keyword))
 }
 
 /**
@@ -680,6 +722,45 @@ function toggleReferenceFolder(row: ReferenceTreeRow) {
     nextKeys.add(row.key)
   }
   collapsedReferenceFolderKeys.value = nextKeys
+}
+
+function openSourcePicker(type: SourceRefType = addSourceType.value) {
+  addSourceType.value = type
+  selectedAddSources.value = []
+  sourcePickerSearch.value = ''
+  sourcePickerError.value = ''
+  sourcePickerOpen.value = true
+}
+
+function closeSourcePicker() {
+  if (sourcePickerSubmitting.value) return
+  sourcePickerOpen.value = false
+  selectedAddSources.value = []
+  sourcePickerSearch.value = ''
+  sourcePickerError.value = ''
+}
+
+function switchSourcePickerType(type: SourceRefType) {
+  if (addSourceType.value === type) return
+  addSourceType.value = type
+  sourcePickerSearch.value = ''
+  sourcePickerError.value = ''
+}
+
+function selectSourcePickerRow(row: ReferenceTreeRow) {
+  if (row.kind !== 'file' || !row.sourceType || !row.sourceId) return
+  const key = sourceKey(row.sourceType, row.sourceId)
+  if (selectedAddSourceKeys.value.has(key)) {
+    selectedAddSources.value = selectedAddSources.value.filter((source) => sourceKey(source.source_type, source.source_id) !== key)
+  } else {
+    selectedAddSources.value = [...selectedAddSources.value, { source_type: row.sourceType, source_id: row.sourceId }]
+  }
+  sourcePickerError.value = ''
+}
+
+function isSourcePickerRowSelected(row: ReferenceTreeRow) {
+  if (row.kind !== 'file' || !row.sourceType || !row.sourceId) return false
+  return selectedAddSourceKeys.value.has(sourceKey(row.sourceType, row.sourceId))
 }
 
 /**
@@ -1317,11 +1398,21 @@ async function send() {
  * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
  */
 async function addExistingSource() {
-  if (!activeProjectId.value || !addSourceId.value) return
-  await projectsApi.addSources(activeProjectId.value, [{ source_type: addSourceType.value, source_id: addSourceId.value }])
-  addSourceId.value = ''
-  await loadProjectSources()
-  await loadProjects()
+  if (!activeProjectId.value || !selectedAddSources.value.length) return
+  sourcePickerSubmitting.value = true
+  sourcePickerError.value = ''
+  try {
+    await projectsApi.addSources(activeProjectId.value, selectedAddSources.value)
+    sourcePickerOpen.value = false
+    selectedAddSources.value = []
+    sourcePickerSearch.value = ''
+    await loadProjectSources()
+    await loadProjects()
+  } catch (error) {
+    sourcePickerError.value = error instanceof Error ? error.message : '添加失败'
+  } finally {
+    sourcePickerSubmitting.value = false
+  }
 }
 
 /**
@@ -1767,17 +1858,17 @@ onBeforeUnmount(() => {
             关联已有文件
           </div>
           <div class="space-y-2">
-            <select v-model="addSourceType" class="w-full rounded-md border border-[var(--color-border)] bg-transparent px-2 py-2 text-sm" @change="addSourceId = ''">
-              <option value="note">笔记</option>
-              <option value="knowledge">知识库</option>
-            </select>
-            <select v-model="addSourceId" class="w-full rounded-md border border-[var(--color-border)] bg-transparent px-2 py-2 text-sm">
-              <option value="">选择文件</option>
-              <option v-for="item in addSourceOptions" :key="item.id" :value="item.id">{{ item.title }}</option>
-            </select>
-            <button class="w-full rounded-md bg-[var(--color-accent)] px-3 py-2 text-sm text-white disabled:opacity-60" type="button" :disabled="!addSourceId" @click="addExistingSource">
-              添加到项目
+            <button
+              class="flex w-full items-center justify-center gap-2 rounded-md border border-[var(--color-border)] px-3 py-2 text-sm hover:bg-[var(--color-bg-secondary)]"
+              type="button"
+              @click="openSourcePicker()"
+            >
+              <Search :size="15" />
+              选择已有文件
             </button>
+            <p class="text-xs leading-5 text-[var(--color-text-secondary)]">
+              未关联：笔记 {{ availableNoteSourceFiles.length }} · 知识库 {{ availableKnowledgeSourceFiles.length }}
+            </p>
           </div>
         </div>
 
@@ -2054,6 +2145,150 @@ onBeforeUnmount(() => {
       </div>
     </aside>
   </div>
+
+  <Teleport to="body">
+    <div
+      v-if="sourcePickerOpen"
+      class="fixed inset-0 z-50 flex items-center justify-center bg-black/35 px-4 py-6"
+      @click.self="closeSourcePicker"
+    >
+      <div class="flex max-h-[88vh] w-full max-w-3xl flex-col overflow-hidden rounded-md border border-[var(--color-border)] bg-[var(--color-card)] shadow-2xl">
+        <header class="flex items-start justify-between gap-4 border-b border-[var(--color-border)] px-5 py-4">
+          <div class="flex min-w-0 items-start gap-3">
+            <span class="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-md bg-[var(--color-accent-bg)] text-[var(--color-accent)]">
+              <Link :size="18" />
+            </span>
+            <div class="min-w-0">
+              <h2 class="font-heading text-lg font-semibold">关联已有文件</h2>
+              <p class="mt-0.5 text-sm text-[var(--color-text-secondary)]">未关联：笔记 {{ availableNoteSourceFiles.length }} · 知识库 {{ availableKnowledgeSourceFiles.length }}</p>
+            </div>
+          </div>
+          <button
+            class="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-secondary)] hover:text-[var(--color-text)] disabled:cursor-not-allowed disabled:opacity-50"
+            type="button"
+            title="关闭"
+            :disabled="sourcePickerSubmitting"
+            @click="closeSourcePicker"
+          >
+            <X :size="16" />
+          </button>
+        </header>
+
+        <div class="flex min-h-0 flex-1 flex-col gap-4 px-5 py-4">
+          <div class="grid gap-3 md:grid-cols-[auto,1fr]">
+            <div class="inline-flex rounded-md border border-[var(--color-border)] bg-[var(--color-bg)] p-1 text-sm">
+              <button
+                class="inline-flex min-w-24 items-center justify-center gap-2 rounded-md px-3 py-1.5"
+                :class="addSourceType === 'note' ? 'bg-[var(--color-accent)] text-white' : 'text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-secondary)] hover:text-[var(--color-text)]'"
+                type="button"
+                @click="switchSourcePickerType('note')"
+              >
+                <FileText :size="15" />
+                笔记
+                <span class="text-xs opacity-80">{{ availableNoteSourceFiles.length }}</span>
+              </button>
+              <button
+                class="inline-flex min-w-24 items-center justify-center gap-2 rounded-md px-3 py-1.5"
+                :class="addSourceType === 'knowledge' ? 'bg-[var(--color-accent)] text-white' : 'text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-secondary)] hover:text-[var(--color-text)]'"
+                type="button"
+                @click="switchSourcePickerType('knowledge')"
+              >
+                <Library :size="15" />
+                知识库
+                <span class="text-xs opacity-80">{{ availableKnowledgeSourceFiles.length }}</span>
+              </button>
+            </div>
+
+            <label class="flex h-10 min-w-0 items-center gap-2 rounded-md border border-[var(--color-border)] px-3 text-sm focus-within:border-[var(--color-accent)]">
+              <Search :size="15" class="shrink-0 text-[var(--color-text-tertiary)]" />
+              <input
+                v-model="sourcePickerSearch"
+                class="min-w-0 flex-1 bg-transparent outline-none placeholder:text-[var(--color-text-tertiary)]"
+                placeholder="搜索文件名或状态"
+              />
+            </label>
+          </div>
+
+          <div class="min-h-0 flex-1 overflow-auto rounded-md border border-[var(--color-border)] bg-[var(--color-bg)] py-2">
+            <div
+              v-for="row in sourcePickerRows"
+              :key="row.key"
+              class="flex min-h-9 items-center gap-2 pr-3 text-sm"
+              :class="row.kind === 'empty' ? 'justify-center py-10 text-[var(--color-text-tertiary)]' : ''"
+              :style="{ paddingLeft: row.kind === 'empty' ? '0.75rem' : `${0.75 + row.depth * 1.125}rem` }"
+            >
+              <template v-if="row.kind === 'folder'">
+                <button
+                  class="flex min-w-0 flex-1 items-center gap-2 rounded-md py-1.5 pl-1 pr-2 text-left hover:bg-[var(--color-bg-secondary)]"
+                  type="button"
+                  :aria-expanded="!row.collapsed"
+                  @click="toggleReferenceFolder(row)"
+                >
+                  <ChevronRight :size="14" class="shrink-0 text-[var(--color-text-tertiary)] transition-transform duration-150" :class="{ 'rotate-90': !row.collapsed }" />
+                  <Folder :size="15" class="shrink-0 text-[var(--color-text-tertiary)]" />
+                  <span class="min-w-0 flex-1 truncate font-medium">{{ row.title }}</span>
+                </button>
+                <span class="shrink-0 text-xs text-[var(--color-text-tertiary)]">{{ row.count }}</span>
+              </template>
+              <template v-else-if="row.kind === 'file'">
+                <button
+                  class="my-0.5 flex min-w-0 flex-1 items-start gap-2 rounded-md border py-2 pl-2 pr-3 text-left"
+                  :class="isSourcePickerRowSelected(row) ? 'border-[var(--color-accent)] bg-[var(--color-accent-bg)] text-[var(--color-accent)]' : 'border-transparent hover:bg-[var(--color-bg-secondary)]'"
+                  type="button"
+                  :aria-pressed="isSourcePickerRowSelected(row)"
+                  :disabled="sourcePickerSubmitting"
+                  @click="selectSourcePickerRow(row)"
+                >
+                  <span
+                    class="mt-0.5 inline-flex h-4 w-4 shrink-0 items-center justify-center rounded border"
+                    :class="isSourcePickerRowSelected(row) ? 'border-[var(--color-accent)] bg-[var(--color-accent)] text-white' : 'border-[var(--color-border)] bg-[var(--color-card)]'"
+                  >
+                    <Check v-if="isSourcePickerRowSelected(row)" :size="12" />
+                  </span>
+                  <FileText v-if="row.sourceType === 'note'" :size="15" class="mt-0.5 shrink-0 text-[var(--color-text-tertiary)]" />
+                  <Library v-else :size="15" class="mt-0.5 shrink-0 text-[var(--color-text-tertiary)]" />
+                  <span class="min-w-0">
+                    <span class="block truncate">{{ row.title }}</span>
+                    <span class="block truncate text-xs text-[var(--color-text-secondary)]">{{ row.subtitle }}</span>
+                  </span>
+                </button>
+              </template>
+              <template v-else>
+                {{ row.title }}
+              </template>
+            </div>
+          </div>
+
+          <p v-if="sourcePickerError" class="text-sm text-[var(--color-danger)]">{{ sourcePickerError }}</p>
+        </div>
+
+        <footer class="flex flex-col gap-3 border-t border-[var(--color-border)] bg-[var(--color-bg)] px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
+          <div class="min-w-0 text-sm text-[var(--color-text-secondary)]">
+            <span v-if="selectedAddSources.length" class="block truncate">已选择 {{ selectedAddSources.length }} 个：{{ selectedAddSourceSummary }}</span>
+            <span v-else>未选择文件</span>
+          </div>
+          <div class="flex shrink-0 justify-end gap-2">
+            <button
+              class="rounded-md border border-[var(--color-border)] px-4 py-2 text-sm hover:bg-[var(--color-bg-secondary)] disabled:cursor-not-allowed disabled:opacity-50"
+              type="button"
+              :disabled="sourcePickerSubmitting"
+              @click="closeSourcePicker"
+            >
+              取消
+            </button>
+            <button
+              class="rounded-md bg-[var(--color-accent)] px-4 py-2 text-sm font-medium text-white disabled:cursor-not-allowed disabled:opacity-60"
+              type="button"
+              :disabled="!selectedAddSources.length || sourcePickerSubmitting"
+              @click="addExistingSource"
+            >
+              {{ sourcePickerSubmitting ? '添加中' : selectedAddSources.length ? '添加 ' + selectedAddSources.length + ' 个文件' : '添加到项目' }}
+            </button>
+          </div>
+        </footer>
+      </div>
+    </div>
+  </Teleport>
 
   <Teleport to="body">
     <div
