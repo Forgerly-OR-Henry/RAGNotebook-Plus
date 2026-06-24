@@ -201,7 +201,7 @@ ollama serve
 - Windows 可查看占用进程：
 
 ```powershell
-netstat -ano | findstr :10000
+netstat -ano | findstr :10001
 ```
 
 ## 12. 会话、测评或导图数据异常
@@ -227,7 +227,7 @@ GET /health/ready
 - 交互式 API 文档：
 
 ```text
-http://127.0.0.1:10000/docs
+http://127.0.0.1:10001/docs
 ```
 
 ## 14. 最小自检命令
