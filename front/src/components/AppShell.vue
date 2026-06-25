@@ -59,7 +59,7 @@ const pageTitle = computed(() => {
    * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
    */
   const item = [...navItems, ...bottomItems].find((entry) => route.path.startsWith(entry.path))
-  return item?.label || '云笺集'
+  return item?.label || 'ChatNote'
 })
 
 /**
@@ -125,7 +125,7 @@ async function logout() {
     >
       <div class="app-shell__brand-row flex h-16 items-center px-4">
         <span class="app-shell__brand-clip">
-          <span class="app-shell__brand-text font-heading text-lg font-semibold">云笺集</span>
+          <span class="app-shell__brand-text font-heading text-lg font-semibold">ChatNote</span>
         </span>
         <button
           class="app-shell__collapse-button rounded-md p-1.5 text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-secondary)]"

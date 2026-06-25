@@ -11,7 +11,7 @@ import { GitFork } from '@lucide/vue'
     <h1 class="font-heading text-xl font-semibold">关于我们</h1>
     <div class="rounded-lg border border-[var(--color-border)] bg-[var(--color-card)] space-y-6 p-6">
       <p class="text-sm leading-7 text-[var(--color-text-secondary)]">
-        云笺集是一个智能笔记与知识管理平台，结合 AI 大模型能力，帮助你更好地记录、整理和复盘知识。
+        ChatNote 是一个智能笔记与知识管理平台，结合 AI 大模型能力，帮助你更好地记录、整理和复盘知识。
       </p>
 
       <div>
@@ -48,7 +48,7 @@ import { GitFork } from '@lucide/vue'
       </div>
 
       <a
-        href="https://github.com/RMA-MUN/LangChain-RAG-FastAPI-Service"
+        href="https://github.com/Forgerly-OR-Henry/RAGNotebook-Plus.git"
         target="_blank"
         rel="noopener noreferrer"
         class="inline-flex items-center gap-2 text-sm text-[var(--color-accent)] transition-colors hover:underline"

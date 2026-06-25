@@ -63,7 +63,7 @@ async function submit() {
 <template>
   <main class="flex min-h-screen items-center justify-center bg-[var(--color-bg)] px-4">
     <form class="w-full max-w-sm rounded-md border border-[var(--color-border)] bg-[var(--color-card)] p-6" @submit.prevent="submit">
-      <h1 class="font-heading text-2xl font-semibold">云笺集</h1>
+      <h1 class="font-heading text-2xl font-semibold">ChatNote</h1>
       <div class="mt-6 space-y-4">
         <label class="block text-sm">
           <span class="text-[var(--color-text-secondary)]">用户名</span>

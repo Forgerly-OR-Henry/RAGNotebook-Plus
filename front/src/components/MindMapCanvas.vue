@@ -684,7 +684,7 @@ function showCopyMessage(message: string) {
 </script>
 
 <template>
-  <section class="mindmap-canvas relative flex h-full min-h-[560px] flex-col overflow-hidden rounded-lg border border-[var(--color-border)] bg-[var(--color-card)]">
+  <section class="mindmap-canvas relative flex h-full min-h-[560px] flex-1 flex-col overflow-hidden rounded-lg border border-[var(--color-border)] bg-[var(--color-card)]">
     <div v-if="mindmap" class="absolute left-4 right-4 top-4 z-20 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-[var(--color-border)] bg-[var(--color-card)]/95 px-4 py-3 shadow-sm backdrop-blur">
       <div class="min-w-0">
         <div class="flex items-center gap-2">

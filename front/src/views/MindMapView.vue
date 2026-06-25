@@ -301,7 +301,7 @@ function formatDate(value?: string | null) {
 </script>
 
 <template>
-  <div class="flex min-h-[720px] flex-col">
+  <div class="mindmap-page flex min-h-[calc(100vh-7rem)] flex-col" :class="{ 'mindmap-page--canvas': step === 'canvas' }">
     <section v-if="step === 'selection'" class="mx-auto flex w-full max-w-5xl flex-1 flex-col gap-5 px-1 py-2">
       <header class="flex flex-wrap items-center justify-between gap-3">
         <div class="flex items-center gap-3">
@@ -424,7 +424,7 @@ function formatDate(value?: string | null) {
       <GenerationProgress title="思维导图生成中" :message="generatingMessage" />
     </section>
 
-    <section v-else class="flex min-h-0 flex-1 flex-col gap-3">
+    <section v-else class="flex min-h-0 flex-1 flex-col gap-3 overflow-hidden">
       <div class="flex items-center justify-between">
         <button class="inline-flex items-center gap-1.5 rounded-md border border-[var(--color-border)] px-3 py-2 text-xs text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-secondary)] hover:text-[var(--color-text)]" type="button" @click="backToSelection">
           <ArrowLeft :size="14" />
@@ -435,3 +435,9 @@ function formatDate(value?: string | null) {
     </section>
   </div>
 </template>
+
+<style scoped>
+.mindmap-page--canvas {
+  height: calc(100vh - 7rem);
+}
+</style>

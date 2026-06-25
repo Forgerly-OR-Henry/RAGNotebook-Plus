@@ -28,25 +28,150 @@ RAGNotebook/
 │   │   ├── rag.yaml                                # 旧 RAG 配置占位说明；模型配置已迁移到 env。
 │   │   └── uvicorn_log_config.json                 # Uvicorn 日志格式和级别配置。
 │   │
-│   ├── src/                                        # 后端源码根目录，按 agent 与 mvc 两个主域组织。
-│   │   ├── main.py                                 # FastAPI 应用入口；注册 mvc.controllers.routers、中间件、CORS、异常处理和生命周期。
-│   │   ├── agent/                                  # 智能能力层，负责 LLM、RAG、Prompt、模型和索引。
+│   ├── src/                                        # 后端源码根目录，按 agent、mvc、core、db、utils 组织。
+│   │   ├── main.py                                 # FastAPI 应用入口；加载 env，注册路由、中间件、CORS、异常处理和生命周期。
+│   │   ├── agent/                                  # 智能能力层，负责 LLM、RAG、Prompt、模型、索引和视觉能力。
+│   │   │   ├── __init__.py                         # agent 包标记文件。
 │   │   │   ├── indexing/                           # 文档解析、统一索引仓储和 pgvector 写入/检索能力。
-│   │   │   ├── models/                             # Chat、Embedding、Vision 模型工厂。
+│   │   │   │   ├── __init__.py                     # indexing 子包标记文件。
+│   │   │   │   ├── document_parser.py              # 按文件类型调用解析器，输出统一 ParsedDocument。
+│   │   │   │   └── index_repository.py             # index_chunks 表访问、向量写入、相似检索和嵌入维度校验。
+│   │   │   ├── models/                             # Chat、Embedding、Vision 和重排序模型工厂。
+│   │   │   │   ├── __init__.py                     # models 子包标记文件。
+│   │   │   │   └── factory.py                      # DashScope / LangChain 模型工厂，创建聊天、嵌入、视觉和 reranker 实例。
 │   │   │   ├── prompts/                            # LLM 提示词模板和 Prompt registry。
+│   │   │   │   ├── __init__.py                     # prompts 子包标记文件。
+│   │   │   │   ├── auto_tag_prompt.txt             # 笔记/知识库自动标签生成提示词。
+│   │   │   │   ├── autocomplete_prompt.txt         # 笔记自动补全提示词。
+│   │   │   │   ├── loader.py                       # 从 prompts 目录读取提示词文本的加载工具。
+│   │   │   │   ├── main_prompt.txt                 # Agent 主对话提示词。
+│   │   │   │   ├── rag_summarize.txt               # RAG 资料摘要和引用整理提示词。
+│   │   │   │   ├── registry.py                     # Prompt 类型到模板文件的注册表。
+│   │   │   │   ├── reorder_prompt.txt              # 文档重排序任务提示词。
+│   │   │   │   ├── report_prompt.txt               # 报告/总结类生成提示词。
+│   │   │   │   └── write_assistant_prompt.txt      # 写作辅助改写、扩写、润色等操作提示词。
 │   │   │   ├── rag/                                # RAG 问答编排、文档处理、检索器、重排序和 SSE 模型。
+│   │   │   │   ├── __init__.py                     # rag 子包标记文件。
+│   │   │   │   ├── document_handler/               # LangChain 文档处理封装。
+│   │   │   │   │   ├── __init__.py                 # document_handler 子包标记文件。
+│   │   │   │   │   └── processor.py                # 文档加载、切分和处理流程封装。
+│   │   │   │   ├── retrievers/                     # 检索器实现。
+│   │   │   │   │   ├── __init__.py                 # retrievers 子包标记文件。
+│   │   │   │   │   └── empty_retriever.py          # 空结果检索器，用于无资料或禁用检索时的占位路径。
+│   │   │   │   ├── rag_service.py                  # RAGService，负责召回、上下文组织和问答调用。
+│   │   │   │   ├── reorder_service.py              # 重排序模型路径解析、下载检查和候选文档重排。
+│   │   │   │   ├── sse_models.py                   # SSE 事件、切片结果等流式响应数据结构。
+│   │   │   │   ├── task_queue.py                   # 后台任务队列封装。
+│   │   │   │   └── text_spliter.py                 # 异步文本切分器，封装 chunk 切分逻辑。
 │   │   │   ├── runtime/                            # LangChain Agent 工具、流式执行和中间件。
+│   │   │   │   ├── __init__.py                     # runtime 子包标记文件。
+│   │   │   │   ├── agent.py                        # AgentFactory、普通回复、流式回复和直连模型响应入口。
+│   │   │   │   ├── agent_middleware.py             # Agent / 模型 / 工具调用前后的日志中间件。
+│   │   │   │   └── agent_tools.py                  # Agent 可调用工具与上下文回调，包括 RAG 摘要、笔记搜索、创建笔记等。
 │   │   │   └── vision/                             # 多模态视觉模型调用服务。
-│   │   ├── mvc/                                    # MVC 应用层，负责 API、业务、数据库和事务。
-│   │   │   ├── agent_gateway/                      # MVC 调用 agent 的唯一入口。
-│   │   │   ├── controllers/                        # FastAPI 控制器层，只负责参数、鉴权、限流、响应封装和流式响应。
-│   │   │   ├── models/                             # SQLAlchemy ORM 模型。
-│   │   │   ├── repositories/                       # MVC 仓储层，封装运行态存储和用户仓储。
-│   │   │   ├── schemas/                            # Pydantic 请求/响应模型，按业务拆分。
-│   │   │   └── services/                           # 业务服务层，封装笔记、模板、测评、导图、知识库、快速测验、用户和来源聚合。
+│   │   │       ├── __init__.py                     # vision 子包标记文件。
+│   │   │       └── vision_service.py               # VisionService，调用视觉模型解析图片或页面内容。
 │   │   ├── core/                                   # 通用核心能力：响应、异常、日志、限流和后台初始化。
+│   │   │   ├── __init__.py                         # core 包标记文件。
+│   │   │   ├── background_init.py                  # 后台初始化状态管理器，用于记录启动初始化进度和错误。
+│   │   │   ├── failed_response.py                  # 业务异常、HTTP/校验/数据库异常处理和敏感信息脱敏。
+│   │   │   ├── failed_response_register.py         # 将统一异常处理器注册到 FastAPI 应用。
+│   │   │   ├── logger_handler.py                   # 应用日志器创建和格式化工具。
+│   │   │   ├── logging_filters.py                  # 日志过滤器，限制级别并排除指定访问路径。
+│   │   │   ├── rate_limit.py                       # 限流装饰器和中间件，基于运行态存储记录访问计数。
+│   │   │   └── success_response.py                 # 统一成功响应 JSON 封装。
 │   │   ├── db/                                     # 数据库连接、新库/空库建表和测试用户初始化。
+│   │   │   ├── __init__.py                         # db 包标记文件。
+│   │   │   └── db_config.py                        # SQLAlchemy 异步引擎、会话依赖、init_db、schema 校验和测试用户 seed。
+│   │   ├── mvc/                                    # MVC 应用层，负责 API、业务、数据库和事务。
+│   │   │   ├── __init__.py                         # mvc 包标记文件。
+│   │   │   ├── agent_gateway/                      # MVC 调用 agent 的唯一入口。
+│   │   │   │   ├── __init__.py                     # agent_gateway 子包标记文件。
+│   │   │   │   ├── chat_gateway.py                 # 聊天到 Agent/RAG 的适配层，处理来源限定、工具回调和流式响应。
+│   │   │   │   ├── indexing_gateway.py             # MVC 服务调用统一索引仓储的适配入口。
+│   │   │   │   ├── mindmap_ai_gateway.py           # 思维导图服务调用模型并解析 JSON 的网关。
+│   │   │   │   ├── note_ai_gateway.py              # 笔记自动标签、自动补全和写作辅助的模型网关。
+│   │   │   │   └── quick_test_ai_gateway.py        # 快速测试服务调用模型并解析 JSON 的网关。
+│   │   │   ├── controllers/                        # FastAPI 控制器层，只负责参数、鉴权、限流、响应封装和流式响应。
+│   │   │   │   ├── __init__.py                     # 汇总并导出各业务 router。
+│   │   │   │   ├── chat_controller.py              # 聊天、RAG 查询、会话读取/删除、测验生成和文档重排序接口。
+│   │   │   │   ├── document_controller.py          # 通用文档下载接口。
+│   │   │   │   ├── health_controller.py            # 存活、就绪和后台初始化状态接口。
+│   │   │   │   ├── knowledge_controller.py         # 知识库上传、列表、详情、预览、切片、标签、置顶、文件夹和批量操作接口。
+│   │   │   │   ├── mindmap_controller.py           # 思维导图生成、读取、更新和导出接口。
+│   │   │   │   ├── note_controller.py              # 笔记 CRUD、导入、搜索、批量操作、文件夹、AI 辅助、导出和关联推荐接口。
+│   │   │   │   ├── note_template_controller.py     # 笔记模板列表、创建、排序、更新和删除接口。
+│   │   │   │   ├── project_controller.py           # 聊天项目、项目来源、项目文档上传和项目笔记导入接口。
+│   │   │   │   ├── quick_test_controller.py        # 连续问答式快速测试的创建、答题、查询和结束接口。
+│   │   │   │   └── user_controller.py              # 登录、注册、刷新 Token、资料、密码、登出和头像接口。
+│   │   │   ├── models/                             # SQLAlchemy ORM 模型。
+│   │   │   │   ├── __init__.py                     # 导入 ORM 模型，供 metadata 建表和关系解析使用。
+│   │   │   │   ├── base.py                         # SQLAlchemy Declarative Base 定义。
+│   │   │   │   ├── chat_history.py                 # ChatSession 和 ChatMessage 会话/消息模型。
+│   │   │   │   ├── document.py                     # 通用 Document 模型，关联存储对象和向量索引来源。
+│   │   │   │   ├── knowledge_document.py           # KnowledgeDocument 知识库文档模型，保存上传状态、元数据和内容预览。
+│   │   │   │   ├── knowledge_folder.py             # KnowledgeFolder 与 KnowledgeFolderAssignment 知识库文件夹模型。
+│   │   │   │   ├── mind_map.py                     # MindMap 模型，保存导图节点、边和来源引用。
+│   │   │   │   ├── note.py                         # Note 笔记模型，保存标题、正文、分类、标签、置顶和更新时间。
+│   │   │   │   ├── note_folder.py                  # NoteFolder 与 NoteFolderAssignment 笔记文件夹模型。
+│   │   │   │   ├── note_template.py                # NoteTemplate 笔记模板模型。
+│   │   │   │   ├── project.py                      # ChatProject 和 ProjectSource 项目与来源关系模型。
+│   │   │   │   ├── runtime_state.py                # AppCache、TokenBlacklist、RateLimitCounter 运行态状态模型。
+│   │   │   │   ├── storage_object.py               # StorageObject 文件存储对象模型。
+│   │   │   │   ├── study_test.py                   # StudyTestSession 和 StudyTestTurn 快速测试会话/答题轮次模型。
+│   │   │   │   └── user_model.py                   # User 用户模型和用户状态常量。
+│   │   │   ├── repositories/                       # MVC 仓储层，封装运行态存储、缓存和用户仓储。
+│   │   │   │   ├── __init__.py                     # repositories 子包标记文件。
+│   │   │   │   ├── cache_decorator.py              # PostgresCache 和缓存装饰器，封装数据库缓存读写。
+│   │   │   │   ├── runtime_store.py                # 运行态缓存、Token 黑名单、限流计数和过期清理函数。
+│   │   │   │   └── user_repository.py              # 用户查询、创建、更新和认证相关数据库操作。
+│   │   │   ├── schemas/                            # Pydantic 请求/响应模型，按业务拆分。
+│   │   │   │   ├── __init__.py                     # schemas 子包标记文件。
+│   │   │   │   ├── chat.py                         # 聊天、RAG、会话、Agent 步骤、重排序和测验生成 schema。
+│   │   │   │   ├── knowledge.py                    # 知识库文档、详情、切片、文件夹、批量操作和元数据更新 schema。
+│   │   │   │   ├── mindmaps.py                     # 思维导图生成请求、节点、边、响应和更新 schema。
+│   │   │   │   ├── note_templates.py               # 笔记模板创建、更新、响应和排序 schema。
+│   │   │   │   ├── notes.py                        # 笔记创建、更新、列表、搜索、批量操作、文件夹和关联推荐 schema。
+│   │   │   │   ├── projects.py                     # 聊天项目、项目来源和来源添加 schema。
+│   │   │   │   ├── quick_tests.py                  # 快速测试创建、答题、会话、开始、答题响应和结束 schema。
+│   │   │   │   ├── sources.py                      # SourceReference 和 SourceCitation 来源引用 schema。
+│   │   │   │   └── users.py                        # 登录、注册、重置密码、用户资料、Token 刷新和通用动作响应 schema。
+│   │   │   └── services/                           # 业务服务层，封装笔记、模板、测评、导图、知识库、用户和来源聚合。
+│   │   │       ├── __init__.py                     # 服务层初始化和会话管理代理。
+│   │   │       ├── chat_service.py                 # 聊天会话、消息保存、会话列表和删除服务。
+│   │   │       ├── database_session_manager.py     # 数据库会话管理器，封装事务边界和服务层会话获取。
+│   │   │       ├── document_preview_service.py     # 文档预览渲染服务，将 PDF/DOCX/PPTX 等转换为可预览内容。
+│   │   │       ├── file_service.py                 # 上传文件保存、文件类型识别和通用文件处理服务。
+│   │   │       ├── knowledge_ingestion_service.py  # 知识库上传摄入流程，保存文件、解析、建索引和失败清理。
+│   │   │       ├── knowledge_service.py            # 知识库文档、分类、标签、文件夹、置顶、切片、统计和预览业务。
+│   │   │       ├── mindmap_service.py              # 思维导图来源收集、AI 生成、保存、读取、更新和导出业务。
+│   │   │       ├── note_import_service.py          # TXT/Markdown/DOC/DOCX 导入为笔记的解析和 payload 构建。
+│   │   │       ├── note_index_service.py           # 笔记内容写入统一索引、更新索引和删除索引服务。
+│   │   │       ├── note_service.py                 # 笔记 CRUD、搜索排序、批量操作、文件夹、标签、导出和关联推荐业务。
+│   │   │       ├── note_template_service.py        # 笔记模板 CRUD、排序和默认模板业务。
+│   │   │       ├── project_service.py              # 聊天项目 CRUD、来源管理、项目文档上传和项目导入笔记业务。
+│   │   │       ├── quick_test_service.py           # 连续问答式快速测试会话、问题生成、评分和结束业务。
+│   │   │       ├── quiz_service.py                 # 选择题快速测验生成、来源解析和兜底题目构建。
+│   │   │       ├── source_collector.py             # 按来源引用聚合笔记/知识库内容片段。
+│   │   │       ├── sources/                        # 跨业务来源提供者。
+│   │   │       │   ├── __init__.py                 # sources 子包标记文件。
+│   │   │       │   ├── interfaces.py               # SourceProvider 协议定义。
+│   │   │       │   ├── knowledge_provider.py       # 知识库来源提供者，按文档或切片读取 SourceChunk。
+│   │   │       │   ├── models.py                   # SourceChunk 数据结构和上下文格式化工具。
+│   │   │       │   ├── note_provider.py            # 笔记来源提供者，按笔记读取 SourceChunk。
+│   │   │       │   └── registry.py                 # SourceRegistry，注册并按类型分发来源提供者。
+│   │   │       ├── storage_service.py              # 本地/SFTP 存储配置、适配器、文件读写、下载和删除服务。
+│   │   │       └── user_service.py                 # 用户注册、登录、Token 刷新、资料更新、密码重置、登出和头像业务。
 │   │   └── utils/                                  # 通用工具层，包括鉴权、配置加载、文件处理和路径工具。
+│   │       ├── __init__.py                         # utils 包标记文件。
+│   │       ├── auth_utils.py                       # 密码哈希、JWT 生成/解析、Token 黑名单和当前用户依赖。
+│   │       ├── config.py                           # 运行配置常量和环境变量读取入口。
+│   │       ├── config_handler.py                   # YAML 配置文件加载工具。
+│   │       ├── env_loader.py                       # config/.env 与 backend/.env 加载、模板校验和文件型密钥解析。
+│   │       ├── file_handler.py                     # PDF/TXT/Word/Markdown/PPT 文档加载和文本提取工具。
+│   │       ├── magic_compat.py                     # Windows python-magic DLL 路径兼容处理。
+│   │       ├── path_tool.py                        # 项目根目录、源码目录、data 和 config 路径解析工具。
+│   │       └── pdf_multimodal_loader.py            # PDF 多模态解析工具，提取页面文本、图片和视觉模型描述。
 │   │
 │   └── test/                                       # 后端契约测试、服务测试和回归测试。
 │       ├── test_auth_utils.py                      # 密码哈希、JWT 创建和鉴权工具测试。
