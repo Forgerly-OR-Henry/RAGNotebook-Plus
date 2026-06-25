@@ -6,6 +6,8 @@
 import { computed, onMounted, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import {
+  ArrowLeft,
+  ArrowRight,
   ChevronDown,
   ChevronRight,
   FileText,
@@ -111,6 +113,15 @@ const editingFolder = ref<KnowledgeFolder | null>(null)
 const deleteFolderTarget = ref<KnowledgeFolder | null>(null)
 // 响应式状态：保存当前组件内部的临时 UI 或业务处理状态。
 const movingFolder = ref(false)
+const moveDialogOpen = ref(false)
+const leftScopeId = ref<string | null>(null)
+const rightScopeId = ref<string | null>(null)
+const leftDocuments = ref<KnowledgeDocument[]>([])
+const rightDocuments = ref<KnowledgeDocument[]>([])
+const leftSelectedIds = ref<Set<string>>(new Set())
+const rightSelectedIds = ref<Set<string>>(new Set())
+const moveBusy = ref(false)
+const moveError = ref('')
 // 响应式状态：保存当前组件内部的临时 UI 或业务处理状态。
 const manageOpen = ref(false)
 const extraCategories = ref<string[]>([])
@@ -128,6 +139,7 @@ const PREDEFINED_CATEGORIES = [
 ]
 const PREDEFINED_VALUES = new Set(['work', 'study', 'life', 'project', 'other'])
 const CATEGORY_ORDER_KEY = 'knowledge_category_order'
+const UNFILED_SCOPE_VALUE = '__unfiled__'
 
 const typeLabels: Record<string, string> = {
   'ai-summary': 'AI总结',
@@ -492,6 +504,12 @@ const filteredDocuments = computed(() => documents.value.filter((doc) => matches
  * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
  */
 const documentCount = computed(() => filteredDocuments.value.length)
+const leftMoveAllSelected = computed(() => leftSelectedIds.value.size === leftDocuments.value.length && leftDocuments.value.length > 0)
+const rightMoveAllSelected = computed(() => rightSelectedIds.value.size === rightDocuments.value.length && rightDocuments.value.length > 0)
+const moveSameScope = computed(() => leftScopeId.value === rightScopeId.value)
+const moveScopeWarning = computed(() => (moveSameScope.value ? '左右文件夹相同，请选择不同文件夹后再移动。' : ''))
+const canMoveLeftToRight = computed(() => leftSelectedIds.value.size > 0 && !moveSameScope.value)
+const canMoveRightToLeft = computed(() => rightSelectedIds.value.size > 0 && !moveSameScope.value)
 
 /**
  * 用途：执行sortPinned相关业务逻辑。
@@ -504,6 +522,65 @@ function sortPinned(items: KnowledgeDocument[]) {
     if (!a.is_pinned && b.is_pinned) return 1
     return 0
   })
+}
+
+function scopeLabel(scopeId: string | null) {
+  if (scopeId === null) return '未归档'
+  return folderName(scopeId)
+}
+
+function normalizeScopeId(scopeId: string | null) {
+  if (!scopeId) return null
+  return folderOptions.value.some((item) => item.id === scopeId) ? scopeId : null
+}
+
+function parseScopeInput(scopeId: string | null | undefined) {
+  if (!scopeId || scopeId === UNFILED_SCOPE_VALUE || scopeId === 'null' || scopeId === 'undefined') return null
+  return normalizeScopeId(scopeId) ? scopeId : null
+}
+
+function isFolderScopeInput(scopeId: string | null | undefined) {
+  return Boolean(scopeId && scopeId !== UNFILED_SCOPE_VALUE && scopeId !== 'null' && scopeId !== 'undefined')
+}
+
+function scopeSelectValue(scopeId: string | null) {
+  return scopeId ?? UNFILED_SCOPE_VALUE
+}
+
+function getDefaultRightScopeId(leftScope: string | null) {
+  const target = folderOptions.value.find((item) => item.id !== leftScope)
+  return target?.id || null
+}
+
+async function loadDocumentsByScope(scopeId: string | null) {
+  const res = await knowledgeApi.list(scopeId ? { folder_id: scopeId } : { unfiled: true })
+  return sortPinned(res.data.documents || [])
+}
+
+async function loadDocumentsByScopeWithRecovery(scopeId: string | null) {
+  const targetScope = normalizeScopeId(scopeId)
+  if (scopeId && !targetScope) {
+    return loadDocumentsByScope(null)
+  }
+  return loadDocumentsByScope(targetScope)
+}
+
+async function ensureFoldersLoadedForMoveDialog() {
+  if (!folderOptions.value.length) {
+    await loadFolders()
+  }
+}
+
+function normalizeMoveSelection(selected: Set<string>, documentsOfSide: KnowledgeDocument[]) {
+  const availableIds = new Set(documentsOfSide.map((doc) => doc.id))
+  return [...selected].filter((documentId) => availableIds.has(documentId))
+}
+
+function setScopePairFromCurrentView() {
+  const currentFolderScope = activeFolderMode.value === 'folder' ? normalizeScopeId(activeFolderId.value) : null
+  const right = currentFolderScope || getDefaultRightScopeId(null)
+  leftScopeId.value = null
+  rightScopeId.value = normalizeScopeId(right) ? normalizeScopeId(right) : null
 }
 
 /**
@@ -729,6 +806,162 @@ async function deleteFolder(mode: 'unfile' | 'delete_documents') {
     await refreshAll()
   } catch (error) {
     errorMessage.value = getErrorMessage(error, '文件夹删除失败')
+  }
+}
+
+async function openMoveDialog() {
+  await ensureFoldersLoadedForMoveDialog()
+  setScopePairFromCurrentView()
+  leftSelectedIds.value = new Set()
+  rightSelectedIds.value = new Set()
+  moveError.value = ''
+  leftDocuments.value = []
+  rightDocuments.value = []
+  moveDialogOpen.value = true
+  moveBusy.value = false
+  try {
+    const [loadedLeft, loadedRight] = await Promise.all([
+      loadDocumentsByScopeWithRecovery(leftScopeId.value),
+      loadDocumentsByScopeWithRecovery(rightScopeId.value),
+    ])
+    leftDocuments.value = loadedLeft
+    rightDocuments.value = loadedRight
+  } catch (error) {
+    moveError.value = getErrorMessage(error, '加载文件夹列表失败')
+  }
+}
+
+function closeMoveDialog() {
+  moveDialogOpen.value = false
+  moveError.value = ''
+  leftSelectedIds.value = new Set()
+  rightSelectedIds.value = new Set()
+  leftDocuments.value = []
+  rightDocuments.value = []
+}
+
+function toggleMoveSelection(side: 'left' | 'right', documentId: string, checked: boolean) {
+  if (side === 'left') {
+    const next = new Set(leftSelectedIds.value)
+    if (checked) next.add(documentId)
+    else next.delete(documentId)
+    leftSelectedIds.value = next
+    return
+  }
+  const next = new Set(rightSelectedIds.value)
+  if (checked) next.add(documentId)
+  else next.delete(documentId)
+  rightSelectedIds.value = next
+}
+
+function toggleMoveAll(side: 'left' | 'right', checked: boolean) {
+  if (side === 'left') {
+    leftSelectedIds.value = checked ? new Set(leftDocuments.value.map((doc) => doc.id)) : new Set()
+    return
+  }
+  rightSelectedIds.value = checked ? new Set(rightDocuments.value.map((doc) => doc.id)) : new Set()
+}
+
+async function updateMoveScope(side: 'left' | 'right', scopeId: string | null) {
+  const normalized = parseScopeInput(scopeId)
+  if (side === 'left') {
+    if (leftScopeId.value !== normalized) {
+      moveError.value = normalized === null && isFolderScopeInput(scopeId) ? '来源文件夹不存在，已自动回退到未归档' : ''
+      leftScopeId.value = normalized
+    }
+    leftSelectedIds.value = new Set()
+  } else {
+    if (rightScopeId.value !== normalized) {
+      moveError.value = normalized === null && isFolderScopeInput(scopeId) ? '目标文件夹不存在，已自动回退到未归档' : ''
+      rightScopeId.value = normalized
+    }
+    rightSelectedIds.value = new Set()
+  }
+  try {
+    if (side === 'left') {
+      leftDocuments.value = await loadDocumentsByScopeWithRecovery(leftScopeId.value)
+    } else {
+      rightDocuments.value = await loadDocumentsByScopeWithRecovery(rightScopeId.value)
+    }
+  } catch (error) {
+    moveError.value = getErrorMessage(error, '加载列表失败')
+  }
+}
+
+async function moveSelectedDocuments(source: 'left' | 'right') {
+  if (moveBusy.value) return
+
+  const sourceScope = source === 'left' ? leftScopeId : rightScopeId
+  const targetScope = source === 'left' ? rightScopeId : leftScopeId
+  const sourceDocuments = source === 'left' ? leftDocuments.value : rightDocuments.value
+  const sourceSelected = source === 'left' ? leftSelectedIds : rightSelectedIds
+
+  const resolvedSourceScope = normalizeScopeId(sourceScope.value)
+  const resolvedTargetScope = normalizeScopeId(targetScope.value)
+  let scopeUpdated = false
+
+  if (sourceScope.value !== resolvedSourceScope) {
+    sourceScope.value = resolvedSourceScope
+    scopeUpdated = true
+    moveError.value = '来源文件夹不存在，已自动回退到未归档'
+  }
+
+  if (targetScope.value !== resolvedTargetScope) {
+    targetScope.value = resolvedTargetScope
+    scopeUpdated = true
+    moveError.value = '目标文件夹不存在，已自动回退到未归档'
+  }
+
+  const normalizedSourceScope = sourceScope.value
+  const normalizedTargetScope = resolvedTargetScope
+  if (normalizedSourceScope === normalizedTargetScope) return
+
+  const validSourceSelected = normalizeMoveSelection(sourceSelected.value, sourceDocuments)
+  if (sourceSelected.value.size > validSourceSelected.length) {
+    sourceSelected.value = new Set(validSourceSelected)
+    moveError.value = '部分文档已变更，已自动过滤无效项'
+  }
+
+  if (sourceSelected.value.size === 0) {
+    if (scopeUpdated) {
+      leftDocuments.value = await loadDocumentsByScopeWithRecovery(leftScopeId.value)
+      rightDocuments.value = await loadDocumentsByScopeWithRecovery(rightScopeId.value)
+    }
+    return
+  }
+
+  if (scopeUpdated) {
+    leftDocuments.value = await loadDocumentsByScopeWithRecovery(leftScopeId.value)
+    rightDocuments.value = await loadDocumentsByScopeWithRecovery(rightScopeId.value)
+  }
+
+  moveBusy.value = true
+  try {
+    await knowledgeApi.batchUpdateFolder(Array.from(sourceSelected.value), normalizedTargetScope)
+    if (source === 'left') leftSelectedIds.value = new Set()
+    else rightSelectedIds.value = new Set()
+    const [updatedLeft, updatedRight] = await Promise.all([
+      loadDocumentsByScopeWithRecovery(leftScopeId.value),
+      loadDocumentsByScopeWithRecovery(rightScopeId.value),
+    ])
+    leftDocuments.value = updatedLeft
+    rightDocuments.value = updatedRight
+    await refreshAll()
+  } catch (error) {
+    const message = getErrorMessage(error, '移动失败')
+    if (message.includes('不存在')) {
+      moveError.value = message
+      await loadFolders()
+      leftScopeId.value = normalizeScopeId(leftScopeId.value)
+      rightScopeId.value = normalizeScopeId(rightScopeId.value)
+      if (rightScopeId.value === leftScopeId.value) rightScopeId.value = null
+      leftDocuments.value = await loadDocumentsByScopeWithRecovery(leftScopeId.value)
+      rightDocuments.value = await loadDocumentsByScopeWithRecovery(rightScopeId.value)
+      return
+    }
+    moveError.value = message
+  } finally {
+    moveBusy.value = false
   }
 }
 
@@ -979,6 +1212,14 @@ watch(extraCategories, () => {
               <Upload :size="15" />
               {{ uploading ? '导入中' : '导入' }}
             </button>
+            <button
+              class="inline-flex h-9 items-center gap-2 rounded-md border border-[var(--color-border)] px-3 text-xs text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-secondary)]"
+              type="button"
+              @click="openMoveDialog"
+            >
+              <Folder :size="15" />
+              移动
+            </button>
           </div>
         </div>
 
@@ -1124,6 +1365,105 @@ watch(extraCategories, () => {
           <button class="rounded-md border border-[var(--color-border)] px-4 py-1.5 text-sm text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-secondary)]" type="button" @click="deleteFolderTarget = null">取消</button>
           <button class="rounded-md bg-[var(--color-accent)] px-4 py-1.5 text-sm text-white" type="button" @click="deleteFolder('unfile')">移回未归档</button>
           <button class="rounded-md bg-red-500 px-4 py-1.5 text-sm text-white hover:bg-red-600" type="button" @click="deleteFolder('delete_documents')">同时删除文档</button>
+        </div>
+      </section>
+    </Teleport>
+
+    <Teleport to="body">
+      <div v-if="moveDialogOpen" class="fixed inset-0 z-50 bg-black/40" @click="closeMoveDialog" />
+      <section v-if="moveDialogOpen" class="fixed left-1/2 top-1/2 z-50 w-[960px] max-w-[96vw] -translate-x-1/2 -translate-y-1/2 rounded-lg bg-[var(--color-card)] p-6 shadow-xl">
+        <h3 class="mb-4 text-base font-medium text-[var(--color-text)]">移动知识库文档</h3>
+
+        <p v-if="moveError" class="mb-3 text-sm text-[var(--color-danger)]">{{ moveError }}</p>
+        <p v-if="moveScopeWarning" class="mb-3 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-700">{{ moveScopeWarning }}</p>
+
+        <div class="grid gap-3 md:grid-cols-[1fr_auto_1fr]">
+          <section>
+            <div class="mb-2 flex items-center justify-between">
+              <label class="text-xs text-[var(--color-text-secondary)]">左侧</label>
+              <select
+                class="rounded-md border border-[var(--color-border)] bg-[var(--color-bg-secondary)] px-2 py-1 text-xs"
+                :value="scopeSelectValue(leftScopeId)"
+                @change="updateMoveScope('left', ($event.target as HTMLSelectElement).value)"
+              >
+                <option :value="UNFILED_SCOPE_VALUE">未归档</option>
+                <option v-for="item in folderOptions" :key="item.id" :value="item.id">{{ folderOptionLabel(item) }}</option>
+              </select>
+            </div>
+            <div class="rounded-md border border-[var(--color-border)] bg-[var(--color-bg)]">
+              <label class="flex items-center gap-2 border-b border-[var(--color-border)] px-2 py-2 text-xs text-[var(--color-text-secondary)]">
+                <input type="checkbox" :checked="leftMoveAllSelected" @change="toggleMoveAll('left', ($event.target as HTMLInputElement).checked)" />
+                全选
+              </label>
+              <div class="max-h-64 space-y-1 overflow-y-auto px-2 py-2">
+                <p v-if="leftDocuments.length === 0" class="py-4 text-center text-xs text-[var(--color-text-tertiary)]">{{ scopeLabel(leftScopeId) }}暂无内容</p>
+                <label v-for="doc in leftDocuments" :key="doc.id" class="flex items-center gap-2 rounded border border-[var(--color-border)] bg-[var(--color-bg-secondary)] px-2 py-2 text-xs">
+                  <input
+                    type="checkbox"
+                    :checked="leftSelectedIds.has(doc.id)"
+                    @change="toggleMoveSelection('left', doc.id, ($event.target as HTMLInputElement).checked)"
+                  />
+                  <span class="truncate" data-i18n-skip>{{ getDocumentTitle(doc) }}</span>
+                </label>
+              </div>
+            </div>
+          </section>
+
+          <div class="flex items-center justify-center gap-2 md:flex-col">
+            <button
+              class="inline-flex items-center justify-center rounded-md border border-[var(--color-border)] px-3 py-2 text-xs hover:bg-[var(--color-bg-secondary)] disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent"
+              type="button"
+              title="移到右侧"
+              :disabled="moveBusy || !canMoveLeftToRight"
+              @click="moveSelectedDocuments('left')"
+            >
+              <ArrowRight :size="14" />
+            </button>
+            <button
+              class="inline-flex items-center justify-center rounded-md border border-[var(--color-border)] px-3 py-2 text-xs hover:bg-[var(--color-bg-secondary)] disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent"
+              type="button"
+              title="移到左侧"
+              :disabled="moveBusy || !canMoveRightToLeft"
+              @click="moveSelectedDocuments('right')"
+            >
+              <ArrowLeft :size="14" />
+            </button>
+          </div>
+
+          <section>
+            <div class="mb-2 flex items-center justify-between">
+              <label class="text-xs text-[var(--color-text-secondary)]">右侧</label>
+              <select
+                class="rounded-md border border-[var(--color-border)] bg-[var(--color-bg-secondary)] px-2 py-1 text-xs"
+                :value="scopeSelectValue(rightScopeId)"
+                @change="updateMoveScope('right', ($event.target as HTMLSelectElement).value)"
+              >
+                <option :value="UNFILED_SCOPE_VALUE">未归档</option>
+                <option v-for="item in folderOptions" :key="item.id" :value="item.id">{{ folderOptionLabel(item) }}</option>
+              </select>
+            </div>
+            <div class="rounded-md border border-[var(--color-border)] bg-[var(--color-bg)]">
+              <label class="flex items-center gap-2 border-b border-[var(--color-border)] px-2 py-2 text-xs text-[var(--color-text-secondary)]">
+                <input type="checkbox" :checked="rightMoveAllSelected" @change="toggleMoveAll('right', ($event.target as HTMLInputElement).checked)" />
+                全选
+              </label>
+              <div class="max-h-64 space-y-1 overflow-y-auto px-2 py-2">
+                <p v-if="rightDocuments.length === 0" class="py-4 text-center text-xs text-[var(--color-text-tertiary)]">{{ scopeLabel(rightScopeId) }}暂无内容</p>
+                <label v-for="doc in rightDocuments" :key="doc.id" class="flex items-center gap-2 rounded border border-[var(--color-border)] bg-[var(--color-bg-secondary)] px-2 py-2 text-xs">
+                  <input
+                    type="checkbox"
+                    :checked="rightSelectedIds.has(doc.id)"
+                    @change="toggleMoveSelection('right', doc.id, ($event.target as HTMLInputElement).checked)"
+                  />
+                  <span class="truncate" data-i18n-skip>{{ getDocumentTitle(doc) }}</span>
+                </label>
+              </div>
+            </div>
+          </section>
+        </div>
+
+        <div class="mt-5 flex justify-end gap-2">
+          <button class="rounded-md border border-[var(--color-border)] px-4 py-1.5 text-sm text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-secondary)]" type="button" @click="closeMoveDialog">关闭</button>
         </div>
       </section>
     </Teleport>
