@@ -16,6 +16,7 @@ config/apikey.txt
 
 ## Runtime data
 /data/
+test_data/
 backend/data/*
 !backend/data/.gitkeep
 logs/
