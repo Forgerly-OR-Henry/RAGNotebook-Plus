@@ -149,7 +149,7 @@ const uploadProgress = ref(0)
 const showMention = ref(false)
 // 响应式状态：保存当前组件内部的临时 UI 或业务处理状态。
 const mentionSearch = ref('')
-const addSourceType = ref<SourceRefType>('knowledge')
+const addSourceType = ref<SourceRefType>('note')
 // 响应式状态：保存当前组件内部的临时 UI 或业务处理状态。
 const selectedAddSources = ref<ChatSourceRef[]>([])
 const sourcePickerOpen = ref(false)
