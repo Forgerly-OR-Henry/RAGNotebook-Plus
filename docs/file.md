@@ -257,7 +257,7 @@ RAGNotebook/
 │       ├── router/
 │       │   └── index.ts                            # Vue Router 路由表和登录态守卫。
 │       ├── stores/                                 # Pinia 状态管理。
-│       │   ├── useLanguageStore.ts                 # 语言偏好状态。
+│       │   ├── useLanguageStore.ts                 # 语言偏好状态，保存 zh-CN / en-US 并同步 document.lang。
 │       │   ├── useSessionStore.ts                  # 会话状态，用于保存当前会话标识。
 │       │   ├── useThemeStore.ts                    # 主题状态，管理明暗主题偏好。
 │       │   └── useUserStore.ts                     # 用户状态，管理 JWT、本地用户信息和登录状态。
@@ -269,6 +269,10 @@ RAGNotebook/
 │       │   └── sources/
 │       │       ├── folderTree.ts                   # 笔记/知识库来源文件夹树构建工具。
 │       │       └── index.ts                        # 来源类型导出。
+│       ├── i18n/                                   # 前端本地轻量双语文案层，不依赖第三方 i18n 包。
+│       │   ├── dom.ts                              # 受控 DOM 静态文案翻译器，跳过 Markdown 和用户内容区域。
+│       │   ├── index.ts                            # 翻译函数、动态文案模式和 useI18n 组合函数。
+│       │   └── messages.ts                         # zh-CN / en-US 语言类型、标签和英文文案字典。
 │       ├── utils/
 │       │   └── markdown.ts                         # Markdown 清理、转换和渲染辅助工具。
 │       └── views/                                  # 页面组件。
@@ -284,7 +288,7 @@ RAGNotebook/
 │           ├── QuickTestView.vue                   # 快速测试页面，选择笔记/知识库来源，生成选择题测验、答题并查看得分解析。
 │           ├── RegisterView.vue                    # 注册页面。
 │           ├── SessionsView.vue                    # 聊天会话列表页面。
-│           └── SettingsView.vue                    # 设置页面，管理主题和语言偏好。
+│           └── SettingsView.vue                    # 设置页面，管理主题和中英文语言偏好。
 │
 ├── docs/                                           # 项目文档。
 │   ├── developer_guide.md                          # 开发者指南，记录架构、生命周期、数据模型、接口分组和维护约定。

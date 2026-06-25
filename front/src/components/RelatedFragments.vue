@@ -71,7 +71,7 @@ watch(
               <div class="flex min-w-0 items-center gap-1.5">
                 <Library v-if="fragment.source === 'knowledge_base'" :size="13" class="shrink-0 text-blue-500" />
                 <FileText v-else :size="13" class="shrink-0 text-emerald-500" />
-                <span class="truncate text-xs font-medium text-[var(--color-text)]">{{ fragment.title }}</span>
+                <span class="truncate text-xs font-medium text-[var(--color-text)]" data-i18n-skip>{{ fragment.title }}</span>
               </div>
               <div class="flex shrink-0 items-center gap-1">
                 <span
@@ -84,11 +84,11 @@ watch(
                 <ChevronDown v-else :size="14" class="text-[var(--color-text-tertiary)]" />
               </div>
             </div>
-            <p class="mt-1.5 line-clamp-3 text-xs leading-relaxed text-[var(--color-text-secondary)]">{{ fragment.content_preview }}</p>
+            <p class="mt-1.5 line-clamp-3 text-xs leading-relaxed text-[var(--color-text-secondary)]" data-i18n-skip>{{ fragment.content_preview }}</p>
             <div class="mt-1 text-[10px] text-[var(--color-text-tertiary)]">相似度: {{ (fragment.similarity * 100).toFixed(1) }}%</div>
           </button>
           <div v-if="expandedId === fragment.id" class="border-t border-[var(--color-border-light)] px-3 pb-3 pt-1">
-            <p class="max-h-60 overflow-y-auto whitespace-pre-wrap text-xs leading-relaxed text-[var(--color-text-secondary)]">{{ fragment.content }}</p>
+            <p class="max-h-60 overflow-y-auto whitespace-pre-wrap text-xs leading-relaxed text-[var(--color-text-secondary)]" data-i18n-skip>{{ fragment.content }}</p>
           </div>
         </article>
       </div>

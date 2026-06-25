@@ -23,7 +23,7 @@ const renderedHtml = computed(() => renderMarkdownHtml(props.content || ''))
 
 <template>
   <!-- eslint-disable-next-line vue/no-v-html -->
-  <article class="markdown-body markdown-renderer" :class="{ 'markdown-renderer--compact': compact }" v-html="renderedHtml" />
+  <article class="markdown-body markdown-renderer" :class="{ 'markdown-renderer--compact': compact }" data-i18n-skip v-html="renderedHtml" />
 </template>
 
 <style scoped>

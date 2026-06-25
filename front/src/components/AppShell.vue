@@ -20,12 +20,14 @@ import {
 } from '@lucide/vue'
 import { useUserStore } from '../stores/useUserStore'
 import { authApi } from '../api/auth'
+import { useI18n } from '../i18n'
 
 // 响应式状态：保存当前组件内部的临时 UI 或业务处理状态。
 const collapsed = ref(false)
 const route = useRoute()
 const router = useRouter()
 const userStore = useUserStore()
+const { t } = useI18n()
 
 const navItems = [
   { path: '/notes', label: '笔记', icon: FileText },
@@ -48,10 +50,10 @@ const bottomItems = [
  */
 const pageTitle = computed(() => {
   if (route.path === '/notes/new') {
-    return '新建笔记'
+    return t('新建笔记')
   }
   if (route.path.startsWith('/notes/') && route.path !== '/notes') {
-    return '编辑笔记'
+    return t('编辑笔记')
   }
   /**
    * 用途：执行item相关业务逻辑。
@@ -59,7 +61,7 @@ const pageTitle = computed(() => {
    * @returns 返回计算结果、Promise、状态对象或事件处理结果，具体由调用点消费。
    */
   const item = [...navItems, ...bottomItems].find((entry) => route.path.startsWith(entry.path))
-  return item?.label || 'ChatNote'
+  return item?.label ? t(item.label) : 'ChatNote'
 })
 
 /**
@@ -129,9 +131,9 @@ async function logout() {
         </span>
         <button
           class="app-shell__collapse-button rounded-md p-1.5 text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-secondary)]"
-          :title="collapsed ? '展开侧栏' : '收起侧栏'"
+          :title="collapsed ? t('展开侧栏') : t('收起侧栏')"
           :aria-expanded="!collapsed"
-          aria-label="切换侧栏"
+          :aria-label="t('切换侧栏')"
           @click="collapsed = !collapsed"
         >
           <Columns2 :size="18" class="transition-transform duration-300" :class="{ 'rotate-180': collapsed }" />
@@ -145,13 +147,13 @@ async function logout() {
           :to="item.path"
           class="app-shell__nav-link flex items-center rounded-md px-3 py-2.5 text-sm text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-secondary)] hover:text-[var(--color-text)]"
           :class="{ 'is-active': route.path.startsWith(item.path) }"
-          :title="collapsed ? item.label : undefined"
+          :title="collapsed ? t(item.label) : undefined"
         >
           <span class="app-shell__nav-icon">
             <component :is="item.icon" :size="18" />
           </span>
           <span class="app-shell__label-clip">
-            <span class="app-shell__nav-label">{{ item.label }}</span>
+            <span class="app-shell__nav-label">{{ t(item.label) }}</span>
           </span>
         </RouterLink>
       </nav>
@@ -163,25 +165,25 @@ async function logout() {
           :to="item.path"
           class="app-shell__nav-link flex items-center rounded-md px-3 py-2.5 text-sm text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-secondary)] hover:text-[var(--color-text)]"
           :class="{ 'is-active': route.path.startsWith(item.path) }"
-          :title="collapsed ? item.label : undefined"
+          :title="collapsed ? t(item.label) : undefined"
         >
           <span class="app-shell__nav-icon">
             <component :is="item.icon" :size="18" />
           </span>
           <span class="app-shell__label-clip">
-            <span class="app-shell__nav-label">{{ item.label }}</span>
+            <span class="app-shell__nav-label">{{ t(item.label) }}</span>
           </span>
         </RouterLink>
         <button
           class="app-shell__nav-link app-shell__logout flex w-full items-center rounded-md px-3 py-2.5 text-sm text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-secondary)] hover:text-[var(--color-danger)]"
-          :title="collapsed ? '退出' : undefined"
+          :title="collapsed ? t('退出') : undefined"
           @click="logout"
         >
           <span class="app-shell__nav-icon">
             <LogOut :size="18" />
           </span>
           <span class="app-shell__label-clip">
-            <span class="app-shell__nav-label">退出</span>
+            <span class="app-shell__nav-label">{{ t('退出') }}</span>
           </span>
         </button>
       </div>
@@ -194,8 +196,8 @@ async function logout() {
             v-if="showBackButton"
             class="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-md text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-secondary)] hover:text-[var(--color-text)]"
             type="button"
-            aria-label="返回上一页"
-            title="返回上一页"
+            :aria-label="t('返回上一页')"
+            :title="t('返回上一页')"
             @click="goBack"
           >
             <ArrowLeft :size="18" />

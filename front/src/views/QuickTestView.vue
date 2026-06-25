@@ -511,7 +511,7 @@ onMounted(() => {
               >
                 <ChevronRight :size="14" class="shrink-0 text-[var(--color-text-tertiary)] transition-transform" :class="{ 'rotate-90': !isNoteFolderCollapsed(row.key) }" />
                 <Folder :size="15" class="shrink-0 text-[var(--color-text-tertiary)]" />
-                <span class="min-w-0 flex-1 truncate font-medium">{{ row.title }}</span>
+                <span class="min-w-0 flex-1 truncate font-medium" :data-i18n-skip="row.key.endsWith('folder:unfiled') ? null : ''">{{ row.title }}</span>
                 <span class="shrink-0 text-xs text-[var(--color-text-tertiary)]">{{ row.count }}</span>
               </button>
               <button
@@ -528,8 +528,8 @@ onMounted(() => {
                 </span>
                 <FileText :size="15" class="mt-0.5 shrink-0 text-[var(--color-text-tertiary)]" />
                 <span class="min-w-0 flex-1">
-                  <span class="block truncate text-sm font-medium">{{ row.title }}</span>
-                  <span v-if="row.subtitle" class="mt-1 block truncate text-xs text-[var(--color-text-tertiary)]">{{ row.subtitle }}</span>
+                  <span class="block truncate text-sm font-medium" data-i18n-skip>{{ row.title }}</span>
+                  <span v-if="row.subtitle" class="mt-1 block truncate text-xs text-[var(--color-text-tertiary)]" data-i18n-skip>{{ row.subtitle }}</span>
                 </span>
               </button>
             </div>
@@ -569,7 +569,7 @@ onMounted(() => {
               >
                 <ChevronRight :size="14" class="shrink-0 text-[var(--color-text-tertiary)] transition-transform" :class="{ 'rotate-90': !isDocumentFolderCollapsed(row.key) }" />
                 <Folder :size="15" class="shrink-0 text-[var(--color-text-tertiary)]" />
-                <span class="min-w-0 flex-1 truncate font-medium">{{ row.title }}</span>
+                <span class="min-w-0 flex-1 truncate font-medium" :data-i18n-skip="row.key.endsWith('folder:unfiled') ? null : ''">{{ row.title }}</span>
                 <span class="shrink-0 text-xs text-[var(--color-text-tertiary)]">{{ row.count }}</span>
               </button>
               <button
@@ -586,8 +586,8 @@ onMounted(() => {
                 </span>
                 <Database :size="15" class="mt-0.5 shrink-0 text-[var(--color-text-tertiary)]" />
                 <span class="min-w-0 flex-1">
-                  <span class="block truncate text-sm font-medium">{{ row.title }}</span>
-                  <span v-if="row.subtitle" class="mt-1 block truncate text-xs text-[var(--color-text-tertiary)]">{{ row.subtitle }}</span>
+                  <span class="block truncate text-sm font-medium" data-i18n-skip>{{ row.title }}</span>
+                  <span v-if="row.subtitle" class="mt-1 block truncate text-xs text-[var(--color-text-tertiary)]" data-i18n-skip>{{ row.subtitle }}</span>
                 </span>
               </button>
             </div>

@@ -1544,7 +1544,7 @@ onBeforeUnmount(() => {
                 @click="openProject(project.id)"
               >
                 <Folder :size="16" class="shrink-0" />
-                <span class="truncate">{{ project.name }}</span>
+                <span class="truncate" data-i18n-skip>{{ project.name }}</span>
               </button>
               <span v-if="sessionsForProject(project.id).length" class="shrink-0 pr-1 text-[13px] text-[var(--color-text-tertiary)]">
                 {{ sessionsForProject(project.id).length }}
@@ -1568,7 +1568,7 @@ onBeforeUnmount(() => {
               >
                 <button class="min-w-0 flex-1 px-2 py-1.5 text-left" type="button" @click="openSession(session)">
                   <div class="flex min-w-0 items-center justify-between gap-2">
-                    <span class="truncate text-[15px]">{{ session.title || '新的对话' }}</span>
+                    <span class="truncate text-[15px]" :data-i18n-skip="session.title ? '' : null">{{ session.title || '新的对话' }}</span>
                     <span class="shrink-0 text-[13px] text-[var(--color-text-tertiary)]">{{ formatSessionTime(session.updated_at) }}</span>
                   </div>
                 </button>
@@ -1609,7 +1609,7 @@ onBeforeUnmount(() => {
           >
             <button class="min-w-0 flex-1 px-2 py-1.5 text-left" type="button" @click="openSession(session)">
               <div class="flex min-w-0 items-center justify-between gap-2">
-                <span class="truncate text-[15px]">{{ session.title || '新的对话' }}</span>
+                <span class="truncate text-[15px]" :data-i18n-skip="session.title ? '' : null">{{ session.title || '新的对话' }}</span>
                 <span class="shrink-0 text-[13px] text-[var(--color-text-tertiary)]">{{ formatSessionTime(session.updated_at) }}</span>
               </div>
             </button>
@@ -1629,7 +1629,7 @@ onBeforeUnmount(() => {
     <section class="flex min-h-0 flex-col rounded-md border border-[var(--color-border)] bg-[var(--color-card)]">
       <header class="flex items-center justify-between border-b border-[var(--color-border)] px-5 py-3">
         <div class="min-w-0">
-          <h2 class="truncate font-heading text-lg font-semibold">{{ activeProject?.name || '普通对话' }}</h2>
+          <h2 class="truncate font-heading text-lg font-semibold" :data-i18n-skip="activeProject ? '' : null">{{ activeProject?.name || '普通对话' }}</h2>
           <p class="truncate text-sm text-[var(--color-text-secondary)]">
             {{ effectiveRagEnabled ? (isProjectMode ? '默认参考项目文件；输入 @ 可指定本轮参考文件' : '默认参考全局笔记和知识库；输入 @ 可指定文件') : '普通聊天；输入 @ 可指定文件并启用检索' }}
           </p>
@@ -1734,7 +1734,7 @@ onBeforeUnmount(() => {
             type="button"
             @click="removeReference(sourceRef)"
           >
-            @{{ sourceRef.title }}
+            @<span data-i18n-skip>{{ sourceRef.title }}</span>
             <X :size="13" />
           </button>
         </div>
@@ -1767,7 +1767,7 @@ onBeforeUnmount(() => {
                   >
                     <ChevronRight :size="14" class="shrink-0 text-[var(--color-text-tertiary)] transition-transform duration-150" :class="{ 'rotate-90': !row.collapsed }" />
                     <Folder :size="15" class="shrink-0 text-[var(--color-text-tertiary)]" />
-                    <span class="min-w-0 flex-1 truncate font-medium">{{ row.title }}</span>
+                    <span class="min-w-0 flex-1 truncate font-medium" :data-i18n-skip="row.key.endsWith('folder:unfiled') ? null : ''">{{ row.title }}</span>
                   </button>
                   <span class="shrink-0 text-xs text-[var(--color-text-tertiary)]">{{ row.count }}</span>
                 </template>
@@ -1779,7 +1779,7 @@ onBeforeUnmount(() => {
                 >
                   <component :is="getSourceIcon(row.sourceType || 'note')" :size="15" class="mt-0.5 shrink-0 text-[var(--color-text-tertiary)]" />
                   <span class="min-w-0">
-                    <span class="block truncate">{{ row.title }}</span>
+                    <span class="block truncate" data-i18n-skip>{{ row.title }}</span>
                     <span class="block truncate text-xs text-[var(--color-text-secondary)]">{{ row.subtitle }}</span>
                   </span>
                 </button>
@@ -1902,7 +1902,7 @@ onBeforeUnmount(() => {
                 >
                   <ChevronRight :size="14" class="shrink-0 text-[var(--color-text-tertiary)] transition-transform duration-150" :class="{ 'rotate-90': !row.collapsed }" />
                   <Folder :size="15" class="shrink-0 text-[var(--color-text-tertiary)]" />
-                  <span class="min-w-0 flex-1 truncate font-medium">{{ row.title }}</span>
+                  <span class="min-w-0 flex-1 truncate font-medium" :data-i18n-skip="row.key.endsWith('folder:unfiled') ? null : ''">{{ row.title }}</span>
                 </button>
                 <span class="shrink-0 text-xs text-[var(--color-text-tertiary)]">{{ row.count }}</span>
               </template>
@@ -1917,7 +1917,7 @@ onBeforeUnmount(() => {
                 >
                   <FileText :size="15" class="mt-0.5 shrink-0 text-[var(--color-text-tertiary)]" />
                   <span class="min-w-0">
-                    <span class="block truncate">{{ row.title }}</span>
+                    <span class="block truncate" data-i18n-skip>{{ row.title }}</span>
                     <span class="block truncate text-xs text-[var(--color-text-secondary)]">{{ row.subtitle }}</span>
                   </span>
                 </button>
@@ -1962,7 +1962,7 @@ onBeforeUnmount(() => {
                 >
                   <ChevronRight :size="14" class="shrink-0 text-[var(--color-text-tertiary)] transition-transform duration-150" :class="{ 'rotate-90': !row.collapsed }" />
                   <Folder :size="15" class="shrink-0 text-[var(--color-text-tertiary)]" />
-                  <span class="min-w-0 flex-1 truncate font-medium">{{ row.title }}</span>
+                  <span class="min-w-0 flex-1 truncate font-medium" :data-i18n-skip="row.key.endsWith('folder:unfiled') ? null : ''">{{ row.title }}</span>
                 </button>
                 <span class="shrink-0 text-xs text-[var(--color-text-tertiary)]">{{ row.count }}</span>
               </template>
@@ -1977,7 +1977,7 @@ onBeforeUnmount(() => {
                 >
                   <Library :size="15" class="mt-0.5 shrink-0 text-[var(--color-text-tertiary)]" />
                   <span class="min-w-0">
-                    <span class="block truncate">{{ row.title }}</span>
+                    <span class="block truncate" data-i18n-skip>{{ row.title }}</span>
                     <span class="block truncate text-xs text-[var(--color-text-secondary)]">{{ row.subtitle }}</span>
                   </span>
                 </button>
@@ -2064,7 +2064,7 @@ onBeforeUnmount(() => {
                 >
                   <ChevronRight :size="14" class="shrink-0 text-[var(--color-text-tertiary)] transition-transform duration-150" :class="{ 'rotate-90': !row.collapsed }" />
                   <Folder :size="15" class="shrink-0 text-[var(--color-text-tertiary)]" />
-                  <span class="min-w-0 flex-1 truncate font-medium">{{ row.title }}</span>
+                  <span class="min-w-0 flex-1 truncate font-medium" :data-i18n-skip="row.key.endsWith('folder:unfiled') ? null : ''">{{ row.title }}</span>
                 </button>
                 <span class="shrink-0 text-xs text-[var(--color-text-tertiary)]">{{ row.count }}</span>
               </template>
@@ -2079,7 +2079,7 @@ onBeforeUnmount(() => {
                 >
                   <FileText :size="15" class="mt-0.5 shrink-0 text-[var(--color-text-tertiary)]" />
                   <span class="min-w-0">
-                    <span class="block truncate">{{ row.title }}</span>
+                    <span class="block truncate" data-i18n-skip>{{ row.title }}</span>
                     <span class="block truncate text-xs text-[var(--color-text-secondary)]">{{ row.subtitle }}</span>
                   </span>
                 </button>
@@ -2116,7 +2116,7 @@ onBeforeUnmount(() => {
                 >
                   <ChevronRight :size="14" class="shrink-0 text-[var(--color-text-tertiary)] transition-transform duration-150" :class="{ 'rotate-90': !row.collapsed }" />
                   <Folder :size="15" class="shrink-0 text-[var(--color-text-tertiary)]" />
-                  <span class="min-w-0 flex-1 truncate font-medium">{{ row.title }}</span>
+                  <span class="min-w-0 flex-1 truncate font-medium" :data-i18n-skip="row.key.endsWith('folder:unfiled') ? null : ''">{{ row.title }}</span>
                 </button>
                 <span class="shrink-0 text-xs text-[var(--color-text-tertiary)]">{{ row.count }}</span>
               </template>
@@ -2131,7 +2131,7 @@ onBeforeUnmount(() => {
                 >
                   <Library :size="15" class="mt-0.5 shrink-0 text-[var(--color-text-tertiary)]" />
                   <span class="min-w-0">
-                    <span class="block truncate">{{ row.title }}</span>
+                    <span class="block truncate" data-i18n-skip>{{ row.title }}</span>
                     <span class="block truncate text-xs text-[var(--color-text-secondary)]">{{ row.subtitle }}</span>
                   </span>
                 </button>
@@ -2226,7 +2226,7 @@ onBeforeUnmount(() => {
                 >
                   <ChevronRight :size="14" class="shrink-0 text-[var(--color-text-tertiary)] transition-transform duration-150" :class="{ 'rotate-90': !row.collapsed }" />
                   <Folder :size="15" class="shrink-0 text-[var(--color-text-tertiary)]" />
-                  <span class="min-w-0 flex-1 truncate font-medium">{{ row.title }}</span>
+                  <span class="min-w-0 flex-1 truncate font-medium" :data-i18n-skip="row.key.endsWith('folder:unfiled') ? null : ''">{{ row.title }}</span>
                 </button>
                 <span class="shrink-0 text-xs text-[var(--color-text-tertiary)]">{{ row.count }}</span>
               </template>
@@ -2248,7 +2248,7 @@ onBeforeUnmount(() => {
                   <FileText v-if="row.sourceType === 'note'" :size="15" class="mt-0.5 shrink-0 text-[var(--color-text-tertiary)]" />
                   <Library v-else :size="15" class="mt-0.5 shrink-0 text-[var(--color-text-tertiary)]" />
                   <span class="min-w-0">
-                    <span class="block truncate">{{ row.title }}</span>
+                    <span class="block truncate" data-i18n-skip>{{ row.title }}</span>
                     <span class="block truncate text-xs text-[var(--color-text-secondary)]">{{ row.subtitle }}</span>
                   </span>
                 </button>

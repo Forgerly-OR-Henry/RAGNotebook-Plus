@@ -1427,7 +1427,7 @@ watch(extraCategories, () => {
               <span v-else class="w-[23px] shrink-0" />
               <FolderOpen v-if="activeFolderMode === 'folder' && activeFolderId === row.folder.id" :size="18" />
               <Folder v-else :size="18" />
-              <span class="truncate">{{ row.folder.name }}</span>
+              <span class="truncate" data-i18n-skip>{{ row.folder.name }}</span>
             </span>
             <span class="ml-2 shrink-0">{{ row.folder.note_count }}</span>
           </button>
@@ -1549,7 +1549,7 @@ watch(extraCategories, () => {
               </div>
               <div class="min-w-0 flex-1">
                 <div class="mb-1 flex items-start justify-between gap-3">
-                  <h3 class="truncate text-sm font-medium text-[var(--color-text)]">{{ note.title || '无标题' }}</h3>
+                  <h3 class="truncate text-sm font-medium text-[var(--color-text)]" :data-i18n-skip="note.title ? '' : null">{{ note.title || '无标题' }}</h3>
                   <div class="flex shrink-0 items-center gap-1">
                     <button
                       class="rounded p-0.5 hover:bg-[var(--color-bg-secondary)]"
@@ -1575,13 +1575,13 @@ watch(extraCategories, () => {
                     </button>
                   </div>
                 </div>
-                <p class="mb-2 line-clamp-2 text-xs text-[var(--color-text-secondary)]">{{ note.content?.slice(0, 200) }}</p>
+                <p class="mb-2 line-clamp-2 text-xs text-[var(--color-text-secondary)]" data-i18n-skip>{{ note.content?.slice(0, 200) }}</p>
                 <div class="flex flex-wrap items-center gap-2">
                   <span v-if="note.folder_id" class="inline-flex items-center gap-1 text-xs text-[var(--color-text-tertiary)]">
                     <Folder :size="10" />
-                    {{ folderName(note.folder_id) }}
+                    <span data-i18n-skip>{{ folderName(note.folder_id) }}</span>
                   </span>
-                  <span v-for="tag in note.tags || []" :key="tag" class="rounded-full bg-[var(--color-accent-bg)] px-2 py-0.5 text-xs text-[var(--color-accent)]">{{ tag }}</span>
+                  <span v-for="tag in note.tags || []" :key="tag" class="rounded-full bg-[var(--color-accent-bg)] px-2 py-0.5 text-xs text-[var(--color-accent)]" data-i18n-skip>{{ tag }}</span>
                   <span v-if="note.category" class="inline-flex items-center gap-1 text-xs text-[var(--color-text-tertiary)]">
                     <Tag :size="10" />
                     {{ categoryLabel(note.category) }}
@@ -1655,7 +1655,7 @@ watch(extraCategories, () => {
       <div v-if="deleteFolderTarget" class="fixed inset-0 z-50 bg-black/40" @click="deleteFolderTarget = null" />
       <section v-if="deleteFolderTarget" class="fixed left-1/2 top-1/2 z-50 w-[440px] max-w-[90vw] -translate-x-1/2 -translate-y-1/2 rounded-lg bg-[var(--color-card)] p-6 shadow-xl">
         <h3 class="mb-2 text-base font-medium text-[var(--color-text)]">删除文件夹</h3>
-        <p class="mb-5 text-sm leading-relaxed text-[var(--color-text-secondary)]">删除「{{ deleteFolderTarget.name }}」时，可以将其中笔记移回未归档，或同时删除该文件夹内的笔记。</p>
+        <p class="mb-5 text-sm leading-relaxed text-[var(--color-text-secondary)]">{{ `删除「${deleteFolderTarget.name}」时，可以将其中笔记移回未归档，或同时删除该文件夹内的笔记。` }}</p>
         <div class="flex flex-wrap justify-end gap-2">
           <button class="rounded-md border border-[var(--color-border)] px-4 py-1.5 text-sm text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-secondary)]" type="button" @click="deleteFolderTarget = null">取消</button>
           <button class="rounded-md bg-[var(--color-accent)] px-4 py-1.5 text-sm text-white" type="button" @click="deleteFolder('unfile')">移回未归档</button>
@@ -1713,7 +1713,7 @@ watch(extraCategories, () => {
                     :checked="leftSelectedIds.has(note.id)"
                     @change="toggleMoveSelection('left', note.id, ($event.target as HTMLInputElement).checked)"
                   />
-                  <span class="truncate">{{ note.title || '无标题' }}</span>
+                  <span class="truncate" :data-i18n-skip="note.title ? '' : null">{{ note.title || '无标题' }}</span>
                 </label>
               </div>
             </div>
@@ -1765,7 +1765,7 @@ watch(extraCategories, () => {
                     :checked="rightSelectedIds.has(note.id)"
                     @change="toggleMoveSelection('right', note.id, ($event.target as HTMLInputElement).checked)"
                   />
-                  <span class="truncate">{{ note.title || '无标题' }}</span>
+                  <span class="truncate" :data-i18n-skip="note.title ? '' : null">{{ note.title || '无标题' }}</span>
                 </label>
               </div>
             </div>

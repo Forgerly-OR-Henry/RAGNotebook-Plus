@@ -563,7 +563,7 @@ onBeforeUnmount(() => {
           :content="plainTextContent"
         />
 
-        <article v-else-if="previewKind === 'text'" class="knowledge-preview__text">
+        <article v-else-if="previewKind === 'text'" class="knowledge-preview__text" data-i18n-skip>
           <pre v-if="plainTextContent">{{ plainTextContent }}</pre>
           <p v-else class="knowledge-preview__empty">暂无可预览内容</p>
         </article>
@@ -578,7 +578,7 @@ onBeforeUnmount(() => {
           <div class="knowledge-preview__chunk-meta">
             片段 {{ chunk.index + 1 }}<span v-if="chunk.page"> | 第 {{ chunk.page }} 页</span>
           </div>
-          <p>{{ chunk.content }}</p>
+          <p data-i18n-skip>{{ chunk.content }}</p>
         </article>
       </div>
 

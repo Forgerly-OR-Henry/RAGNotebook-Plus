@@ -97,7 +97,7 @@ const headings = computed(() => parseHeadings(props.content))
           <Heading2 v-else-if="heading.level === 2" :size="14" class="shrink-0 text-[var(--color-text-tertiary)]" />
           <Heading3 v-else-if="heading.level === 3" :size="14" class="shrink-0 text-[var(--color-text-tertiary)]" />
           <span v-else class="shrink-0 text-xs font-bold text-[var(--color-text-tertiary)]">H{{ heading.level }}</span>
-          <span class="truncate">{{ heading.text }}</span>
+          <span class="truncate" data-i18n-skip>{{ heading.text }}</span>
         </button>
       </div>
     </div>

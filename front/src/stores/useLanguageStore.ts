@@ -3,21 +3,32 @@
  * 主要协作：通过导出的类型、函数或组件配置供其他前端模块复用。
  */
 import { defineStore } from 'pinia'
+import { DEFAULT_LANG, normalizeLang, type Lang } from '../i18n/messages'
 
 /**
  * 类型：`Lang` 描述当前业务域中的数据结构。
  * 字段含义应与后端接口、组件入参或本地状态保持一致。
  */
-type Lang = 'zh-CN' | 'en-US'
+const LANGUAGE_KEY = 'language'
+
+function applyDocumentLang(lang: Lang) {
+  if (typeof document === 'undefined') return
+  document.documentElement.lang = lang
+}
 
 export const useLanguageStore = defineStore('language', {
   state: () => ({
-    lang: ((localStorage.getItem('language') as Lang) || 'zh-CN') as Lang,
+    lang: normalizeLang(typeof localStorage === 'undefined' ? DEFAULT_LANG : localStorage.getItem(LANGUAGE_KEY)),
   }),
   actions: {
+    initLanguage() {
+      applyDocumentLang(this.lang)
+    },
     setLang(lang: Lang) {
-      this.lang = lang
-      localStorage.setItem('language', lang)
+      const normalized = normalizeLang(lang)
+      this.lang = normalized
+      localStorage.setItem(LANGUAGE_KEY, normalized)
+      applyDocumentLang(normalized)
     },
   },
 })
