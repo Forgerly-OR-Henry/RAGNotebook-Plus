@@ -301,9 +301,9 @@ function formatDate(value?: string | null) {
 </script>
 
 <template>
-  <div class="mindmap-page flex min-h-[calc(100vh-7rem)] flex-col" :class="{ 'mindmap-page--canvas': step === 'canvas' }">
-    <section v-if="step === 'selection'" class="mx-auto flex w-full max-w-5xl flex-1 flex-col gap-5 px-1 py-2">
-      <header class="flex flex-wrap items-center justify-between gap-3">
+  <div class="mindmap-page flex h-[calc(100vh-7rem)] min-h-0 flex-col overflow-hidden" :class="{ 'mindmap-page--canvas': step === 'canvas' }">
+    <section v-if="step === 'selection'" class="mx-auto flex min-h-0 w-full max-w-5xl flex-1 flex-col gap-5 overflow-hidden px-1 py-2">
+      <header class="flex shrink-0 flex-wrap items-center justify-between gap-3">
         <div class="flex items-center gap-3">
           <div class="flex h-10 w-10 items-center justify-center rounded-md bg-[var(--color-accent-bg)] text-[var(--color-accent)]">
             <Brain :size="22" />
@@ -336,7 +336,7 @@ function formatDate(value?: string | null) {
         </div>
       </header>
 
-      <div class="rounded-md border border-[var(--color-border)] bg-[var(--color-card)]">
+      <div class="flex min-h-0 flex-1 flex-col overflow-hidden rounded-md border border-[var(--color-border)] bg-[var(--color-card)]">
         <div class="flex flex-wrap items-center gap-3 border-b border-[var(--color-border)] p-4">
           <form class="relative min-w-56 flex-1" @submit.prevent>
             <Search :size="16" class="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--color-text-placeholder)]" />
@@ -356,7 +356,7 @@ function formatDate(value?: string | null) {
           </button>
         </div>
 
-        <div class="max-h-[460px] overflow-y-auto p-2">
+        <div class="min-h-0 flex-1 overflow-y-auto p-2">
           <div v-if="loadingSources" class="flex items-center justify-center gap-2 py-12 text-sm text-[var(--color-text-secondary)]">
             <Loader2 :size="18" class="animate-spin" />
             加载中
@@ -405,9 +405,9 @@ function formatDate(value?: string | null) {
         </div>
       </div>
 
-      <p v-if="errorMessage" class="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{{ errorMessage }}</p>
+      <p v-if="errorMessage" class="shrink-0 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{{ errorMessage }}</p>
 
-      <div class="flex justify-end">
+      <div class="flex shrink-0 justify-end">
         <button
           class="inline-flex items-center gap-2 rounded-md bg-[var(--color-accent)] px-5 py-2.5 text-sm font-medium text-white disabled:cursor-not-allowed disabled:opacity-50"
           type="button"

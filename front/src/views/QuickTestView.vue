@@ -451,13 +451,13 @@ onMounted(() => {
 </script>
 
 <template>
-  <div class="mx-auto flex min-h-[calc(100vh-8rem)] max-w-6xl flex-col gap-5">
-    <div v-if="errorMessage" class="rounded-md border border-[var(--color-danger)] bg-[var(--color-danger-bg)] px-4 py-3 text-sm text-[var(--color-danger)]">
+  <div class="mx-auto flex h-[calc(100vh-8rem)] min-h-0 max-w-6xl flex-col gap-5 overflow-hidden">
+    <div v-if="errorMessage" class="shrink-0 rounded-md border border-[var(--color-danger)] bg-[var(--color-danger-bg)] px-4 py-3 text-sm text-[var(--color-danger)]">
       {{ errorMessage }}
     </div>
 
-    <section v-if="step === 'selection'" class="flex flex-1 flex-col gap-5">
-      <div class="flex flex-wrap items-center justify-between gap-3">
+    <section v-if="step === 'selection'" class="flex min-h-0 flex-1 flex-col gap-5 overflow-hidden">
+      <div class="flex shrink-0 flex-wrap items-center justify-between gap-3">
         <div class="flex items-center gap-2">
           <Brain class="text-[var(--color-accent)]" :size="24" />
           <h2 class="font-heading text-2xl font-semibold">快速测试</h2>
@@ -472,13 +472,13 @@ onMounted(() => {
         </button>
       </div>
 
-      <div v-if="loadingContext" class="flex flex-1 flex-col items-center justify-center gap-3 py-20 text-sm text-[var(--color-text-secondary)]">
+      <div v-if="loadingContext" class="flex min-h-0 flex-1 flex-col items-center justify-center gap-3 py-20 text-sm text-[var(--color-text-secondary)]">
         <Loader2 class="animate-spin text-[var(--color-accent)]" :size="36" />
         正在加载可选内容
       </div>
 
-      <div v-else class="grid flex-1 gap-5 lg:grid-cols-2">
-        <div class="flex min-h-[32rem] flex-col overflow-hidden rounded-md border border-[var(--color-border)] bg-[var(--color-card)]">
+      <div v-else class="grid min-h-0 flex-1 gap-5 lg:grid-cols-2">
+        <div class="flex min-h-0 flex-col overflow-hidden rounded-md border border-[var(--color-border)] bg-[var(--color-card)]">
           <div class="flex items-center justify-between gap-3 border-b border-[var(--color-border)] bg-[var(--color-bg-secondary)] px-4 py-3">
             <div class="flex items-center gap-2 text-sm font-medium">
               <FileText class="text-[var(--color-success)]" :size="17" />
@@ -494,7 +494,7 @@ onMounted(() => {
               <input v-model="noteSearch" class="w-full rounded-md border border-[var(--color-border)] bg-[var(--color-bg)] py-2 pl-9 pr-3 text-sm outline-none focus:border-[var(--color-accent)]" placeholder="搜索笔记" />
             </label>
           </div>
-          <div class="flex-1 overflow-y-auto p-3">
+          <div class="min-h-0 flex-1 overflow-y-auto p-3">
             <div
               v-for="row in noteRows"
               :key="row.key"
@@ -536,7 +536,7 @@ onMounted(() => {
           </div>
         </div>
 
-        <div class="flex min-h-[32rem] flex-col overflow-hidden rounded-md border border-[var(--color-border)] bg-[var(--color-card)]">
+        <div class="flex min-h-0 flex-col overflow-hidden rounded-md border border-[var(--color-border)] bg-[var(--color-card)]">
           <div class="flex items-center justify-between gap-3 border-b border-[var(--color-border)] bg-[var(--color-bg-secondary)] px-4 py-3">
             <div class="flex items-center gap-2 text-sm font-medium">
               <Database class="text-[var(--color-accent)]" :size="17" />
@@ -552,7 +552,7 @@ onMounted(() => {
               <input v-model="fileSearch" class="w-full rounded-md border border-[var(--color-border)] bg-[var(--color-bg)] py-2 pl-9 pr-3 text-sm outline-none focus:border-[var(--color-accent)]" placeholder="搜索知识库文档" />
             </label>
           </div>
-          <div class="flex-1 overflow-y-auto p-3">
+          <div class="min-h-0 flex-1 overflow-y-auto p-3">
             <div
               v-for="row in documentRows"
               :key="row.key"
@@ -595,7 +595,7 @@ onMounted(() => {
         </div>
       </div>
 
-      <div class="flex justify-center">
+      <div class="flex shrink-0 justify-center">
         <button
           class="inline-flex items-center gap-2 rounded-md bg-[var(--color-accent)] px-6 py-3 text-sm font-semibold text-white shadow-sm hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
           type="button"
@@ -612,7 +612,7 @@ onMounted(() => {
       <GenerationProgress title="AI 快速测验生成中" :message="generatingMessage" />
     </section>
 
-    <section v-else-if="step === 'quiz' && quiz" class="flex flex-1 flex-col gap-5">
+    <section v-else-if="step === 'quiz' && quiz" class="flex min-h-0 flex-1 flex-col gap-5 overflow-y-auto pr-1">
       <div class="flex flex-wrap items-center justify-between gap-3">
         <div class="flex items-center gap-3">
           <button class="inline-flex h-9 w-9 items-center justify-center rounded-md border border-[var(--color-border)] text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-secondary)]" type="button" @click="resetToSelection">
@@ -658,7 +658,7 @@ onMounted(() => {
       </div>
     </section>
 
-    <section v-else-if="step === 'result' && quiz" class="flex flex-1 flex-col gap-5">
+    <section v-else-if="step === 'result' && quiz" class="flex min-h-0 flex-1 flex-col gap-5 overflow-y-auto pr-1">
       <div class="flex flex-wrap items-center justify-between gap-5 rounded-md border border-[var(--color-border)] bg-[var(--color-card)] p-5">
         <div>
           <h2 class="font-heading text-xl font-semibold">测验结果</h2>
