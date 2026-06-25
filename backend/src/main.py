@@ -168,16 +168,16 @@ def _env_int(name: str, default: int) -> int:
 
 
 def run_standalone() -> None:
-    """Start backend directly with backend/.env.
+    """Start backend directly with backend/config/.env.
 
     Unified startup still goes through root start.py, which injects config/.env
     and sets RAGNOTEBOOK_ENV_INJECTED=1 before importing this module.
     """
     import uvicorn
 
-    parser = argparse.ArgumentParser(description="Start the RAGNotebook backend using backend/.env.")
-    parser.add_argument("--host", help="Override BACKEND_HOST from backend/.env.")
-    parser.add_argument("--port", type=int, help="Override BACKEND_PORT from backend/.env.")
+    parser = argparse.ArgumentParser(description="Start the RAGNotebook backend using backend/config/.env.")
+    parser.add_argument("--host", help="Override BACKEND_HOST from backend/config/.env.")
+    parser.add_argument("--port", type=int, help="Override BACKEND_PORT from backend/config/.env.")
     parser.add_argument("--no-reload", action="store_true", help="Disable uvicorn reload.")
     args = parser.parse_args()
 

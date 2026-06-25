@@ -95,12 +95,13 @@ def test_backend_env_path_is_separate_from_global_config(tmp_path: Path):
     backend_dir = tmp_path / "backend"
     config_dir = tmp_path / "config"
     backend_dir.mkdir()
+    (backend_dir / "config").mkdir()
     config_dir.mkdir()
-    (backend_dir / ".env").write_text("BACKEND_PORT=10001\n", encoding="utf-8")
+    (backend_dir / "config" / ".env").write_text("BACKEND_PORT=10001\n", encoding="utf-8")
     (config_dir / ".env").write_text("BACKEND_PORT=10000\n", encoding="utf-8")
 
     assert config_env_file(backend_dir) == config_dir / ".env"
-    assert backend_env_file(backend_dir) == backend_dir / ".env"
+    assert backend_env_file(backend_dir) == backend_dir / "config" / ".env"
 
 
 def test_manual_backend_load_reads_backend_env_only(tmp_path: Path, monkeypatch):
@@ -116,8 +117,9 @@ def test_manual_backend_load_reads_backend_env_only(tmp_path: Path, monkeypatch)
     backend_dir = tmp_path / "backend"
     config_dir = tmp_path / "config"
     backend_dir.mkdir()
+    (backend_dir / "config").mkdir()
     config_dir.mkdir()
-    (backend_dir / ".env").write_text("BACKEND_PORT=10001\n", encoding="utf-8")
+    (backend_dir / "config" / ".env").write_text("BACKEND_PORT=10001\n", encoding="utf-8")
     (config_dir / ".env").write_text("BACKEND_PORT=10000\n", encoding="utf-8")
 
     monkeypatch.delenv("BACKEND_PORT", raising=False)
@@ -139,7 +141,8 @@ def test_injected_env_skips_backend_env(tmp_path: Path, monkeypatch):
     """
     backend_dir = tmp_path / "backend"
     backend_dir.mkdir()
-    (backend_dir / ".env").write_text("BACKEND_PORT=10001\n", encoding="utf-8")
+    (backend_dir / "config").mkdir()
+    (backend_dir / "config" / ".env").write_text("BACKEND_PORT=10001\n", encoding="utf-8")
 
     monkeypatch.delenv("BACKEND_PORT", raising=False)
     monkeypatch.setenv("RAGNOTEBOOK_ENV_INJECTED", "1")
@@ -168,7 +171,7 @@ def test_env_file_validation_rejects_missing_template_fields(tmp_path: Path):
 
 @pytest.mark.parametrize(
     "relative_path",
-    ["config/.env.example", "backend/.env.example"],
+    ["config/.env.example", "backend/config/.env.example"],
 )
 def test_runtime_config_keys_are_declared_in_env_templates(relative_path: str):
     """

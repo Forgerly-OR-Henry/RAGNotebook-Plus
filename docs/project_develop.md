@@ -19,7 +19,7 @@
 | 数据库初始化 | 后端启动只支持新库/空库，自动创建当前表结构和 pgvector 索引表 |
 | 前端 | Vue 3 + TypeScript + Vite + Pinia |
 | 启动 | 根目录 `start.py` 统一读取 `config/.env` 并注入给数据库、后端和前端；后端/前端也支持按各自目录单独启动 |
-| 配置 | 统一启动用 `config/.env`；后端单启用 `backend/.env`；前端单启用 `front/.env`；真实模型 API Key 放在 `config/apikey.txt` |
+| 配置 | 统一启动用 `config/.env`；后端单启用 `backend/config/.env`；前端单启用 `front/.env`；真实模型 API Key 放在 `config/apikey.txt` |
 | API | 静态 `backend/openapi.json` 与运行时 `/docs` 同步 |
 | 文档 | README、开发者指南、模型配置和排错文档按当前代码重写 |
 

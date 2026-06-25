@@ -67,7 +67,7 @@ def _env_keys(path: Path) -> set[str]:
 
 @pytest.mark.parametrize(
     "relative_path",
-    ["config/.env.example", "backend/.env.example"],
+    ["config/.env.example", "backend/config/.env.example"],
 )
 def test_file_storage_keys_are_declared_in_env_templates(relative_path):
     """

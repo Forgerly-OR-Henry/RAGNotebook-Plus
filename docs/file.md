@@ -1,6 +1,6 @@
 # 项目文件结构说明
 
-本文用树状结构记录当前项目目录和每个文件的作用。统一启动配置 `config/.env`、后端单独启动配置 `backend/.env`、前端单独启动配置 `front/.env`、真实模型密钥 `config/apikey.txt`、依赖目录、构建产物、缓存和运行时数据由 `.gitignore` 排除；其中 `config/.env` 和 `config/apikey.txt` 虽不提交，但属于项目运行入口，仍在结构中记录。
+本文用树状结构记录当前项目目录和每个文件的作用。统一启动配置 `config/.env`、后端单独启动配置 `backend/config/.env`、前端单独启动配置 `front/.env`、真实模型密钥 `config/apikey.txt`、依赖目录、构建产物、缓存和运行时数据由 `.gitignore` 排除；其中 `config/.env`、`backend/config/.env` 和 `config/apikey.txt` 虽不提交，但属于项目运行入口，仍在结构中记录。
 
 ```text
 RAGNotebook/
@@ -18,12 +18,13 @@ RAGNotebook/
 │
 ├── backend/                                        # FastAPI 后端、数据库初始化、测试和 API 快照。
 │   ├── .python-version                             # 后端 Python 版本提示文件，供版本管理工具识别。
-│   ├── .env.example                                # 后端手动启动配置模板；真实 backend/.env 不提交。
 │   ├── openapi.json                                # 当前后端 API 的静态 OpenAPI 快照。
 │   ├── pyproject.toml                              # 后端项目元数据、依赖和测试配置。
 │   ├── requirements.txt                            # pip 依赖清单，供非 uv 环境安装后端依赖。
 │   │
-│   ├── config/                                     # 后端 YAML/JSON 配置目录，位于源码包之外。
+│   ├── config/                                     # 后端单独启动 env、YAML/JSON 配置目录，位于源码包之外。
+│   │   ├── .env                                    # 后端单独启动真实运行配置；不提交。
+│   │   ├── .env.example                            # 后端单独启动配置模板。
 │   │   ├── agent.yaml                              # Agent 配置文件。
 │   │   ├── rag.yaml                                # 旧 RAG 配置占位说明；模型配置已迁移到 env。
 │   │   └── uvicorn_log_config.json                 # Uvicorn 日志格式和级别配置。
@@ -167,7 +168,7 @@ RAGNotebook/
 │   │       ├── auth_utils.py                       # 密码哈希、JWT 生成/解析、Token 黑名单和当前用户依赖。
 │   │       ├── config.py                           # 运行配置常量和环境变量读取入口。
 │   │       ├── config_handler.py                   # YAML 配置文件加载工具。
-│   │       ├── env_loader.py                       # config/.env 与 backend/.env 加载、模板校验和文件型密钥解析。
+│   │       ├── env_loader.py                       # config/.env 与 backend/config/.env 加载、模板校验和文件型密钥解析。
 │   │       ├── file_handler.py                     # PDF/TXT/Word/Markdown/PPT 文档加载和文本提取工具。
 │   │       ├── magic_compat.py                     # Windows python-magic DLL 路径兼容处理。
 │   │       ├── path_tool.py                        # 项目根目录、源码目录、data 和 config 路径解析工具。

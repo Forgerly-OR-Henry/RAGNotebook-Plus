@@ -61,7 +61,7 @@ def backend_env_file(backend_dir: str | Path | None = None) -> Path:
     返回：Path；返回值供调用方继续编排业务流程或生成接口响应。
     """
     root = Path(backend_dir) if backend_dir is not None else backend_root()
-    return root / ".env"
+    return root / "config" / ".env"
 
 
 def backend_env_example_file(backend_dir: str | Path | None = None) -> Path:
@@ -74,7 +74,7 @@ def backend_env_example_file(backend_dir: str | Path | None = None) -> Path:
     返回：Path；返回值供调用方继续编排业务流程或生成接口响应。
     """
     root = Path(backend_dir) if backend_dir is not None else backend_root()
-    return root / ".env.example"
+    return root / "config" / ".env.example"
 
 
 def _env_file_keys(path: Path) -> set[str]:
@@ -306,7 +306,7 @@ def load_backend_env(backend_dir: str | Path | None = None) -> bool:
 
     start.py injects config/.env into child process environments and sets
     RAGNOTEBOOK_ENV_INJECTED=1. In that mode config/.env must not be read again.
-    Manual backend runs read backend/.env only.
+    Manual backend runs read backend/config/.env only.
     """
     if is_env_injected():
         return False

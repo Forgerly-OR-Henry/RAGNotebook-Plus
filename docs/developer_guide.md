@@ -45,7 +45,7 @@ flowchart LR
 | `start.py` | 本地开发一键启动脚本，负责 `config/.env`、依赖检查、数据库服务、后端和前端进程 |
 | `docker-compose.yml` | 本地 PostgreSQL + pgvector 服务 |
 | `config/.env.example` | 一键启动主配置模板 |
-| `backend/.env.example` | 后端单独启动配置模板 |
+| `backend/config/.env.example` | 后端单独启动配置模板 |
 | `front/.env.example` | 前端单独启动配置模板 |
 | `README.md` | 面向使用者的说明 |
 | `docs/` | 面向开发和维护的文档 |
@@ -56,7 +56,7 @@ flowchart LR
 
 | 路径 | 说明 |
 | --- | --- |
-| `backend/src/main.py` | FastAPI app、路由注册、中间件、启动和关闭事件；也作为后端单独启动入口读取 `backend/.env` |
+| `backend/src/main.py` | FastAPI app、路由注册、中间件、启动和关闭事件；也作为后端单独启动入口读取 `backend/config/.env` |
 | `backend/src/mvc/controllers/` | FastAPI 控制器，按业务暴露路由 |
 | `backend/src/mvc/services/` | 应用服务、知识库服务、笔记索引和来源注册 |
 | `backend/src/mvc/repositories/` | 数据访问和 MVC 基础设施适配：运行态存储、用户仓储 |
@@ -65,8 +65,8 @@ flowchart LR
 | `backend/src/mvc/agent_gateway/` | MVC 到 Agent 的调用门面 |
 | `backend/src/agent/` | RAG、Agent、重排序、检索器、模型工厂、Prompt 和索引 |
 | `backend/src/db/` | 数据库 URL 解析、engine/session 和新库/空库建表 |
-| `backend/config/` | Agent 和 Uvicorn 配置 |
-| `backend/.env` | 后端单独启动时读取的本地配置，不提交 |
+| `backend/config/` | 后端单独启动 `.env`、Agent 和 Uvicorn 配置 |
+| `backend/config/.env` | 后端单独启动时读取的本地配置，不提交 |
 | `backend/src/agent/prompts/` | 自动标签、写作、问答、测评、总结等提示词 |
 | `backend/openapi.json` | 当前 API 静态快照 |
 
@@ -112,7 +112,7 @@ cd backend
 .venv\Scripts\python.exe src\main.py
 ```
 
-该入口只读取 `backend/.env`。统一启动时不要调用它，继续使用根目录 `python start.py`。
+该入口只读取 `backend/config/.env`。统一启动时不要调用它，继续使用根目录 `python start.py`。
 
 ### FastAPI
 
@@ -240,7 +240,7 @@ cd backend
 | 配置 | 来源 |
 | --- | --- |
 | 统一启动配置 | `config/.env`，仅由 `start.py` 读取并注入 |
-| 后端单独启动配置 | `backend/.env` |
+| 后端单独启动配置 | `backend/config/.env` |
 | 前端单独启动配置 | `front/.env` |
 | 前端代理目标 | `VITE_BACKEND_TARGET` |
 | 阿里云真实 key | `config/apikey.txt` |
@@ -340,4 +340,4 @@ $env:PYTHONPATH = "src"
 - 关系表变更必须同步 ORM、数据库初始化逻辑、契约测试和文档；本地旧库不做兼容迁移。
 - 向量数据 metadata 必须保留可追踪字段。
 - Prompt 放在 `backend/src/agent/prompts/`，避免长提示词硬编码。
-- 运行时数据、真实 `config/.env`、密钥、模型文件和数据库卷不提交。
+- 运行时数据、真实 `config/.env`、`backend/config/.env`、密钥、模型文件和数据库卷不提交。

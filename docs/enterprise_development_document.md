@@ -382,9 +382,9 @@ python start.py
 | 配置项 | 位置 | 说明 |
 | --- | --- | --- |
 | 统一启动配置 | `config/.env` | 仅由 `start.py` 读取，并注入给数据库、后端和前端 |
-| 后端单启配置 | `backend/.env` | 手动单独启动后端时读取 |
+| 后端单启配置 | `backend/config/.env` | 手动单独启动后端时读取 |
 | 前端单启配置 | `front/.env` | 手动单独启动前端时读取 |
-| 配置模板 | `config/.env.example`、`backend/.env.example`、`front/.env.example` | 新环境初始化参考 |
+| 配置模板 | `config/.env.example`、`backend/config/.env.example`、`front/.env.example` | 新环境初始化参考 |
 | 模型 Key | `config/apikey.txt` | 存放真实 API Key，不提交仓库 |
 | 文件存储配置 | `FILE_STORAGE_*` | 本机目录或 SFTP 文件服务器 |
 | 切片默认值 | `backend/src/agent/rag/text_spliter.py` | 默认切片大小、重叠和分隔符 |
@@ -438,7 +438,7 @@ python start.py
 | 数据库 | 后端启动可在新库/空库创建 PostgreSQL 表和 pgvector 结构 |
 | 测试 | 后端 pytest 和前端 build 在交付前通过 |
 | 文档 | README、开发者指南、排错文档和本企业级开发文档保持一致 |
-| 配置 | 三份 `.env.example` 分别覆盖统一启动、后端单启和前端单启，真实 Key 不进入仓库 |
+| 配置 | `config/.env.example`、`backend/config/.env.example`、`front/.env.example` 分别覆盖统一启动、后端单启和前端单启，真实 Key 不进入仓库 |
 | 接口 | OpenAPI 快照或运行时 `/docs` 可用于接口查看 |
 
 ## 13. 相关文档

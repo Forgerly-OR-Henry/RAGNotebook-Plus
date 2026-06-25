@@ -1,6 +1,6 @@
 # 故障排除
 
-本文按本地启动链路整理常见问题。统一启动优先确认 `config/.env`；后端单独启动确认 `backend/.env`；前端单独启动确认 `front/.env`。
+本文按本地启动链路整理常见问题。统一启动优先确认 `config/.env`；后端单独启动确认 `backend/config/.env`；前端单独启动确认 `front/.env`。
 
 ## 1. API Key 错误
 
@@ -12,7 +12,7 @@
 处理：
 
 - 统一启动时，确认 `config/.env` 中 `ALIYUN_ACCESS_KEY_SECRET=apikey.txt`，且 `config/apikey.txt` 存在。
-- 后端单独启动时，确认 `backend/.env` 中 `ALIYUN_ACCESS_KEY_SECRET=../config/apikey.txt` 或其他有效 key 文件路径。
+- 后端单独启动时，确认 `backend/config/.env` 中 `ALIYUN_ACCESS_KEY_SECRET=../../config/apikey.txt` 或其他有效 key 文件路径。
 - key 文件只放一行真实 key，不写变量名。
 - 确认 key 未过期，且有对应模型服务权限。
 - 如果使用本地模型，将 `LLM_TYPE`、`EMBED_MODEL_TYPE` 或 `VISION_MODEL_TYPE` 切换为 `OLLAMA`，并确认 Ollama 服务可访问。
@@ -29,7 +29,7 @@
 处理：
 
 - 运行 `docker compose up -d postgres`。
-- 统一启动时检查 `config/.env`；后端单独启动时检查 `backend/.env`。确认 `DATABASE_URL` 与 `POSTGRES_USER`、`POSTGRES_PASSWORD`、`POSTGRES_HOST`、`POSTGRES_PORT`、`POSTGRES_DB` 一致。
+- 统一启动时检查 `config/.env`；后端单独启动时检查 `backend/config/.env`。确认 `DATABASE_URL` 与 `POSTGRES_USER`、`POSTGRES_PASSWORD`、`POSTGRES_HOST`、`POSTGRES_PORT`、`POSTGRES_DB` 一致。
 - `DATABASE_URL` 优先级最高；如果它和 `POSTGRES_*` 冲突，`start.py` 会直接报错。
 - 如果修改过数据库用户名或密码，但 Docker 卷已经初始化，需要同步修改数据库内用户，或清理本地数据库卷后重新初始化。
 - 确认端口 `5432` 未被其他服务占用。
@@ -184,7 +184,7 @@ ollama serve
 - 一键启动时，`start.py` 会自动注入 `VITE_BACKEND_TARGET`。
 - 前端单独启动时，检查 `front/.env`。
 - 确认后端正在运行，且端口与 `VITE_BACKEND_TARGET` 一致。
-- 统一启动时检查 `config/.env` 的 `CORS_ALLOW_ORIGINS`；后端单独启动时检查 `backend/.env`。
+- 统一启动时检查 `config/.env` 的 `CORS_ALLOW_ORIGINS`；后端单独启动时检查 `backend/config/.env`。
 - 401 通常表示 JWT 过期、未登录或 Token 已加入黑名单，重新登录即可。
 
 ## 11. 端口被占用

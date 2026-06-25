@@ -31,7 +31,7 @@ python -m pip install -r requirements.txt
 
 ## 配置方式
 
-统一启动时在 `config/.env` 中配置，后端单独启动时在 `backend/.env` 中配置：
+统一启动时在 `config/.env` 中配置，后端单独启动时在 `backend/config/.env` 中配置：
 
 ```env
 RERANKER_MODEL_PATH=D:\Hugging_Face\models\bge-reranker-v2-m3

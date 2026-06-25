@@ -148,7 +148,7 @@ npm run dev
 配置读取边界：
 
 - 使用 `start.py` 统一启动时，只读取 `config/.env`，并把配置注入给 PostgreSQL、后端和前端。
-- 单独启动后端时，只读取 `backend/.env`；`backend/.env.example` 是模板。
+- 单独启动后端时，只读取 `backend/config/.env`；`backend/config/.env.example` 是模板。
 - 单独启动前端时，只读取 `front/.env`；`front/.env.example` 是模板。
 
 关键配置项：
@@ -210,6 +210,7 @@ your_api_key_here
 
 ```text
 ├── backend/
+│   ├── config/                     # 后端单独启动 env、Agent 和 Uvicorn 配置
 │   ├── src/                        # FastAPI 应用、业务模块、RAG 和数据库代码
 │   ├── test/                       # 后端契约测试和回归测试
 │   └── openapi.json                # 当前 API 快照
@@ -274,7 +275,7 @@ npm.cmd run build
 
 常见入口：
 
-- API Key 错误：统一启动检查 `config/.env`，后端单独启动检查 `backend/.env`，确认 `ALIYUN_ACCESS_KEY_SECRET` 指向有效 key 文件。
+- API Key 错误：统一启动检查 `config/.env`，后端单独启动检查 `backend/config/.env`，确认 `ALIYUN_ACCESS_KEY_SECRET` 指向有效 key 文件。
 - 数据库连接失败：确认 `docker compose up -d postgres` 已启动，且 `DATABASE_URL` 与 `POSTGRES_*` 一致。
 - pgvector 初始化失败：确认数据库可执行 `CREATE EXTENSION vector`，本地建议使用默认 Compose 镜像。
 - 旧数据库无法启动：当前版本只支持新库/空库，请清空 `public` schema 或重建 `POSTGRES_DB`。
